@@ -1,0 +1,88 @@
+{
+  "common": {
+    "save": "Salva",
+    "resetDefault": "Ripristina default",
+    "logout": "Logout",
+    "accessDenied": "Accesso negato"
+  },
+  "languages": {
+    "it": "Italiano",
+    "en": "Inglese",
+    "es": "Spagnolo",
+    "fr": "Francese",
+    "de": "Tedesco"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "configuration": "Configurazione"
+  },
+  "layout": {
+    "managementPanel": "Pannello Gestione",
+    "collapseMenu": "Riduci menu",
+    "expandMenu": "Espandi menu"
+  },
+  "login": {
+    "title": "PlayYourSport",
+    "description": "Accesso al pannello di gestione campi scuola e academy.",
+    "managementRoles": "Ruoli gestione",
+    "formTitle": "Login",
+    "formSubtitle": "Inserisci le credenziali del tuo utente.",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Accedi",
+    "invalidCredentials": "Credenziali non valide.",
+    "publicRoleBlocked": "L'utente {{role}} accede al frontend pubblico, non al pannello gestione.",
+    "demoUser": "Utente test admin"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "subtitle": "Area overview amministrativa."
+  },
+  "configuration": {
+    "title": "Configurazione",
+    "subtitle": "Disponibile solo per il ruolo administrator.",
+    "tabs": {
+      "project": "Progetto",
+      "users": "Utenti",
+      "styling": "Styling",
+      "language": "Lingua"
+    },
+    "users": {
+      "title": "Etichette ruoli",
+      "roleLabel": "Etichetta visualizzata",
+      "saved": "Configurazione utenti salvata.",
+      "invalidRoleLabel": "Etichetta non valida per \"{{role}}\".",
+      "resetDone": "Etichette ripristinate ai valori standard."
+    },
+    "styling": {
+      "title": "Tema piattaforma",
+      "themeLabel": "Tema DaisyUI",
+      "invalidTheme": "Tema non valido.",
+      "themeApplied": "Tema applicato: \"{{theme}}\"."
+    },
+    "project": {
+      "title": "Impostazioni progetto",
+      "nameLabel": "Nome progetto",
+      "logoLabel": "Logo progetto",
+      "removeLogo": "Rimuovi logo",
+      "noLogo": "Nessun logo: verra mostrato il nome progetto.",
+      "uploadError": "Errore durante il caricamento del logo.",
+      "invalidImage": "Seleziona un file immagine valido.",
+      "logoLoadedDraft": "Logo caricato. Salva per applicarlo.",
+      "logoRemovedDraft": "Logo rimosso nel form. Salva per applicare.",
+      "logoDefaultDraft": "Logo default caricato nel form. Salva per applicare.",
+      "invalidName": "Nome progetto non valido.",
+      "saved": "Configurazione progetto salvata."
+    },
+    "language": {
+      "title": "Impostazioni lingua",
+      "activeLanguages": "Lingue attive",
+      "primaryLanguage": "Lingua principale",
+      "saved": "Configurazione lingua salvata.",
+      "needOneActive": "Seleziona almeno una lingua attiva."
+    }
+  },
+  "app": {
+    "adminOnly": "Solo administrator puo vedere la sezione Configurazione."
+  }
+}

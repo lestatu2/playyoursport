@@ -1,0 +1,88 @@
+{
+  "common": {
+    "save": "Save",
+    "resetDefault": "Reset default",
+    "logout": "Logout",
+    "accessDenied": "Access denied"
+  },
+  "languages": {
+    "it": "Italian",
+    "en": "English",
+    "es": "Spanish",
+    "fr": "French",
+    "de": "German"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "configuration": "Configuration"
+  },
+  "layout": {
+    "managementPanel": "Management Panel",
+    "collapseMenu": "Collapse menu",
+    "expandMenu": "Expand menu"
+  },
+  "login": {
+    "title": "PlayYourSport",
+    "description": "Access to the football schools and academy management panel.",
+    "managementRoles": "Management roles",
+    "formTitle": "Login",
+    "formSubtitle": "Enter your credentials.",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Sign in",
+    "invalidCredentials": "Invalid credentials.",
+    "publicRoleBlocked": "The {{role}} user can access the public frontend, not the management panel.",
+    "demoUser": "Admin test user"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "subtitle": "Administrative overview area."
+  },
+  "configuration": {
+    "title": "Configuration",
+    "subtitle": "Available only for administrator role.",
+    "tabs": {
+      "project": "Project",
+      "users": "Users",
+      "styling": "Styling",
+      "language": "Language"
+    },
+    "users": {
+      "title": "Role labels",
+      "roleLabel": "Displayed label",
+      "saved": "Users configuration saved.",
+      "invalidRoleLabel": "Invalid label for \"{{role}}\".",
+      "resetDone": "Role labels restored to default values."
+    },
+    "styling": {
+      "title": "Platform theme",
+      "themeLabel": "DaisyUI theme",
+      "invalidTheme": "Invalid theme.",
+      "themeApplied": "Theme applied: \"{{theme}}\"."
+    },
+    "project": {
+      "title": "Project settings",
+      "nameLabel": "Project name",
+      "logoLabel": "Project logo",
+      "removeLogo": "Remove logo",
+      "noLogo": "No logo: project name will be shown.",
+      "uploadError": "Error while uploading logo.",
+      "invalidImage": "Select a valid image file.",
+      "logoLoadedDraft": "Logo loaded. Click Save to apply.",
+      "logoRemovedDraft": "Logo removed in draft. Click Save to apply.",
+      "logoDefaultDraft": "Default logo loaded in draft. Click Save to apply.",
+      "invalidName": "Invalid project name.",
+      "saved": "Project configuration saved."
+    },
+    "language": {
+      "title": "Language settings",
+      "activeLanguages": "Active languages",
+      "primaryLanguage": "Primary language",
+      "saved": "Language configuration saved.",
+      "needOneActive": "Select at least one active language."
+    }
+  },
+  "app": {
+    "adminOnly": "Only administrator can access Configuration."
+  }
+}

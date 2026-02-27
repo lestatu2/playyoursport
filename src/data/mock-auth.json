@@ -1,0 +1,66 @@
+{
+  "roles": [
+    {
+      "key": "administrator",
+      "defaultLabel": "Administrator",
+      "area": "management"
+    },
+    {
+      "key": "editor-admin",
+      "defaultLabel": "Editor Admin",
+      "area": "management"
+    },
+    {
+      "key": "trainer",
+      "defaultLabel": "Trainer",
+      "area": "management"
+    },
+    {
+      "key": "subscriber",
+      "defaultLabel": "Subscriber",
+      "area": "frontend"
+    },
+    {
+      "key": "client",
+      "defaultLabel": "Client",
+      "area": "frontend"
+    }
+  ],
+  "users": [
+    {
+      "id": 1,
+      "name": "Mario Rossi",
+      "email": "admin@playyoursport.test",
+      "password": "Admin123!",
+      "role": "administrator"
+    },
+    {
+      "id": 2,
+      "name": "Luca Bianchi",
+      "email": "editor@playyoursport.test",
+      "password": "Editor123!",
+      "role": "editor-admin"
+    },
+    {
+      "id": 3,
+      "name": "Giulia Verdi",
+      "email": "trainer@playyoursport.test",
+      "password": "Trainer123!",
+      "role": "trainer"
+    },
+    {
+      "id": 4,
+      "name": "Paolo Neri",
+      "email": "subscriber@playyoursport.test",
+      "password": "Subscriber123!",
+      "role": "subscriber"
+    },
+    {
+      "id": 5,
+      "name": "Sara Gialli",
+      "email": "client@playyoursport.test",
+      "password": "Client123!",
+      "role": "client"
+    }
+  ]
+}

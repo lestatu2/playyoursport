@@ -1,0 +1,88 @@
+{
+  "common": {
+    "save": "Speichern",
+    "resetDefault": "Zurucksetzen",
+    "logout": "Abmelden",
+    "accessDenied": "Zugriff verweigert"
+  },
+  "languages": {
+    "it": "Italienisch",
+    "en": "Englisch",
+    "es": "Spanisch",
+    "fr": "Franzosisch",
+    "de": "Deutsch"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "configuration": "Konfiguration"
+  },
+  "layout": {
+    "managementPanel": "Verwaltungsbereich",
+    "collapseMenu": "Menue einklappen",
+    "expandMenu": "Menue ausklappen"
+  },
+  "login": {
+    "title": "PlayYourSport",
+    "description": "Zugang zum Verwaltungsbereich fur Fussballschulen und Akademien.",
+    "managementRoles": "Verwaltungsrollen",
+    "formTitle": "Login",
+    "formSubtitle": "Gib deine Zugangsdaten ein.",
+    "email": "E-Mail",
+    "password": "Passwort",
+    "submit": "Anmelden",
+    "invalidCredentials": "Ungueltige Zugangsdaten.",
+    "publicRoleBlocked": "Der Benutzer {{role}} greift auf das oeffentliche Frontend zu, nicht auf den Verwaltungsbereich.",
+    "demoUser": "Admin-Testbenutzer"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "subtitle": "Administrative Uebersicht."
+  },
+  "configuration": {
+    "title": "Konfiguration",
+    "subtitle": "Nur fur die Rolle administrator verfugbar.",
+    "tabs": {
+      "project": "Projekt",
+      "users": "Benutzer",
+      "styling": "Design",
+      "language": "Sprache"
+    },
+    "users": {
+      "title": "Rollenbezeichnungen",
+      "roleLabel": "Angezeigte Bezeichnung",
+      "saved": "Benutzerkonfiguration gespeichert.",
+      "invalidRoleLabel": "Ungueltige Bezeichnung fur \"{{role}}\".",
+      "resetDone": "Rollenbezeichnungen auf Standardwerte zuruckgesetzt."
+    },
+    "styling": {
+      "title": "Plattform-Theme",
+      "themeLabel": "DaisyUI-Theme",
+      "invalidTheme": "Ungueltiges Theme.",
+      "themeApplied": "Theme angewendet: \"{{theme}}\"."
+    },
+    "project": {
+      "title": "Projekteinstellungen",
+      "nameLabel": "Projektname",
+      "logoLabel": "Projektlogo",
+      "removeLogo": "Logo entfernen",
+      "noLogo": "Kein Logo: Projektname wird angezeigt.",
+      "uploadError": "Fehler beim Logo-Upload.",
+      "invalidImage": "Bitte eine gueltige Bilddatei auswaehlen.",
+      "logoLoadedDraft": "Logo geladen. Zum Anwenden auf Speichern klicken.",
+      "logoRemovedDraft": "Logo im Entwurf entfernt. Zum Anwenden auf Speichern klicken.",
+      "logoDefaultDraft": "Standardlogo im Entwurf geladen. Zum Anwenden auf Speichern klicken.",
+      "invalidName": "Ungueltiger Projektname.",
+      "saved": "Projektkonfiguration gespeichert."
+    },
+    "language": {
+      "title": "Spracheinstellungen",
+      "activeLanguages": "Aktive Sprachen",
+      "primaryLanguage": "Hauptsprache",
+      "saved": "Spracheinstellungen gespeichert.",
+      "needOneActive": "Mindestens eine aktive Sprache auswaehlen."
+    }
+  },
+  "app": {
+    "adminOnly": "Nur administrator kann auf Konfiguration zugreifen."
+  }
+}
