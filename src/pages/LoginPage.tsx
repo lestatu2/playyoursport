@@ -1,7 +1,7 @@
-import { useState, type FormEvent } from 'react'
+import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { getRoleLabels, isManagementRole, loginWithEmailPassword, type AuthSession } from '../lib/auth'
+import { getRoleDefinitions, getRoleLabels, isManagementRole, loginWithEmailPassword, type AuthSession } from '../lib/auth'
 
 type LoginPageProps = {
   session: AuthSession | null
@@ -12,6 +12,7 @@ function LoginPage({ session, onLogin }: LoginPageProps) {
   const navigate = useNavigate()
   const { t } = useTranslation()
   const roleLabels = getRoleLabels()
+  const managementRoles = getRoleDefinitions().filter((role) => role.area === 'management')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -20,8 +21,7 @@ function LoginPage({ session, onLogin }: LoginPageProps) {
     return <Navigate to="/app" replace />
   }
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
+  const submitLogin = () => {
     setError('')
 
     const result = loginWithEmailPassword(email, password)
@@ -51,9 +51,9 @@ function LoginPage({ session, onLogin }: LoginPageProps) {
             <div className="mt-8">
               <p className="text-xs uppercase tracking-wide opacity-70">{t('login.managementRoles')}</p>
               <ul className="mt-3 space-y-2 text-sm">
-                <li>{roleLabels.administrator}</li>
-                <li>{roleLabels['editor-admin']}</li>
-                <li>{roleLabels.trainer}</li>
+                {managementRoles.map((role) => (
+                  <li key={role.key}>{roleLabels[role.key] ?? role.key}</li>
+                ))}
               </ul>
             </div>
           </section>
@@ -62,7 +62,13 @@ function LoginPage({ session, onLogin }: LoginPageProps) {
             <h2 className="text-xl font-semibold">{t('login.formTitle')}</h2>
             <p className="mt-1 text-sm opacity-70">{t('login.formSubtitle')}</p>
 
-            <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+            <form
+              onSubmit={(event) => {
+                event.preventDefault()
+                submitLogin()
+              }}
+              className="mt-6 space-y-4"
+            >
               <label className="form-control w-full">
                 <span className="label-text mb-1 text-sm">{t('login.email')}</span>
                 <input
@@ -94,7 +100,7 @@ function LoginPage({ session, onLogin }: LoginPageProps) {
 
             <div className="mt-6 rounded-lg border border-base-300 p-3 text-xs">
               <p className="font-semibold">{t('login.demoUser')}</p>
-              <p>admin@playyoursport.test / Admin123!</p>
+              <p>superadmin@playyoursport.test / SuperAdmin123!</p>
             </div>
           </section>
         </div>

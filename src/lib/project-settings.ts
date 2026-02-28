@@ -6,11 +6,15 @@ const PROJECT_SETTINGS_CHANGED_EVENT = 'pys-project-settings-changed'
 type MockProject = {
   defaultName: string
   defaultLogo: string
+  defaultGoogleMapsApiKey?: string
+  defaultPaymentCurrency?: string
 }
 
 export type ProjectSettings = {
   projectName: string
   logoUrl: string
+  googleMapsApiKey: string
+  paymentCurrency: string
 }
 
 const projectDefaults = mockProject as MockProject
@@ -37,6 +41,8 @@ export function getDefaultProjectSettings(): ProjectSettings {
   return {
     projectName: projectDefaults.defaultName,
     logoUrl: projectDefaults.defaultLogo,
+    googleMapsApiKey: projectDefaults.defaultGoogleMapsApiKey ?? '',
+    paymentCurrency: projectDefaults.defaultPaymentCurrency ?? 'EUR',
   }
 }
 
@@ -46,6 +52,10 @@ export function getProjectSettings(): ProjectSettings {
   return {
     projectName: stored.projectName?.trim() ? stored.projectName : defaults.projectName,
     logoUrl: stored.logoUrl ?? defaults.logoUrl,
+    googleMapsApiKey: stored.googleMapsApiKey ?? defaults.googleMapsApiKey,
+    paymentCurrency: typeof stored.paymentCurrency === 'string' && stored.paymentCurrency.trim()
+      ? stored.paymentCurrency.trim().toUpperCase()
+      : defaults.paymentCurrency,
   }
 }
 
@@ -67,6 +77,17 @@ export function setProjectLogo(logoUrl: string): void {
 export function clearProjectLogo(): void {
   const settings = getProjectSettings()
   writeSettings({ ...settings, logoUrl: '' })
+}
+
+export function setGoogleMapsApiKey(apiKey: string): void {
+  const settings = getProjectSettings()
+  writeSettings({ ...settings, googleMapsApiKey: apiKey.trim() })
+}
+
+export function setPaymentCurrency(currency: string): void {
+  const normalized = currency.trim().toUpperCase() || 'EUR'
+  const settings = getProjectSettings()
+  writeSettings({ ...settings, paymentCurrency: normalized })
 }
 
 export function getProjectSettingsChangedEventName(): string {

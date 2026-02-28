@@ -1,4 +1,6 @@
 {
   "defaultName": "Play your sport",
-  "defaultLogo": "/vite.svg"
+  "defaultLogo": "/vite.svg",
+  "defaultGoogleMapsApiKey": "",
+  "defaultPaymentCurrency": "EUR"
 }

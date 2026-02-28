@@ -1,8 +1,6 @@
-import type { ComponentType, SVGProps } from 'react'
+import type { FlagComponent } from 'country-flag-icons/react/3x2'
 import { DE, ES, FR, GB, IT } from 'country-flag-icons/react/3x2'
 import { LANGUAGE_META, type LanguageCode } from '../lib/languages'
-
-type FlagComponent = ComponentType<SVGProps<SVGSVGElement>>
 
 const FLAG_MAP: Record<(typeof LANGUAGE_META)[LanguageCode]['countryCode'], FlagComponent> = {
   IT,

@@ -1,9 +1,17 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, LayoutDashboard, Menu, Settings } from 'lucide-react'
+import { Boxes, ChevronLeft, ChevronRight, LayoutDashboard, Menu, Package, Settings, Users } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import FlagIcon from '../components/FlagIcon'
-import { getRoleLabels, isAdministrator, type AuthSession } from '../lib/auth'
+import {
+  canAccessConfiguration,
+  canAccessPackages,
+  canAccessUsersPage,
+  canAccessUtility,
+  getRoleLabels,
+  hasSessionPermission,
+  type AuthSession,
+} from '../lib/auth'
 import {
   getCurrentLanguage,
   getLanguageSettings,
@@ -159,13 +167,158 @@ function ManagementLayout({ session, onLogout }: ManagementLayoutProps) {
               collapsed={collapsed}
               exact
             />
-            {isAdministrator(session.role) && (
+            {canAccessPackages(session.role) &&
+              (session.role !== 'editor-admin' || hasSessionPermission('packages.manage')) && (
+                <MenuItem
+                  to="/app/pacchetti"
+                  icon={<Package className="h-5 w-5 shrink-0" />}
+                  label={t('nav.packages')}
+                  collapsed={collapsed}
+                />
+              )}
+            {canAccessUsersPage(session.role) &&
+              (session.role !== 'editor-admin' || hasSessionPermission('users.read')) && (
               <MenuItem
-                to="/app/configurazione"
-                icon={<Settings className="h-5 w-5 shrink-0" />}
-                label={t('nav.configuration')}
+                to="/app/utenti"
+                icon={<Users className="h-5 w-5 shrink-0" />}
+                label={t('nav.users')}
                 collapsed={collapsed}
               />
+            )}
+            {canAccessUtility(session.role) && (
+              <>
+                {collapsed ? (
+                  <>
+                    <MenuItem
+                      to="/app/utility/categorie"
+                      icon={<Boxes className="h-5 w-5 shrink-0" />}
+                      label={t('nav.utilityCategories')}
+                      collapsed={collapsed}
+                    />
+                    <MenuItem
+                      to="/app/utility/aziende"
+                      icon={<Boxes className="h-5 w-5 shrink-0" />}
+                      label={t('nav.utilityCompanies')}
+                      collapsed={collapsed}
+                    />
+                    <MenuItem
+                      to="/app/utility/campi"
+                      icon={<Boxes className="h-5 w-5 shrink-0" />}
+                      label={t('nav.utilityFields')}
+                      collapsed={collapsed}
+                    />
+                    <MenuItem
+                      to="/app/utility/iscrizioni"
+                      icon={<Boxes className="h-5 w-5 shrink-0" />}
+                      label={t('nav.utilityEnrollments')}
+                      collapsed={collapsed}
+                    />
+                    <MenuItem
+                      to="/app/utility/servizi-aggiuntivi"
+                      icon={<Boxes className="h-5 w-5 shrink-0" />}
+                      label={t('nav.utilityAdditionalServices')}
+                      collapsed={collapsed}
+                    />
+                    <MenuItem
+                      to="/app/utility/whatsapp-accounts"
+                      icon={<Boxes className="h-5 w-5 shrink-0" />}
+                      label={t('nav.utilityWhatsAppAccounts')}
+                      collapsed={collapsed}
+                    />
+                  </>
+                ) : (
+                  <li className="rounded-lg border border-base-300 px-2 py-1">
+                    <details>
+                      <summary className="flex cursor-pointer list-none items-center gap-3 rounded-lg px-1 py-2 hover:bg-base-300">
+                        <Boxes className="h-5 w-5 shrink-0" />
+                        <span>{t('nav.utility')}</span>
+                      </summary>
+                      <ul className="mt-1">
+                        <li>
+                          <NavLink
+                            to="/app/utility/categorie"
+                            className={({ isActive }) =>
+                              `rounded-lg px-3 py-2 text-sm transition ${
+                                isActive ? 'bg-primary text-primary-content' : 'hover:bg-base-300'
+                              }`
+                            }
+                          >
+                            {t('nav.utilityCategories')}
+                          </NavLink>
+                        </li>
+                        <li>
+                          <NavLink
+                            to="/app/utility/aziende"
+                            className={({ isActive }) =>
+                              `rounded-lg px-3 py-2 text-sm transition ${
+                                isActive ? 'bg-primary text-primary-content' : 'hover:bg-base-300'
+                              }`
+                            }
+                          >
+                            {t('nav.utilityCompanies')}
+                          </NavLink>
+                        </li>
+                        <li>
+                          <NavLink
+                            to="/app/utility/campi"
+                            className={({ isActive }) =>
+                              `rounded-lg px-3 py-2 text-sm transition ${
+                                isActive ? 'bg-primary text-primary-content' : 'hover:bg-base-300'
+                              }`
+                            }
+                          >
+                            {t('nav.utilityFields')}
+                          </NavLink>
+                        </li>
+                        <li>
+                          <NavLink
+                            to="/app/utility/iscrizioni"
+                            className={({ isActive }) =>
+                              `rounded-lg px-3 py-2 text-sm transition ${
+                                isActive ? 'bg-primary text-primary-content' : 'hover:bg-base-300'
+                              }`
+                            }
+                          >
+                            {t('nav.utilityEnrollments')}
+                          </NavLink>
+                        </li>
+                        <li>
+                          <NavLink
+                            to="/app/utility/servizi-aggiuntivi"
+                            className={({ isActive }) =>
+                              `rounded-lg px-3 py-2 text-sm transition ${
+                                isActive ? 'bg-primary text-primary-content' : 'hover:bg-base-300'
+                              }`
+                            }
+                          >
+                            {t('nav.utilityAdditionalServices')}
+                          </NavLink>
+                        </li>
+                        <li>
+                          <NavLink
+                            to="/app/utility/whatsapp-accounts"
+                            className={({ isActive }) =>
+                              `rounded-lg px-3 py-2 text-sm transition ${
+                                isActive ? 'bg-primary text-primary-content' : 'hover:bg-base-300'
+                              }`
+                            }
+                          >
+                            {t('nav.utilityWhatsAppAccounts')}
+                          </NavLink>
+                        </li>
+                      </ul>
+                    </details>
+                  </li>
+                )}
+                {canAccessConfiguration(session.role) && (
+                  <MenuItem
+                    to="/app/configurazione"
+                    icon={<Settings className="h-5 w-5 shrink-0" />}
+                    label={t('nav.configuration')}
+                    collapsed={collapsed}
+                  />
+                )}
+              </>
             )}
           </ul>
         </aside>

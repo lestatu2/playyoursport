@@ -18,14 +18,18 @@ import {
   clearProjectLogo,
   getDefaultProjectSettings,
   getProjectSettings,
+  setGoogleMapsApiKey,
+  setPaymentCurrency,
   setProjectLogo,
   setProjectName,
 } from '../lib/project-settings'
 import { applyTheme, getAvailableThemes, getStoredTheme } from '../lib/theme'
 
+const SUPPORTED_PAYMENT_CURRENCIES = ['EUR', 'USD', 'GBP', 'CHF'] as const
+
 function ConfigurationPage() {
   const { t, i18n } = useTranslation()
-  const [activeTab, setActiveTab] = useState<'users' | 'styling' | 'project' | 'language'>('project')
+  const [activeTab, setActiveTab] = useState<'users' | 'styling' | 'project' | 'language' | 'payments'>('project')
   const roles = useMemo(() => getRoleDefinitions(), [])
   const themes = useMemo(() => getAvailableThemes(), [])
   const defaults = useMemo(() => getDefaultProjectSettings(), [])
@@ -85,10 +89,24 @@ function ConfigurationPage() {
     } else {
       clearProjectLogo()
     }
+    setGoogleMapsApiKey(projectDraft.googleMapsApiKey)
 
     setProjectDraft(getProjectSettings())
     setIsError(false)
     setMessage(t('configuration.project.saved'))
+  }
+
+  const handlePaymentsSave = () => {
+    const currency = projectDraft.paymentCurrency.trim().toUpperCase()
+    if (!SUPPORTED_PAYMENT_CURRENCIES.includes(currency as (typeof SUPPORTED_PAYMENT_CURRENCIES)[number])) {
+      setIsError(true)
+      setMessage(t('configuration.payments.invalidCurrency'))
+      return
+    }
+    setPaymentCurrency(currency)
+    setProjectDraft(getProjectSettings())
+    setIsError(false)
+    setMessage(t('configuration.payments.saved'))
   }
 
   const handleLogoUpload = (event: ChangeEvent<HTMLInputElement>) => {
@@ -204,6 +222,13 @@ function ConfigurationPage() {
         >
           {t('configuration.tabs.language')}
         </button>
+        <button
+          type="button"
+          className={`tab ${activeTab === 'payments' ? 'tab-active' : ''}`}
+          onClick={() => setActiveTab('payments')}
+        >
+          {t('configuration.tabs.payments')}
+        </button>
       </div>
 
       <div className="card bg-base-100 shadow-sm">
@@ -277,6 +302,23 @@ function ConfigurationPage() {
                   </button>
                 </div>
               </div>
+
+              <div className="divider my-2" />
+
+              <label className="form-control max-w-xl">
+                <span className="label-text mb-1 text-xs">{t('configuration.project.googleMapsApiKeyLabel')}</span>
+                <input
+                  className="input input-bordered w-full"
+                  value={projectDraft.googleMapsApiKey}
+                  onChange={(event) =>
+                    setProjectDraft((prev) => ({
+                      ...prev,
+                      googleMapsApiKey: event.target.value,
+                    }))
+                  }
+                  placeholder={t('configuration.project.googleMapsApiKeyPlaceholder')}
+                />
+              </label>
 
               <div className="mt-4">
                 <button type="button" className="btn btn-primary w-full sm:w-auto" onClick={handleProjectSave}>
@@ -417,6 +459,40 @@ function ConfigurationPage() {
 
               <div className="mt-4">
                 <button type="button" className="btn btn-primary w-full sm:w-auto" onClick={handleLanguageSave}>
+                  {t('common.save')}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'payments' && (
+            <div className="space-y-4">
+              <div>
+                <h3 className="card-title text-base">{t('configuration.payments.title')}</h3>
+              </div>
+
+              <label className="form-control max-w-sm">
+                <span className="label-text mb-1 text-xs">{t('configuration.payments.currencyLabel')}</span>
+                <select
+                  className="select select-bordered w-full"
+                  value={projectDraft.paymentCurrency}
+                  onChange={(event) =>
+                    setProjectDraft((prev) => ({
+                      ...prev,
+                      paymentCurrency: event.target.value,
+                    }))
+                  }
+                >
+                  {SUPPORTED_PAYMENT_CURRENCIES.map((currency) => (
+                    <option key={currency} value={currency}>
+                      {currency}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <div className="mt-4">
+                <button type="button" className="btn btn-primary w-full sm:w-auto" onClick={handlePaymentsSave}>
                   {t('common.save')}
                 </button>
               </div>

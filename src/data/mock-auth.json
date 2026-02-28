@@ -1,6 +1,11 @@
 {
   "roles": [
     {
+      "key": "super-administrator",
+      "defaultLabel": "Super Administrator",
+      "area": "management"
+    },
+    {
       "key": "administrator",
       "defaultLabel": "Administrator",
       "area": "management"
@@ -16,8 +21,8 @@
       "area": "management"
     },
     {
-      "key": "subscriber",
-      "defaultLabel": "Subscriber",
+      "key": "subscribers",
+      "defaultLabel": "Subscribers",
       "area": "frontend"
     },
     {
@@ -29,34 +34,41 @@
   "users": [
     {
       "id": 1,
+      "name": "Super Admin",
+      "email": "superadmin@playyoursport.test",
+      "password": "SuperAdmin123!",
+      "role": "super-administrator"
+    },
+    {
+      "id": 2,
       "name": "Mario Rossi",
       "email": "admin@playyoursport.test",
       "password": "Admin123!",
       "role": "administrator"
     },
     {
-      "id": 2,
+      "id": 3,
       "name": "Luca Bianchi",
       "email": "editor@playyoursport.test",
       "password": "Editor123!",
       "role": "editor-admin"
     },
     {
-      "id": 3,
+      "id": 4,
       "name": "Giulia Verdi",
       "email": "trainer@playyoursport.test",
       "password": "Trainer123!",
       "role": "trainer"
     },
     {
-      "id": 4,
+      "id": 5,
       "name": "Paolo Neri",
       "email": "subscriber@playyoursport.test",
       "password": "Subscriber123!",
-      "role": "subscriber"
+      "role": "subscribers"
     },
     {
-      "id": 5,
+      "id": 6,
       "name": "Sara Gialli",
       "email": "client@playyoursport.test",
       "password": "Client123!",
