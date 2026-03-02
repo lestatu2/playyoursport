@@ -129,10 +129,10 @@ function UtilityEnrollmentsPage() {
         cell: ({ row }) => {
           const enrollment = row.original
           return (
-            <div className="flex justify-end gap-3 pr-1">
+            <div className="flex justify-end gap-1">
               <button
                 type="button"
-                className="btn btn-ghost btn-sm px-2 text-warning"
+                className="btn btn-ghost btn-sm px-1 text-warning"
                 onClick={() => openEditModal(enrollment)}
                 aria-label={t('utility.categories.edit')}
               >
@@ -140,7 +140,7 @@ function UtilityEnrollmentsPage() {
               </button>
               <button
                 type="button"
-                className="btn btn-ghost btn-sm px-2 text-error"
+                className="btn btn-ghost btn-sm px-1 text-error"
                 onClick={() => handleDelete(enrollment)}
                 aria-label={t('utility.categories.delete')}
               >

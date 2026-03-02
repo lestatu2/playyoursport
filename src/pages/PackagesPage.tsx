@@ -4,7 +4,7 @@ import { getCoreRowModel, useReactTable, type ColumnDef } from '@tanstack/react-
 import { DndContext, PointerSensor, closestCenter, type DragEndEvent, useSensor, useSensors } from '@dnd-kit/core'
 import { SortableContext, arrayMove, rectSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { GripVertical, SquarePen, Trash2 } from 'lucide-react'
+import { GripVertical, MessageCircle, SquarePen, Trash2 } from 'lucide-react'
 import { DayPicker, type DateRange } from 'react-day-picker'
 import 'react-day-picker/style.css'
 import DataTable from '../components/DataTable'
@@ -15,6 +15,7 @@ import {
   getCompanies,
   getEnrollments,
   getFields,
+  getGroups,
   getPackageCatalogChangedEventName,
   getPackages,
   getSportCategories,
@@ -33,6 +34,7 @@ import {
   type EnrollmentType,
   type SportField,
   type SportPackage,
+  type UtilityGroup,
 } from '../lib/package-catalog'
 import { getRoleLabels, getUsers, getUsersChangedEventName, type MockUser } from '../lib/auth'
 import { getProjectSettings, getProjectSettingsChangedEventName } from '../lib/project-settings'
@@ -56,8 +58,19 @@ const WEEK_DAYS: Array<{ value: number; labelKey: string }> = [
   { value: 6, labelKey: 'utility.packages.weekdaySaturday' },
   { value: 0, labelKey: 'utility.packages.weekdaySunday' },
 ]
-const WEEKDAY_SORT_ORDER = new Map<number, number>(WEEK_DAYS.map((day, index) => [day.value, index]))
 const GOOGLE_PLACES_SCRIPT_ID = 'pys-google-places-script'
+type PackageTableColumnId = 'name' | 'ageRange' | 'period' | 'paymentFrequency' | 'priceByPeriod' | 'category' | 'company' | 'audience'
+const DEFAULT_PACKAGE_TABLE_PRIORITY_ORDER: PackageTableColumnId[] = [
+  'name',
+  'ageRange',
+  'period',
+  'paymentFrequency',
+  'priceByPeriod',
+  'category',
+  'company',
+  'audience',
+]
+const DEFAULT_PACKAGE_TABLE_HIGH_PRIORITY: PackageTableColumnId[] = ['name', 'ageRange', 'period', 'paymentFrequency', 'priceByPeriod']
 
 declare global {
   interface Window {
@@ -83,10 +96,6 @@ declare global {
   }
 }
 
-function stripHtml(value: string): string {
-  return value.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
-}
-
 function parseIsoDate(value: string): Date | undefined {
   if (!value) {
     return undefined
@@ -103,24 +112,6 @@ function toIsoDate(value: Date | undefined): string {
   const month = String(value.getMonth() + 1).padStart(2, '0')
   const day = String(value.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
-}
-
-function joinWithConjunction(values: string[], conjunction: string): string {
-  if (values.length <= 1) {
-    return values[0] ?? ''
-  }
-  if (values.length === 2) {
-    return `${values[0]} ${conjunction} ${values[1]}`
-  }
-  return `${values.slice(0, -1).join(', ')} ${conjunction} ${values[values.length - 1]}`
-}
-
-function formatHour(value: string): string {
-  const [hours, minutes] = value.split(':')
-  if (!hours || !minutes) {
-    return value
-  }
-  return `${hours.padStart(2, '0')}.${minutes.padStart(2, '0')}`
 }
 
 function loadGooglePlacesScript(apiKey: string): Promise<void> {
@@ -194,38 +185,22 @@ function readImageFileAsDataUrl(file: File): Promise<string> {
   })
 }
 
-function createEmptyGroupSchedule(): PackageGroupSchedule {
+function createPackageGroupSchedule(): PackageGroupSchedule {
   return {
-    id: `group-schedule-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+    id: `pkg-group-schedule-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
     weekday: 1,
     time: '17:00',
   }
 }
 
-function createEmptyGroup(fieldId = ''): PackageGroup {
-  const defaultYear = 2014
-  return {
-    id: `group-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
-    title: '',
-    birthYearMin: defaultYear,
-    birthYearMax: defaultYear,
-    fieldId,
-    schedules: [createEmptyGroupSchedule()],
-  }
-}
-
-function isValidGroupDraft(group: PackageGroup): boolean {
-  return (
-    Boolean(group.title.trim()) &&
-    Boolean(group.fieldId.trim()) &&
-    Number.isInteger(group.birthYearMin) &&
-    Number.isInteger(group.birthYearMax) &&
-    group.birthYearMin >= 1900 &&
-    group.birthYearMax >= group.birthYearMin &&
-    group.birthYearMax <= 2100 &&
-    group.schedules.length > 0 &&
-    group.schedules.every((item) => Number.isInteger(item.weekday) && item.weekday >= 0 && item.weekday <= 6 && /^\d{2}:\d{2}$/.test(item.time))
-  )
+function normalizeProductId(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
 }
 
 type GallerySortableCardProps = {
@@ -280,31 +255,47 @@ function GallerySortableCard({
 
 function PackagesPage() {
   const { t } = useTranslation()
+  const currentYear = new Date().getFullYear()
   const [packages, setPackages] = useState<SportPackage[]>(() => getPackages())
   const [categories, setCategories] = useState(() => getSportCategories().filter((category) => category.isActive))
   const [companies, setCompanies] = useState(() => getCompanies())
   const [enrollments, setEnrollments] = useState<EnrollmentType[]>(() => getEnrollments())
   const [whatsappAccounts, setWhatsAppAccounts] = useState<WhatsAppAccount[]>(() => getWhatsAppAccounts())
   const [fields, setFields] = useState<SportField[]>(() => getFields())
+  const [platformGroups, setPlatformGroups] = useState<UtilityGroup[]>(() => getGroups())
   const [additionalServices, setAdditionalServices] = useState<AdditionalService[]>(() => getAdditionalServices())
   const [trainers, setTrainers] = useState<MockUser[]>(() => getUsers().filter((user) => user.role === 'trainer'))
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create')
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<
-    'general-info' | 'gallery' | 'duration' | 'payments' | 'enrollments' | 'whatsapp' | 'additional-services' | 'trainers' | 'groups'
+    | 'general-info'
+    | 'gallery'
+    | 'duration'
+    | 'payments'
+    | 'enrollments'
+    | 'additional-services'
+    | 'groups'
+    | 'trainers'
+    | 'contract'
+    | 'whatsapp'
   >('general-info')
   const [paymentCurrency, setPaymentCurrency] = useState(() => getProjectSettings().paymentCurrency || 'EUR')
   const [googleMapsApiKey, setGoogleMapsApiKey] = useState(() => getProjectSettings().googleMapsApiKey || '')
   const [draft, setDraft] = useState<SavePackagePayload>({
+    productId: '',
+    editionYear: currentYear,
     name: '',
     description: '',
+    disclaimer: '',
     categoryId: '',
     companyId: '',
     enrollmentId: '',
     enrollmentPrice: 0,
     trainerIds: [],
     whatsappAccountIds: [],
+    whatsappGroupLink: '',
     additionalFixedServices: [],
     additionalVariableServices: [],
     audience: 'adult',
@@ -327,17 +318,41 @@ function PackagesPage() {
     trainingAddress: '',
     entriesCount: 1,
     userSelectableSchedule: false,
+    contractHeaderImage: '',
+    contractHeaderText: '',
+    contractRegulation: '',
     featuredImage: '',
     isFeatured: false,
     isDescriptive: false,
   })
   const [editingGalleryImageId, setEditingGalleryImageId] = useState<string | null>(null)
   const [galleryCaptionDraft, setGalleryCaptionDraft] = useState('')
-  const [groupModalMode, setGroupModalMode] = useState<'create' | 'edit' | null>(null)
-  const [editingGroupId, setEditingGroupId] = useState<string | null>(null)
-  const [groupDraft, setGroupDraft] = useState<PackageGroup>(() => createEmptyGroup())
   const [message, setMessage] = useState('')
   const [isError, setIsError] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [filterCategoryId, setFilterCategoryId] = useState('')
+  const [filterCompanyId, setFilterCompanyId] = useState('')
+  const [filterAudience, setFilterAudience] = useState<'all' | AudienceCode>('all')
+  const [filterFrequency, setFilterFrequency] = useState<'all' | 'non-recurring' | PackagePaymentFrequency>('all')
+  const [filterAgeMin, setFilterAgeMin] = useState('')
+  const [filterAgeMax, setFilterAgeMax] = useState('')
+  const [isPriorityModalOpen, setIsPriorityModalOpen] = useState(false)
+  const [priorityOrder, setPriorityOrder] = useState<PackageTableColumnId[]>(DEFAULT_PACKAGE_TABLE_PRIORITY_ORDER)
+  const [highPriorityColumns, setHighPriorityColumns] = useState<PackageTableColumnId[]>(DEFAULT_PACKAGE_TABLE_HIGH_PRIORITY)
+  const [priorityDraftOrder, setPriorityDraftOrder] = useState<PackageTableColumnId[]>(DEFAULT_PACKAGE_TABLE_PRIORITY_ORDER)
+  const [priorityDraftHighColumns, setPriorityDraftHighColumns] = useState<PackageTableColumnId[]>(DEFAULT_PACKAGE_TABLE_HIGH_PRIORITY)
+  const [isEditionsModalOpen, setIsEditionsModalOpen] = useState(false)
+  const [isGroupModalOpen, setIsGroupModalOpen] = useState(false)
+  const [groupModalMode, setGroupModalMode] = useState<'create' | 'edit'>('create')
+  const [editingGroupIndex, setEditingGroupIndex] = useState<number | null>(null)
+  const [groupDraft, setGroupDraft] = useState<PackageGroup>({
+    id: '',
+    title: '',
+    birthYearMin: 2010,
+    birthYearMax: 2010,
+    fieldId: '',
+    schedules: [createPackageGroupSchedule()],
+  })
   const trainingAddressInputRef = useRef<HTMLInputElement | null>(null)
   const trainingAddressAutocompleteInitializedRef = useRef(false)
   const packageCatalogEvent = getPackageCatalogChangedEventName()
@@ -351,12 +366,14 @@ function PackagesPage() {
       const nextEnrollments = getEnrollments()
       const nextWhatsAppAccounts = getWhatsAppAccounts()
       const nextFields = getFields()
+      const nextGroups = getGroups()
       const nextAdditionalServices = getAdditionalServices()
       setCategories(nextCategories)
       setCompanies(nextCompanies)
       setEnrollments(nextEnrollments)
       setWhatsAppAccounts(nextWhatsAppAccounts)
       setFields(nextFields)
+      setPlatformGroups(nextGroups)
       setAdditionalServices(nextAdditionalServices)
       setPackages(getPackages())
       setDraft((prev) => ({
@@ -389,12 +406,28 @@ function PackagesPage() {
             prev.categoryId && nextCategories.some((item) => item.id === prev.categoryId)
               ? prev.categoryId
               : (nextCategories[0]?.id ?? '')
-          if (!nextCategoryId) {
-            return []
-          }
-          return prev.groups.filter((group) =>
-            nextFields.some((field) => field.id === group.fieldId && field.categoryId === nextCategoryId),
-          )
+          return prev.groups
+            .map((group) => nextGroups.find((item) => item.id === group.id))
+            .filter((group): group is UtilityGroup => Boolean(group))
+            .filter((group) => group.audience === prev.audience)
+            .map((group) => ({
+              ...(prev.groups.find((item) => item.id === group.id) ?? group),
+              id: group.id,
+              title: group.title,
+              birthYearMin: group.birthYearMin,
+              birthYearMax: group.birthYearMax,
+              fieldId: (() => {
+                const currentFieldId = prev.groups.find((item) => item.id === group.id)?.fieldId ?? ''
+                const isCurrentFieldValid =
+                  !!currentFieldId &&
+                  nextFields.some((field) => field.id === currentFieldId && field.categoryId === nextCategoryId)
+                if (isCurrentFieldValid) {
+                  return currentFieldId
+                }
+                return nextFields.find((field) => field.categoryId === nextCategoryId)?.id ?? ''
+              })(),
+              schedules: prev.groups.find((item) => item.id === group.id)?.schedules ?? [createPackageGroupSchedule()],
+            }))
         })(),
       }))
     }
@@ -474,12 +507,16 @@ function PackagesPage() {
     () => new Map(companies.map((company) => [company.id, company.title])),
     [companies],
   )
-  const weekdayLabelByValue = useMemo(
-    () => new Map(WEEK_DAYS.map((day) => [day.value, t(day.labelKey)])),
-    [t],
+  const packageById = useMemo(() => new Map(packages.map((item) => [item.id, item])), [packages])
+  const fieldById = useMemo(() => new Map(fields.map((field) => [field.id, field])), [fields])
+  const availableUtilityGroups = useMemo(
+    () =>
+      platformGroups.filter((group) => {
+        return group.audience === draft.audience
+      }),
+    [draft.audience, platformGroups],
   )
-  const fieldLabelById = useMemo(() => new Map(fields.map((field) => [field.id, field.title])), [fields])
-  const availableGroupFields = useMemo(
+  const categoryFields = useMemo(
     () => fields.filter((field) => field.categoryId === draft.categoryId),
     [draft.categoryId, fields],
   )
@@ -498,15 +535,21 @@ function PackagesPage() {
   )
 
   const openCreateModal = () => {
+    setIsError(false)
+    setMessage('')
     setDraft({
+      productId: `product-${Date.now().toString(36)}`,
+      editionYear: currentYear,
       name: '',
       description: '',
+      disclaimer: '',
       categoryId: categories[0]?.id ?? '',
       companyId: companies[0]?.id ?? '',
       enrollmentId: enrollments[0]?.id ?? '',
       enrollmentPrice: 0,
       trainerIds: [],
       whatsappAccountIds: [],
+      whatsappGroupLink: '',
       additionalFixedServices: [],
       additionalVariableServices: [],
       audience: 'adult',
@@ -529,6 +572,9 @@ function PackagesPage() {
       trainingAddress: '',
       entriesCount: 1,
       userSelectableSchedule: false,
+      contractHeaderImage: '',
+      contractHeaderText: '',
+      contractRegulation: '',
       featuredImage: '',
       isFeatured: false,
       isDescriptive: false,
@@ -538,22 +584,27 @@ function PackagesPage() {
     setActiveTab('general-info')
     setEditingGalleryImageId(null)
     setGalleryCaptionDraft('')
-    setGroupModalMode(null)
-    setEditingGroupId(null)
-    setGroupDraft(createEmptyGroup(availableGroupFields[0]?.id ?? ''))
+    setIsGroupModalOpen(false)
+    setEditingGroupIndex(null)
     setIsModalOpen(true)
   }
 
   const openEditModal = useCallback((item: SportPackage) => {
+    setIsError(false)
+    setMessage('')
     setDraft({
+      productId: item.productId,
+      editionYear: item.editionYear,
       name: item.name,
       description: item.description,
+      disclaimer: item.disclaimer ?? '',
       categoryId: item.categoryId,
       companyId: item.companyId,
       enrollmentId: item.enrollmentId ?? enrollments[0]?.id ?? '',
       enrollmentPrice: item.enrollmentPrice ?? 0,
       trainerIds: item.trainerIds ?? [],
       whatsappAccountIds: item.whatsappAccountIds ?? [],
+      whatsappGroupLink: item.whatsappGroupLink ?? '',
       additionalFixedServices: item.additionalFixedServices ?? [],
       additionalVariableServices: item.additionalVariableServices ?? [],
       audience: item.audience,
@@ -578,6 +629,9 @@ function PackagesPage() {
         item.entriesCount ??
         (item.recurringPaymentEnabled && item.paymentFrequency === 'daily' ? null : 1),
       userSelectableSchedule: item.userSelectableSchedule ?? false,
+      contractHeaderImage: item.contractHeaderImage ?? '',
+      contractHeaderText: item.contractHeaderText ?? '',
+      contractRegulation: item.contractRegulation ?? '',
       featuredImage: item.featuredImage,
       isFeatured: item.isFeatured ?? false,
       isDescriptive: item.isDescriptive ?? false,
@@ -587,16 +641,16 @@ function PackagesPage() {
     setActiveTab('general-info')
     setEditingGalleryImageId(null)
     setGalleryCaptionDraft('')
-    setGroupModalMode(null)
-    setEditingGroupId(null)
-    const firstCategoryField = fields.find((field) => field.categoryId === item.categoryId)
-    setGroupDraft(createEmptyGroup(item.groups[0]?.fieldId ?? firstCategoryField?.id ?? ''))
+    setIsGroupModalOpen(false)
+    setEditingGroupIndex(null)
     setIsModalOpen(true)
-  }, [enrollments, fields])
+  }, [enrollments])
 
   const applyPackageError = (
     error:
       | 'invalid'
+      | 'invalidEdition'
+      | 'duplicateEditionYear'
       | 'invalidAgeRange'
       | 'invalidDuration'
       | 'invalidPayment'
@@ -619,6 +673,14 @@ function PackagesPage() {
     }
     if (error === 'invalidAgeRange') {
       setMessage(t('utility.packages.invalidAgeRange'))
+      return
+    }
+    if (error === 'invalidEdition') {
+      setMessage('Compila codice prodotto e anno edizione validi.')
+      return
+    }
+    if (error === 'duplicateEditionYear') {
+      setMessage('Esiste già una edizione con questo anno per il prodotto selezionato.')
       return
     }
     if (error === 'invalidDuration') {
@@ -678,6 +740,25 @@ function PackagesPage() {
     }
   }
 
+  const handleContractHeaderImageUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) {
+      return
+    }
+    try {
+      const imageDataUrl = await readImageFileAsDataUrl(file)
+      setDraft((prev) => ({
+        ...prev,
+        contractHeaderImage: imageDataUrl,
+      }))
+    } catch {
+      setIsError(true)
+      setMessage(t('utility.packages.contractHeaderImageUploadError'))
+    } finally {
+      event.target.value = ''
+    }
+  }
+
   const openCaptionEditor = (image: PackageGalleryImage) => {
     setEditingGalleryImageId(image.id)
     setGalleryCaptionDraft(image.caption)
@@ -713,62 +794,96 @@ function PackagesPage() {
     }
   }
 
-  const openCreateGroupModal = () => {
-    setGroupDraft(createEmptyGroup(availableGroupFields[0]?.id ?? ''))
-    setEditingGroupId(null)
-    setGroupModalMode('create')
-  }
-
-  const openEditGroupModal = (group: PackageGroup) => {
-    const categoryFields = fields.filter((field) => field.categoryId === draft.categoryId)
-    const fieldExistsInCategory = categoryFields.some((field) => field.id === group.fieldId)
-    setGroupDraft({
-      ...group,
-      fieldId: fieldExistsInCategory ? group.fieldId : (categoryFields[0]?.id ?? ''),
-    })
-    setEditingGroupId(group.id)
-    setGroupModalMode('edit')
-  }
-
   const closeGroupModal = () => {
-    setGroupModalMode(null)
-    setEditingGroupId(null)
-    setGroupDraft(createEmptyGroup(availableGroupFields[0]?.id ?? ''))
+    setIsGroupModalOpen(false)
+    setEditingGroupIndex(null)
+  }
+
+  const openCreateGroupModal = () => {
+    const selectedIds = new Set(draft.groups.map((group) => group.id))
+    const nextGroup = availableUtilityGroups.find((group) => !selectedIds.has(group.id))
+    if (!nextGroup) {
+      setIsError(true)
+      setMessage(t('utility.packages.noUtilityGroupsOption'))
+      return
+    }
+    setGroupDraft({
+      ...mapUtilityGroupToPackageGroup(nextGroup),
+      fieldId: categoryFields[0]?.id ?? '',
+    })
+    setGroupModalMode('create')
+    setEditingGroupIndex(null)
+    setIsGroupModalOpen(true)
+  }
+
+  const openEditGroupModal = (index: number) => {
+    const current = draft.groups[index]
+    if (!current) {
+      return
+    }
+    setGroupDraft({
+      ...current,
+      schedules: current.schedules.length > 0 ? current.schedules : [createPackageGroupSchedule()],
+    })
+    setGroupModalMode('edit')
+    setEditingGroupIndex(index)
+    setIsGroupModalOpen(true)
   }
 
   const saveGroupModal = () => {
-    if (!isValidGroupDraft(groupDraft)) {
+    const selectedUtilityGroup = availableUtilityGroups.find((group) => group.id === groupDraft.id)
+    if (!selectedUtilityGroup) {
       setIsError(true)
-      setMessage(t('utility.packages.invalidGroups'))
+      setMessage(t('utility.packages.noUtilityGroupsOption'))
       return
     }
-    if (groupModalMode === 'create') {
-      setDraft((prev) => ({
-        ...prev,
-        groups: [...prev.groups, groupDraft],
-      }))
-      closeGroupModal()
-      return
+    const normalizedGroup: PackageGroup = {
+      ...groupDraft,
+      id: selectedUtilityGroup.id,
+      title: selectedUtilityGroup.title,
+      birthYearMin: selectedUtilityGroup.birthYearMin,
+      birthYearMax: selectedUtilityGroup.birthYearMax,
+      fieldId:
+        categoryFields.some((field) => field.id === groupDraft.fieldId)
+          ? groupDraft.fieldId
+          : (categoryFields[0]?.id ?? ''),
+      schedules:
+        groupDraft.schedules.length > 0
+          ? groupDraft.schedules
+          : [createPackageGroupSchedule()],
     }
-    if (groupModalMode === 'edit' && editingGroupId) {
-      setDraft((prev) => ({
+    setDraft((prev) => {
+      if (groupModalMode === 'edit' && editingGroupIndex !== null) {
+        return {
+          ...prev,
+          groups: prev.groups.map((group, index) => (index === editingGroupIndex ? normalizedGroup : group)),
+        }
+      }
+      return {
         ...prev,
-        groups: prev.groups.map((item) => (item.id === editingGroupId ? groupDraft : item)),
-      }))
-      closeGroupModal()
-    }
+        groups: [...prev.groups, normalizedGroup],
+      }
+    })
+    closeGroupModal()
   }
 
-  const deleteGroup = (group: PackageGroup) => {
-    const confirmed = window.confirm(t('utility.packages.groupConfirmDelete', { title: group.title }))
-    if (!confirmed) {
-      return
-    }
-    setDraft((prev) => ({
-      ...prev,
-      groups: prev.groups.filter((item) => item.id !== group.id),
-    }))
-  }
+  const formatGroupScheduleSummary = useCallback(
+    (schedules: PackageGroupSchedule[]) => {
+      const byTime = new Map<string, number[]>()
+      schedules.forEach((schedule) => {
+        const existing = byTime.get(schedule.time) ?? []
+        byTime.set(schedule.time, [...existing, schedule.weekday])
+      })
+      const weekdayOrder = WEEK_DAYS.map((item) => item.value)
+      return Array.from(byTime.entries()).map(([time, weekdays]) => {
+        const dayLabels = [...new Set(weekdays)]
+          .sort((left, right) => weekdayOrder.indexOf(left) - weekdayOrder.indexOf(right))
+          .map((weekday) => t(WEEK_DAYS.find((day) => day.value === weekday)?.labelKey ?? 'utility.packages.weekdayMonday'))
+        return `${dayLabels.join(' + ')} ${t('utility.packages.groupTimeLabel')}: ${time}`
+      })
+    },
+    [t],
+  )
 
   const handleSubmit = () => {
     const result =
@@ -786,7 +901,26 @@ function PackagesPage() {
     setPackages(getPackages())
     setIsError(false)
     setMessage(modalMode === 'create' ? t('utility.packages.created') : t('utility.packages.updated'))
+    closeGroupModal()
     setIsModalOpen(false)
+  }
+
+  const closePackageModal = () => {
+    closeGroupModal()
+    setIsModalOpen(false)
+    setIsError(false)
+    setMessage('')
+  }
+
+  const openPackageWhatsAppGroup = (item: SportPackage) => {
+    const rawLink = item.whatsappGroupLink.trim()
+    if (!rawLink) {
+      setIsError(true)
+      setMessage(t('utility.packages.whatsappGroupLinkMissing'))
+      return
+    }
+    const href = /^https?:\/\//i.test(rawLink) ? rawLink : `https://${rawLink}`
+    window.open(href, '_blank', 'noopener,noreferrer')
   }
 
   const handleDelete = useCallback((item: SportPackage) => {
@@ -807,37 +941,299 @@ function PackagesPage() {
     setMessage(t('utility.packages.deleted'))
   }, [t])
 
-  const columns = useMemo<ColumnDef<SportPackage>[]>(
+  const formatPackageFrequency = useCallback(
+    (item: Pick<SportPackage, 'recurringPaymentEnabled' | 'paymentFrequency'>): string => {
+      if (!item.recurringPaymentEnabled) {
+        return '-'
+      }
+      const keyByFrequency: Record<PackagePaymentFrequency, string> = {
+        daily: 'utility.packages.paymentFrequencyDaily',
+        weekly: 'utility.packages.paymentFrequencyWeekly',
+        monthly: 'utility.packages.paymentFrequencyMonthly',
+        yearly: 'utility.packages.paymentFrequencyYearly',
+      }
+      return t(keyByFrequency[item.paymentFrequency])
+    },
+    [t],
+  )
+
+  const formatPackagePriceByPeriod = useCallback(
+    (item: Pick<SportPackage, 'recurringPaymentEnabled' | 'paymentFrequency' | 'priceAmount'>): string => {
+      const amount = Number.isFinite(item.priceAmount) ? Number(item.priceAmount) : 0
+      try {
+        const formattedAmount = new Intl.NumberFormat(undefined, {
+          style: 'currency',
+          currency: paymentCurrency,
+          maximumFractionDigits: 2,
+        }).format(amount)
+        if (!item.recurringPaymentEnabled) {
+          return formattedAmount
+        }
+        return `${formattedAmount}/${formatPackageFrequency(item)}`
+      } catch {
+        if (!item.recurringPaymentEnabled) {
+          return `${amount} ${paymentCurrency}`
+        }
+        return `${amount} ${paymentCurrency}/${formatPackageFrequency(item)}`
+      }
+    },
+    [formatPackageFrequency, paymentCurrency],
+  )
+
+  type ProductRow = {
+    productId: string
+    name: string
+    categoryId: string
+    companyId: string
+    audience: AudienceCode
+    ageMin: number
+    ageMax: number
+    durationType: PackageDurationType
+    eventDate: string
+    eventTime: string
+    periodStartDate: string
+    periodEndDate: string
+    recurringPaymentEnabled: boolean
+    paymentFrequency: PackagePaymentFrequency
+    priceAmount: number
+    whatsappGroupLink: string
+    editionsCount: number
+    latestEditionYear: number
+    latestEditionId: string
+  }
+
+  const productRows = useMemo<ProductRow[]>(() => {
+    const grouped = new Map<string, SportPackage[]>()
+    packages.forEach((item) => {
+      const key = item.productId || `product-${item.id}`
+      const existing = grouped.get(key) ?? []
+      grouped.set(key, [...existing, item])
+    })
+    return Array.from(grouped.entries()).map(([productId, editions]) => {
+      const sorted = [...editions].sort((left, right) => right.editionYear - left.editionYear)
+      const latest = sorted[0]
+      return {
+        productId,
+        name: latest?.name ?? productId,
+        categoryId: latest?.categoryId ?? '',
+        companyId: latest?.companyId ?? '',
+        audience: latest?.audience ?? 'adult',
+        ageMin: latest?.ageMin ?? 0,
+        ageMax: latest?.ageMax ?? 0,
+        durationType: latest?.durationType ?? 'single-event',
+        eventDate: latest?.eventDate ?? '',
+        eventTime: latest?.eventTime ?? '',
+        periodStartDate: latest?.periodStartDate ?? '',
+        periodEndDate: latest?.periodEndDate ?? '',
+        recurringPaymentEnabled: latest?.recurringPaymentEnabled ?? false,
+        paymentFrequency: latest?.paymentFrequency ?? 'monthly',
+        priceAmount: latest?.priceAmount ?? 0,
+        whatsappGroupLink: latest?.whatsappGroupLink ?? '',
+        editionsCount: sorted.length,
+        latestEditionYear: latest?.editionYear ?? currentYear,
+        latestEditionId: latest?.id ?? '',
+      }
+    })
+  }, [currentYear, packages])
+
+  const selectedProductEditions = useMemo(
+    () =>
+      selectedProductId
+        ? packages
+            .filter((item) => item.productId === selectedProductId)
+            .sort((left, right) => right.editionYear - left.editionYear)
+        : [],
+    [packages, selectedProductId],
+  )
+
+  const highPrioritySet = useMemo(() => new Set(highPriorityColumns), [highPriorityColumns])
+  const columnOrder = useMemo(() => [...priorityOrder, 'actions'], [priorityOrder])
+
+  const columnLabelById = useMemo<Record<PackageTableColumnId, string>>(
+    () => ({
+      name: t('utility.packages.nameLabel'),
+      ageRange: t('utility.packages.ageRangeLabel'),
+      period: 'Periodo',
+      paymentFrequency: t('utility.packages.paymentFrequencyLabel'),
+      priceByPeriod: t('utility.packages.pricePerPeriodLabel'),
+      category: t('utility.packages.categoryLabel'),
+      company: t('utility.packages.companyLabel'),
+      audience: t('utility.packages.audienceLabel'),
+    }),
+    [t],
+  )
+
+  const filteredProducts = useMemo(() => {
+    const normalizedSearch = searchQuery.trim().toLowerCase()
+    const ageMinFilter = filterAgeMin.trim() === '' ? null : Number(filterAgeMin)
+    const ageMaxFilter = filterAgeMax.trim() === '' ? null : Number(filterAgeMax)
+    return productRows.filter((item) => {
+      if (filterCategoryId && item.categoryId !== filterCategoryId) {
+        return false
+      }
+      if (filterCompanyId && item.companyId !== filterCompanyId) {
+        return false
+      }
+      if (filterAudience !== 'all' && item.audience !== filterAudience) {
+        return false
+      }
+      if (filterFrequency === 'non-recurring' && item.recurringPaymentEnabled) {
+        return false
+      }
+      if (
+        filterFrequency !== 'all' &&
+        filterFrequency !== 'non-recurring' &&
+        (!item.recurringPaymentEnabled || item.paymentFrequency !== filterFrequency)
+      ) {
+        return false
+      }
+      if (ageMinFilter !== null && Number.isFinite(ageMinFilter) && item.ageMin < ageMinFilter) {
+        return false
+      }
+      if (ageMaxFilter !== null && Number.isFinite(ageMaxFilter) && item.ageMax > ageMaxFilter) {
+        return false
+      }
+      if (!normalizedSearch) {
+        return true
+      }
+      const categoryLabel = categoryLabelById.get(item.categoryId) ?? ''
+      const companyLabel = companyLabelById.get(item.companyId) ?? ''
+      const frequencyLabel = formatPackageFrequency(item)
+      const audienceLabel = item.audience === 'adult' ? t('utility.packages.audienceAdult') : t('utility.packages.audienceYouth')
+      const periodLabel =
+        item.durationType === 'period'
+          ? `${item.periodStartDate} ${item.periodEndDate}`
+          : `${item.eventDate} ${item.eventTime}`
+      const haystack = `${item.name} ${categoryLabel} ${companyLabel} ${frequencyLabel} ${audienceLabel} ${item.ageMin} ${item.ageMax} ${periodLabel}`.toLowerCase()
+      return haystack.includes(normalizedSearch)
+    })
+  }, [
+    categoryLabelById,
+    companyLabelById,
+    filterAgeMax,
+    filterAgeMin,
+    filterAudience,
+    filterCategoryId,
+    filterCompanyId,
+    filterFrequency,
+    formatPackageFrequency,
+    productRows,
+    searchQuery,
+    t,
+  ])
+
+  const openEditionsModal = (productId: string) => {
+    setSelectedProductId(productId)
+    setIsEditionsModalOpen(true)
+  }
+
+  const closeEditionsModal = () => {
+    setIsEditionsModalOpen(false)
+    setSelectedProductId(null)
+  }
+
+  const openCreateEditionFromProduct = (productId: string) => {
+    const editions = packages
+      .filter((item) => item.productId === productId)
+      .sort((left, right) => right.editionYear - left.editionYear)
+    const source = editions[0]
+    if (!source) {
+      return
+    }
+    setIsError(false)
+    setMessage('')
+    setDraft({
+      ...source,
+      productId,
+      editionYear: source.editionYear + 1,
+    })
+    setModalMode('create')
+    setEditingId(null)
+    setActiveTab('general-info')
+    setEditingGalleryImageId(null)
+    setGalleryCaptionDraft('')
+    setIsGroupModalOpen(false)
+    setEditingGroupIndex(null)
+    setIsModalOpen(true)
+  }
+
+  const openPriorityModal = () => {
+    setPriorityDraftOrder(priorityOrder)
+    setPriorityDraftHighColumns(highPriorityColumns)
+    setIsPriorityModalOpen(true)
+  }
+
+  const applyPriorityModal = () => {
+    setPriorityOrder(priorityDraftOrder)
+    setHighPriorityColumns(priorityDraftHighColumns)
+    setIsPriorityModalOpen(false)
+  }
+
+  const movePriorityItem = (id: PackageTableColumnId, direction: 'up' | 'down') => {
+    setPriorityDraftOrder((prev) => {
+      const index = prev.indexOf(id)
+      if (index < 0) {
+        return prev
+      }
+      if (direction === 'up' && index === 0) {
+        return prev
+      }
+      if (direction === 'down' && index === prev.length - 1) {
+        return prev
+      }
+      const next = [...prev]
+      const swapIndex = direction === 'up' ? index - 1 : index + 1
+      ;[next[index], next[swapIndex]] = [next[swapIndex], next[index]]
+      return next
+    })
+  }
+
+  const columns = useMemo<ColumnDef<ProductRow>[]>(
     () => [
       {
         id: 'name',
         header: t('utility.packages.nameLabel'),
         cell: ({ row }) => <span className="font-medium">{row.original.name}</span>,
+        meta: { responsivePriority: highPrioritySet.has('name') ? 'high' : 'low' },
       },
       {
-        id: 'description',
-        header: t('utility.packages.descriptionLabel'),
-        cell: ({ row }) => <span>{stripHtml(row.original.description)}</span>,
+        id: 'ageRange',
+        header: t('utility.packages.ageRangeLabel'),
+        cell: ({ row }) => <span>{`${row.original.ageMin} - ${row.original.ageMax}`}</span>,
+        meta: { responsivePriority: highPrioritySet.has('ageRange') ? 'high' : 'low' },
       },
       {
-        id: 'featuredImage',
-        header: t('utility.packages.featuredImageLabel'),
+        id: 'period',
+        header: 'Periodo',
         cell: ({ row }) =>
-          row.original.featuredImage ? (
-            <img src={row.original.featuredImage} alt={row.original.name} className="h-10 w-14 rounded object-cover" />
-          ) : (
-            <span className="opacity-50">-</span>
-          ),
+          row.original.durationType === 'period'
+            ? <span>{`${row.original.periodStartDate} - ${row.original.periodEndDate}`}</span>
+            : <span>{`${row.original.eventDate} ${row.original.eventTime}`.trim() || '-'}</span>,
+        meta: { responsivePriority: highPrioritySet.has('period') ? 'high' : 'low' },
+      },
+      {
+        id: 'paymentFrequency',
+        header: t('utility.packages.paymentFrequencyLabel'),
+        cell: ({ row }) => <span>{formatPackageFrequency(row.original)}</span>,
+        meta: { responsivePriority: highPrioritySet.has('paymentFrequency') ? 'high' : 'low' },
+      },
+      {
+        id: 'priceByPeriod',
+        header: t('utility.packages.pricePerPeriodLabel'),
+        cell: ({ row }) => <span>{formatPackagePriceByPeriod(row.original)}</span>,
+        meta: { responsivePriority: highPrioritySet.has('priceByPeriod') ? 'high' : 'low' },
       },
       {
         id: 'category',
         header: t('utility.packages.categoryLabel'),
         cell: ({ row }) => <span>{categoryLabelById.get(row.original.categoryId) ?? '-'}</span>,
+        meta: { responsivePriority: highPrioritySet.has('category') ? 'high' : 'low' },
       },
       {
         id: 'company',
         header: t('utility.packages.companyLabel'),
         cell: ({ row }) => <span>{companyLabelById.get(row.original.companyId) ?? '-'}</span>,
+        meta: { responsivePriority: highPrioritySet.has('company') ? 'high' : 'low' },
       },
       {
         id: 'audience',
@@ -849,38 +1245,73 @@ function PackagesPage() {
               : t('utility.packages.audienceYouth')}
           </span>
         ),
+        meta: { responsivePriority: highPrioritySet.has('audience') ? 'high' : 'low' },
       },
       {
         id: 'actions',
         header: () => <div className="text-right">{t('utility.categories.actions')}</div>,
         cell: ({ row }) => (
-          <div className="flex justify-end gap-3 pr-1">
+          <div className="flex justify-end gap-1">
             <button
               type="button"
-              className="btn btn-ghost btn-sm px-2 text-warning"
-              onClick={() => openEditModal(row.original)}
+              className="btn btn-ghost btn-sm px-1"
+              onClick={() => openEditionsModal(row.original.productId)}
+              aria-label="Edizioni"
+              title="Edizioni"
+            >
+              {row.original.editionsCount}
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm px-1 text-success"
+              onClick={() => {
+                const latestEdition = packageById.get(row.original.latestEditionId)
+                if (latestEdition) {
+                  openPackageWhatsAppGroup(latestEdition)
+                }
+              }}
+              aria-label={t('utility.packages.openWhatsAppGroupAction')}
+            >
+              <MessageCircle className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm px-1 text-warning"
+              onClick={() => {
+                const latestEdition = packageById.get(row.original.latestEditionId)
+                if (latestEdition) {
+                  openEditModal(latestEdition)
+                }
+              }}
               aria-label={t('utility.categories.edit')}
             >
               <SquarePen className="h-4 w-4" />
             </button>
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm px-2 text-error"
-              onClick={() => handleDelete(row.original)}
-              aria-label={t('utility.categories.delete')}
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
           </div>
         ),
+        meta: { responsivePriority: 'high' as const },
       },
     ],
-    [categoryLabelById, companyLabelById, handleDelete, openEditModal, t],
+    [
+      categoryLabelById,
+      companyLabelById,
+      formatPackageFrequency,
+      formatPackagePriceByPeriod,
+      highPrioritySet,
+      openPackageWhatsAppGroup,
+      openEditionsModal,
+      openEditModal,
+      packageById,
+      t,
+    ],
   )
 
   const table = useReactTable({
-    data: packages,
+    data: filteredProducts,
     columns,
+    state: {
+      columnOrder,
+    },
     getCoreRowModel: getCoreRowModel(),
   })
 
@@ -928,23 +1359,14 @@ function PackagesPage() {
     return `https://www.google.com/maps?q=${encodedAddress}&output=embed`
   }, [draft.trainingAddress, googleMapsApiKey])
 
-  const formatGroupSchedules = (schedules: PackageGroupSchedule[]): string[] => {
-    const grouped = new Map<string, number[]>()
-    schedules.forEach((schedule) => {
-      const current = grouped.get(schedule.time) ?? []
-      current.push(schedule.weekday)
-      grouped.set(schedule.time, current)
-    })
-
-    const entries = Array.from(grouped.entries()).sort(([timeA], [timeB]) => timeA.localeCompare(timeB))
-    return entries.map(([time, weekdays]) => {
-      const sortedDays = Array.from(new Set(weekdays)).sort(
-        (left, right) => (WEEKDAY_SORT_ORDER.get(left) ?? 99) - (WEEKDAY_SORT_ORDER.get(right) ?? 99),
-      )
-      const dayLabels = sortedDays.map((day) => weekdayLabelByValue.get(day) ?? String(day))
-      return `${joinWithConjunction(dayLabels, t('utility.packages.andConjunction'))} ${t('utility.packages.atHourLabel')} ${formatHour(time)}`
-    })
-  }
+  const mapUtilityGroupToPackageGroup = useCallback((group: UtilityGroup): PackageGroup => ({
+    id: group.id,
+    title: group.title,
+    birthYearMin: group.birthYearMin,
+    birthYearMax: group.birthYearMax,
+    fieldId: categoryFields[0]?.id ?? '',
+    schedules: [createPackageGroupSchedule()],
+  }), [categoryFields])
 
   return (
     <section className="space-y-5">
@@ -960,7 +1382,7 @@ function PackagesPage() {
 
       <div className="card bg-base-100 shadow-sm">
         <div className="card-body space-y-4">
-          {message && (
+          {message && !isModalOpen && (
             <p
               className={`rounded-lg px-3 py-2 text-sm ${
                 isError ? 'bg-error/15 text-error' : 'bg-success/15 text-success'
@@ -970,7 +1392,102 @@ function PackagesPage() {
             </p>
           )}
 
-          {packages.length === 0 ? (
+          <div className="collapse collapse-arrow rounded-lg border border-base-300">
+            <input type="checkbox" />
+            <div className="collapse-title text-sm font-medium">{t('utility.packages.filtersTitle')}</div>
+            <div className="collapse-content space-y-3">
+              <div className="flex justify-end">
+                <button type="button" className="btn btn-outline btn-sm" onClick={openPriorityModal}>
+                  {t('utility.packages.columnPriorityButton')}
+                </button>
+              </div>
+              <div className="grid gap-3 md:grid-cols-12">
+                <label className="form-control md:col-span-12">
+                  <span className="label-text mb-1 text-xs">{t('utility.packages.searchLabel')}</span>
+                  <input
+                    className="input input-bordered w-full"
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    placeholder={t('utility.packages.searchPlaceholder')}
+                  />
+                </label>
+                <label className="form-control md:col-span-3">
+                  <span className="label-text mb-1 text-xs">{t('utility.packages.categoryLabel')}</span>
+                  <select className="select select-bordered w-full" value={filterCategoryId} onChange={(event) => setFilterCategoryId(event.target.value)}>
+                    <option value="">{t('utility.packages.filterAllOption')}</option>
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="form-control md:col-span-3">
+                  <span className="label-text mb-1 text-xs">{t('utility.packages.companyLabel')}</span>
+                  <select className="select select-bordered w-full" value={filterCompanyId} onChange={(event) => setFilterCompanyId(event.target.value)}>
+                    <option value="">{t('utility.packages.filterAllOption')}</option>
+                    {companies.map((company) => (
+                      <option key={company.id} value={company.id}>
+                        {company.title}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="form-control md:col-span-2">
+                  <span className="label-text mb-1 text-xs">{t('utility.packages.audienceLabel')}</span>
+                  <select
+                    className="select select-bordered w-full"
+                    value={filterAudience}
+                    onChange={(event) => setFilterAudience(event.target.value as 'all' | AudienceCode)}
+                  >
+                    <option value="all">{t('utility.packages.filterAllOption')}</option>
+                    <option value="adult">{t('utility.packages.audienceAdult')}</option>
+                    <option value="youth">{t('utility.packages.audienceYouth')}</option>
+                  </select>
+                </label>
+                <label className="form-control md:col-span-2">
+                  <span className="label-text mb-1 text-xs">{t('utility.packages.paymentFrequencyLabel')}</span>
+                  <select
+                    className="select select-bordered w-full"
+                    value={filterFrequency}
+                    onChange={(event) =>
+                      setFilterFrequency(event.target.value as 'all' | 'non-recurring' | PackagePaymentFrequency)
+                    }
+                  >
+                    <option value="all">{t('utility.packages.filterAllOption')}</option>
+                    <option value="non-recurring">{t('utility.packages.nonRecurringFrequency')}</option>
+                    {PAYMENT_FREQUENCIES.map((item) => (
+                      <option key={item.value} value={item.value}>
+                        {t(item.labelKey)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="form-control md:col-span-1">
+                  <span className="label-text mb-1 text-xs">{t('utility.packages.filterAgeMin')}</span>
+                  <input
+                    type="number"
+                    min={0}
+                    className="input input-bordered w-full"
+                    value={filterAgeMin}
+                    onChange={(event) => setFilterAgeMin(event.target.value)}
+                  />
+                </label>
+                <label className="form-control md:col-span-1">
+                  <span className="label-text mb-1 text-xs">{t('utility.packages.filterAgeMax')}</span>
+                  <input
+                    type="number"
+                    min={0}
+                    className="input input-bordered w-full"
+                    value={filterAgeMax}
+                    onChange={(event) => setFilterAgeMax(event.target.value)}
+                  />
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {filteredProducts.length === 0 ? (
             <p className="text-sm opacity-70">{t('utility.packages.empty')}</p>
           ) : (
             <DataTable table={table} />
@@ -978,12 +1495,144 @@ function PackagesPage() {
         </div>
       </div>
 
+      {isEditionsModalOpen && selectedProductId && (
+        <dialog className="modal modal-open">
+          <div className="modal-box max-w-4xl space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-lg font-semibold">Edizioni prodotto</h3>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={() => openCreateEditionFromProduct(selectedProductId)}
+              >
+                Nuova edizione
+              </button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="table table-zebra table-sm">
+                <thead>
+                  <tr>
+                    <th>Anno</th>
+                    <th>Nome</th>
+                    <th>{t('utility.packages.paymentFrequencyLabel')}</th>
+                    <th>{t('utility.packages.pricePerPeriodLabel')}</th>
+                    <th className="text-right">{t('utility.categories.actions')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedProductEditions.map((edition) => (
+                    <tr key={edition.id}>
+                      <td>{edition.editionYear}</td>
+                      <td>{edition.name}</td>
+                      <td>{formatPackageFrequency(edition)}</td>
+                      <td>{formatPackagePriceByPeriod(edition)}</td>
+                      <td>
+                        <div className="flex justify-end gap-1">
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm px-1 text-warning"
+                            onClick={() => openEditModal(edition)}
+                            aria-label={t('utility.categories.edit')}
+                          >
+                            <SquarePen className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm px-1 text-error"
+                            onClick={() => handleDelete(edition)}
+                            aria-label={t('utility.categories.delete')}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {selectedProductEditions.length === 0 && <p className="text-sm opacity-70">Nessuna edizione presente.</p>}
+            <div className="modal-action">
+              <button type="button" className="btn btn-ghost" onClick={closeEditionsModal}>
+                {t('utility.categories.cancelEdit')}
+              </button>
+            </div>
+          </div>
+          <button type="button" className="modal-backdrop" onClick={closeEditionsModal} />
+        </dialog>
+      )}
+
+      {isPriorityModalOpen && (
+        <dialog className="modal modal-open">
+          <div className="modal-box max-w-2xl space-y-4">
+            <h3 className="text-lg font-semibold">{t('utility.packages.columnPriorityModalTitle')}</h3>
+            <p className="text-sm opacity-70">{t('utility.packages.columnPriorityModalHelp')}</p>
+
+            <div className="space-y-2">
+              {priorityDraftOrder.map((columnId, index) => {
+                const isHigh = priorityDraftHighColumns.includes(columnId)
+                return (
+                  <div key={`priority-${columnId}`} className="grid items-center gap-2 rounded-lg border border-base-300 p-2 md:grid-cols-[1fr_auto_auto_auto]">
+                    <span className="text-sm">{columnLabelById[columnId]}</span>
+                    <label className="label cursor-pointer justify-start gap-2 p-0">
+                      <span className="label-text text-xs">{t('utility.packages.columnPriorityHighLabel')}</span>
+                      <input
+                        type="checkbox"
+                        className="toggle toggle-sm"
+                        checked={isHigh}
+                        onChange={(event) =>
+                          setPriorityDraftHighColumns((prev) =>
+                            event.target.checked ? [...new Set([...prev, columnId])] : prev.filter((item) => item !== columnId),
+                          )
+                        }
+                      />
+                    </label>
+                    <div className="flex gap-1">
+                      <button type="button" className="btn btn-ghost btn-xs" disabled={index === 0} onClick={() => movePriorityItem(columnId, 'up')}>
+                        {t('utility.packages.columnMoveUp')}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-xs"
+                        disabled={index === priorityDraftOrder.length - 1}
+                        onClick={() => movePriorityItem(columnId, 'down')}
+                      >
+                        {t('utility.packages.columnMoveDown')}
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            <div className="modal-action">
+              <button type="button" className="btn btn-ghost" onClick={() => setIsPriorityModalOpen(false)}>
+                {t('utility.categories.cancelEdit')}
+              </button>
+              <button type="button" className="btn btn-primary" onClick={applyPriorityModal}>
+                {t('common.save')}
+              </button>
+            </div>
+          </div>
+          <button type="button" className="modal-backdrop" onClick={() => setIsPriorityModalOpen(false)} />
+        </dialog>
+      )}
+
       {isModalOpen && (
         <dialog className="modal modal-open">
           <div className="modal-box h-screen w-screen max-w-none space-y-4 rounded-none">
             <h3 className="text-lg font-semibold">
               {modalMode === 'create' ? t('utility.packages.create') : t('utility.categories.saveEdit')}
             </h3>
+            {message && (
+              <p
+                className={`rounded-lg px-3 py-2 text-sm ${
+                  isError ? 'bg-error/15 text-error' : 'bg-success/15 text-success'
+                }`}
+              >
+                {message}
+              </p>
+            )}
 
             <div>
               <div className="tabs tabs-lift">
@@ -1045,6 +1694,13 @@ function PackagesPage() {
                 </button>
                 <button
                   type="button"
+                  className={`tab ${activeTab === 'contract' ? 'tab-active' : ''}`}
+                  onClick={() => setActiveTab('contract')}
+                >
+                  {t('utility.packages.contractTab')}
+                </button>
+                <button
+                  type="button"
                   className={`tab ${activeTab === 'whatsapp' ? 'tab-active' : ''}`}
                   onClick={() => setActiveTab('whatsapp')}
                 >
@@ -1055,6 +1711,39 @@ function PackagesPage() {
                 {activeTab === 'general-info' && (
                   <div className="grid gap-5 md:grid-cols-12">
                     <div className="space-y-4 md:col-span-9">
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <label className="form-control">
+                          <span className="label-text mb-1 text-xs">Codice prodotto</span>
+                          <input
+                            className="input input-bordered w-full mb-4"
+                            value={draft.productId}
+                            onChange={(event) =>
+                              setDraft((prev) => ({
+                                ...prev,
+                                productId: normalizeProductId(event.target.value),
+                              }))
+                            }
+                            placeholder="product-calcio-u14"
+                          />
+                        </label>
+                        <label className="form-control">
+                          <span className="label-text mb-1 text-xs">Anno edizione</span>
+                          <input
+                            type="number"
+                            min={2000}
+                            max={2100}
+                            className="input input-bordered w-full mb-4"
+                            value={draft.editionYear}
+                            onChange={(event) =>
+                              setDraft((prev) => ({
+                                ...prev,
+                                editionYear: Math.max(2000, Math.min(2100, Math.trunc(event.target.valueAsNumber || currentYear))),
+                              }))
+                            }
+                          />
+                        </label>
+                      </div>
+
                       <label className="form-control">
                         <span className="label-text mb-1 text-xs">{t('utility.packages.nameLabel')}</span>
                         <input
@@ -1084,6 +1773,22 @@ function PackagesPage() {
                           minHeightClassName="min-h-72"
                         />
                       </div>
+
+                      <label className="form-control">
+                        <span className="label-text mb-1 text-xs">Disclaimer</span>
+                        <textarea
+                          className="textarea textarea-bordered w-full mb-4"
+                          rows={3}
+                          value={draft.disclaimer}
+                          onChange={(event) =>
+                            setDraft((prev) => ({
+                              ...prev,
+                              disclaimer: event.target.value,
+                            }))
+                          }
+                          placeholder="Inserisci disclaimer per slide homepage"
+                        />
+                      </label>
 
                       <div className="space-y-2 rounded-lg border border-base-300 p-3">
                         <p className="text-xs font-medium">{t('utility.packages.ageRangeLabel')}</p>
@@ -1130,12 +1835,17 @@ function PackagesPage() {
                         <select
                           className="select select-bordered w-full"
                           value={draft.audience}
-                          onChange={(event) =>
+                          onChange={(event) => {
+                            const nextAudience = event.target.value as AudienceCode
                             setDraft((prev) => ({
                               ...prev,
-                              audience: event.target.value as AudienceCode,
+                              audience: nextAudience,
+                              groups: prev.groups.filter((group) => {
+                                const utilityGroup = platformGroups.find((item) => item.id === group.id)
+                                return utilityGroup?.audience === nextAudience
+                              }),
                             }))
-                          }
+                          }}
                         >
                           {PACKAGE_AUDIENCES.map((item) => (
                             <option key={item.value} value={item.value}>
@@ -1152,20 +1862,25 @@ function PackagesPage() {
                           value={draft.categoryId}
                           onChange={(event) => {
                             const nextCategoryId = event.target.value
-                            const nextCategoryFields = fields.filter((field) => field.categoryId === nextCategoryId)
                             setDraft((prev) => ({
                               ...prev,
                               categoryId: nextCategoryId,
-                              groups: prev.groups.filter((group) =>
-                                nextCategoryFields.some((field) => field.id === group.fieldId),
-                              ),
-                            }))
-                            setGroupDraft((prev) => ({
-                              ...prev,
-                              fieldId:
-                                nextCategoryFields.some((field) => field.id === prev.fieldId)
-                                  ? prev.fieldId
-                                  : (nextCategoryFields[0]?.id ?? ''),
+                              groups: prev.groups
+                                .map((group) => {
+                                  const utilityGroup = platformGroups.find((item) => item.id === group.id)
+                                  if (!utilityGroup) {
+                                    return null
+                                  }
+                                  const field = fieldById.get(group.fieldId)
+                                  return {
+                                    ...group,
+                                    fieldId:
+                                      field && field.categoryId === nextCategoryId
+                                        ? group.fieldId
+                                        : (fields.find((item) => item.categoryId === nextCategoryId)?.id ?? ''),
+                                  }
+                                })
+                                .filter((group): group is PackageGroup => Boolean(group)),
                             }))
                           }}
                         >
@@ -1747,71 +2462,255 @@ function PackagesPage() {
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-medium">{t('utility.packages.groupsTab')}</p>
-                      <button type="button" className="btn btn-outline btn-sm" onClick={openCreateGroupModal}>
-                        {t('utility.packages.groupsAdd')}
-                      </button>
+                    <div className="space-y-3 rounded-lg border border-base-300 p-4">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium">{t('utility.packages.groupsTab')}</p>
+                        <button
+                          type="button"
+                          className="btn btn-outline btn-sm"
+                          onClick={openCreateGroupModal}
+                          disabled={availableUtilityGroups.length === 0 || draft.groups.length >= availableUtilityGroups.length}
+                        >
+                          {t('utility.packages.groupsAdd')}
+                        </button>
+                      </div>
+                      <p className="text-xs opacity-70">{t('utility.packages.groupsSelectHint')}</p>
+
+                      {draft.groups.length === 0 ? (
+                        <p className="text-sm opacity-70">{t('utility.packages.groupsEmpty')}</p>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="table table-zebra table-sm">
+                            <thead>
+                              <tr>
+                                <th>{t('utility.packages.groupSelectLabel')}</th>
+                                <th>{t('utility.packages.groupYearRangeLabel')}</th>
+                                <th>{t('utility.packages.groupGenderLabel')}</th>
+                                <th>{t('utility.packages.groupFieldLabel')}</th>
+                                <th>{t('utility.packages.groupScheduleLabel')}</th>
+                                <th className="text-right">{t('utility.categories.actions')}</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {draft.groups.map((group, index) => {
+                                const selectedUtilityGroup = platformGroups.find((item) => item.id === group.id)
+                                const groupField = fieldById.get(group.fieldId)
+                                const scheduleLines = formatGroupScheduleSummary(group.schedules)
+                                return (
+                                  <tr key={`pkg-group-row-${index}`}>
+                                    <td>{selectedUtilityGroup?.title ?? group.title}</td>
+                                    <td>
+                                      {group.birthYearMin === group.birthYearMax
+                                        ? group.birthYearMin
+                                        : `${group.birthYearMin} - ${group.birthYearMax}`}
+                                    </td>
+                                    <td>
+                                      {selectedUtilityGroup?.gender === 'male'
+                                        ? t('utility.groups.genderMale')
+                                        : selectedUtilityGroup?.gender === 'female'
+                                          ? t('utility.groups.genderFemale')
+                                          : t('utility.groups.genderMixed')}
+                                    </td>
+                                    <td>{groupField?.title ?? '-'}</td>
+                                    <td>
+                                      <div className="space-y-1">
+                                        {scheduleLines.map((line) => (
+                                          <p key={`${group.id}-${line}`} className="text-xs">
+                                            {line}
+                                          </p>
+                                        ))}
+                                      </div>
+                                    </td>
+                                    <td>
+                                      <div className="flex justify-end gap-1">
+                                        <button
+                                          type="button"
+                                          className="btn btn-ghost btn-sm px-1 text-warning"
+                                          onClick={() => openEditGroupModal(index)}
+                                          aria-label={t('utility.categories.edit')}
+                                        >
+                                          <SquarePen className="h-4 w-4" />
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className="btn btn-ghost btn-sm px-1 text-error"
+                                          onClick={() =>
+                                            setDraft((prev) => ({
+                                              ...prev,
+                                              groups: prev.groups.filter((_, groupIndex) => groupIndex !== index),
+                                            }))
+                                          }
+                                          aria-label={t('utility.categories.delete')}
+                                        >
+                                          <Trash2 className="h-4 w-4" />
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
                     </div>
 
-                    {draft.groups.length === 0 ? (
-                      <p className="text-sm opacity-70">{t('utility.packages.groupsEmpty')}</p>
-                    ) : (
-                      <div className="overflow-x-auto rounded-lg border border-base-300">
-                        <table className="table">
-                          <thead>
-                            <tr>
-                              <th>{t('utility.packages.groupTitleLabel')}</th>
-                              <th>{t('utility.packages.groupFieldLabel')}</th>
-                              <th>{t('utility.packages.groupYearRangeLabel')}</th>
-                              <th>{t('utility.packages.groupScheduleLabel')}</th>
-                              <th className="text-right">{t('utility.categories.actions')}</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {draft.groups.map((group) => (
-                              <tr key={group.id}>
-                                <td>{group.title}</td>
-                                <td>{fieldLabelById.get(group.fieldId) ?? '-'}</td>
-                                <td>
-                                  {group.birthYearMin === group.birthYearMax
-                                    ? group.birthYearMin
-                                    : `${group.birthYearMin} - ${group.birthYearMax}`}
-                                </td>
-                                <td>
-                                  <div className="space-y-1">
-                                    {formatGroupSchedules(group.schedules).map((line, index) => (
-                                      <p key={`${group.id}-${index}`} className="text-sm">
-                                        {line}
-                                      </p>
-                                    ))}
-                                  </div>
-                                </td>
-                                <td>
-                                  <div className="flex justify-end gap-2">
-                                    <button
-                                      type="button"
-                                      className="btn btn-ghost btn-sm px-2 text-warning"
-                                      onClick={() => openEditGroupModal(group)}
-                                      aria-label={t('utility.categories.edit')}
+                    {isGroupModalOpen && (
+                      <dialog className="modal modal-open">
+                        <div className="modal-box max-w-3xl space-y-4">
+                          <h4 className="text-lg font-semibold">
+                            {groupModalMode === 'create' ? t('utility.packages.groupsAdd') : t('utility.categories.saveEdit')}
+                          </h4>
+                          <label className="form-control mb-4">
+                            <span className="label-text mb-1 text-xs">{t('utility.packages.groupSelectLabel')}</span>
+                            <select
+                              className="select select-bordered w-full mb-4"
+                              value={groupDraft.id}
+                              onChange={(event) => {
+                                const next = availableUtilityGroups.find((item) => item.id === event.target.value)
+                                if (!next) {
+                                  return
+                                }
+                                setGroupDraft((prev) => ({
+                                  ...prev,
+                                  id: next.id,
+                                  title: next.title,
+                                  birthYearMin: next.birthYearMin,
+                                  birthYearMax: next.birthYearMax,
+                                }))
+                              }}
+                            >
+                              {availableUtilityGroups
+                                .filter((item) => {
+                                  if (item.id === groupDraft.id) {
+                                    return true
+                                  }
+                                  return !draft.groups.some((group, index) => {
+                                    if (groupModalMode === 'edit' && editingGroupIndex === index) {
+                                      return false
+                                    }
+                                    return group.id === item.id
+                                  })
+                                })
+                                .map((item) => (
+                                  <option key={item.id} value={item.id}>
+                                    {item.title}
+                                  </option>
+                                ))}
+                            </select>
+                          </label>
+
+                          <label className="form-control mb-4">
+                            <span className="label-text mb-1 text-xs">{t('utility.packages.groupFieldLabel')}</span>
+                            <select
+                              className="select select-bordered w-full mb-4"
+                              value={groupDraft.fieldId}
+                              onChange={(event) =>
+                                setGroupDraft((prev) => ({
+                                  ...prev,
+                                  fieldId: event.target.value,
+                                }))
+                              }
+                            >
+                              {categoryFields.length === 0 && (
+                                <option value="">{t('utility.packages.noFieldOption')}</option>
+                              )}
+                              {categoryFields.map((field) => (
+                                <option key={field.id} value={field.id}>
+                                  {field.title}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+
+                          <div className="space-y-2 rounded-lg border border-base-300 p-3">
+                            <div className="flex items-center justify-between">
+                              <p className="text-xs font-medium">{t('utility.packages.groupScheduleLabel')}</p>
+                              <button
+                                type="button"
+                                className="btn btn-outline btn-xs"
+                                onClick={() =>
+                                  setGroupDraft((prev) => ({
+                                    ...prev,
+                                    schedules: [...prev.schedules, createPackageGroupSchedule()],
+                                  }))
+                                }
+                              >
+                                {t('utility.packages.groupScheduleAdd')}
+                              </button>
+                            </div>
+                            <div className="space-y-2">
+                              {groupDraft.schedules.map((schedule) => (
+                                <div key={schedule.id} className="grid items-end gap-3 sm:grid-cols-[1fr_1fr_auto]">
+                                  <label className="form-control mb-4">
+                                    <span className="label-text mb-1 text-xs">{t('utility.packages.groupWeekdayLabel')}</span>
+                                    <select
+                                      className="select select-bordered w-full mb-4"
+                                      value={schedule.weekday}
+                                      onChange={(event) =>
+                                        setGroupDraft((prev) => ({
+                                          ...prev,
+                                          schedules: prev.schedules.map((entry) =>
+                                            entry.id === schedule.id ? { ...entry, weekday: Number(event.target.value) } : entry,
+                                          ),
+                                        }))
+                                      }
                                     >
-                                      <SquarePen className="h-4 w-4" />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      className="btn btn-ghost btn-sm px-2 text-error"
-                                      onClick={() => deleteGroup(group)}
-                                      aria-label={t('utility.categories.delete')}
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
+                                      {WEEK_DAYS.map((day) => (
+                                        <option key={day.value} value={day.value}>
+                                          {t(day.labelKey)}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </label>
+                                  <label className="form-control mb-4">
+                                    <span className="label-text mb-1 text-xs">{t('utility.packages.groupTimeLabel')}</span>
+                                    <input
+                                      type="time"
+                                      className="input input-bordered w-full mb-4"
+                                      value={schedule.time}
+                                      onChange={(event) =>
+                                        setGroupDraft((prev) => ({
+                                          ...prev,
+                                          schedules: prev.schedules.map((entry) =>
+                                            entry.id === schedule.id ? { ...entry, time: event.target.value } : entry,
+                                          ),
+                                        }))
+                                      }
+                                    />
+                                  </label>
+                                  <button
+                                    type="button"
+                                    className="btn btn-ghost btn-xs px-1 text-error"
+                                    disabled={groupDraft.schedules.length <= 1}
+                                    onClick={() =>
+                                      setGroupDraft((prev) => ({
+                                        ...prev,
+                                        schedules:
+                                          prev.schedules.length > 1
+                                            ? prev.schedules.filter((entry) => entry.id !== schedule.id)
+                                            : prev.schedules,
+                                      }))
+                                    }
+                                  >
+                                    {t('utility.packages.groupScheduleRemove')}
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="modal-action">
+                            <button type="button" className="btn btn-ghost" onClick={closeGroupModal}>
+                              {t('utility.categories.cancelEdit')}
+                            </button>
+                            <button type="button" className="btn btn-primary" onClick={saveGroupModal}>
+                              {groupModalMode === 'create' ? t('utility.packages.groupsAdd') : t('utility.categories.saveEdit')}
+                            </button>
+                          </div>
+                        </div>
+                        <button type="button" className="modal-backdrop" onClick={closeGroupModal} />
+                      </dialog>
                     )}
                   </div>
                 )}
@@ -1860,6 +2759,21 @@ function PackagesPage() {
                 )}
                 {activeTab === 'whatsapp' && (
                   <div className="max-w-3xl space-y-4">
+                    <label className="form-control">
+                      <span className="label-text mb-1 text-xs">{t('utility.packages.whatsappGroupLinkLabel')}</span>
+                      <input
+                        className="input input-bordered w-full mb-4"
+                        value={draft.whatsappGroupLink}
+                        onChange={(event) =>
+                          setDraft((prev) => ({
+                            ...prev,
+                            whatsappGroupLink: event.target.value,
+                          }))
+                        }
+                        placeholder={t('utility.packages.whatsappGroupLinkPlaceholder')}
+                      />
+                    </label>
+
                     <div className="flex items-center justify-between">
                       <p className="text-sm font-medium">{t('utility.packages.whatsappAccountsLabel')}</p>
                       <button
@@ -1892,7 +2806,7 @@ function PackagesPage() {
                             <label className="form-control">
                               <span className="label-text mb-1 text-xs">{t('utility.packages.whatsappAccountSelectLabel')}</span>
                               <select
-                                className="select select-bordered w-full"
+                                className="select select-bordered w-full mb-4"
                                 value={accountId}
                                 onChange={(event) =>
                                   setDraft((prev) => ({
@@ -1924,7 +2838,7 @@ function PackagesPage() {
                             </label>
                             <button
                               type="button"
-                              className="btn btn-ghost btn-sm text-error"
+                              className="btn btn-ghost btn-sm px-1 text-error"
                               onClick={() =>
                                 setDraft((prev) => ({
                                   ...prev,
@@ -1990,7 +2904,7 @@ function PackagesPage() {
                             </label>
                             <button
                               type="button"
-                              className="btn btn-ghost btn-sm text-error"
+                              className="btn btn-ghost btn-sm px-1 text-error"
                               onClick={() =>
                                 setDraft((prev) => ({
                                   ...prev,
@@ -2004,6 +2918,70 @@ function PackagesPage() {
                         ))}
                       </div>
                     )}
+                  </div>
+                )}
+                {activeTab === 'contract' && (
+                  <div className="max-w-4xl space-y-4">
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium">{t('utility.packages.contractHeaderImageLabel')}</p>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="file-input file-input-bordered w-full"
+                        onChange={handleContractHeaderImageUpload}
+                      />
+                      {draft.contractHeaderImage && (
+                        <div className="space-y-2 rounded-lg border border-base-300 p-3">
+                          <img
+                            src={draft.contractHeaderImage}
+                            alt={t('utility.packages.contractHeaderImageLabel')}
+                            className="h-32 w-full rounded object-cover md:h-40"
+                          />
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-xs text-error"
+                            onClick={() =>
+                              setDraft((prev) => ({
+                                ...prev,
+                                contractHeaderImage: '',
+                              }))
+                            }
+                          >
+                            {t('utility.packages.contractHeaderImageRemove')}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    <label className="form-control">
+                      <span className="label-text mb-1 text-xs">{t('utility.packages.contractHeaderTextLabel')}</span>
+                      <input
+                        className="input input-bordered w-full"
+                        value={draft.contractHeaderText}
+                        onChange={(event) =>
+                          setDraft((prev) => ({
+                            ...prev,
+                            contractHeaderText: event.target.value,
+                          }))
+                        }
+                        placeholder={t('utility.packages.contractHeaderTextPlaceholder')}
+                      />
+                    </label>
+
+                    <div className="form-control">
+                      <span className="label-text mb-1 text-xs">{t('utility.packages.contractRegulationLabel')}</span>
+                      <RichTextEditor
+                        value={draft.contractRegulation}
+                        onChange={(nextValue) =>
+                          setDraft((prev) => ({
+                            ...prev,
+                            contractRegulation: nextValue,
+                          }))
+                        }
+                        placeholder={t('utility.packages.contractRegulationPlaceholder')}
+                        minHeightClassName="min-h-64"
+                      />
+                    </div>
                   </div>
                 )}
                 {activeTab === 'additional-services' && (
@@ -2100,7 +3078,7 @@ function PackagesPage() {
                               </label>
                               <button
                                 type="button"
-                                className="btn btn-ghost btn-sm text-error"
+                                className="btn btn-ghost btn-sm px-1 text-error"
                                 onClick={() =>
                                   setDraft((prev) => ({
                                     ...prev,
@@ -2204,7 +3182,7 @@ function PackagesPage() {
                               </label>
                               <button
                                 type="button"
-                                className="btn btn-ghost btn-sm text-error"
+                                className="btn btn-ghost btn-sm px-1 text-error"
                                 onClick={() =>
                                   setDraft((prev) => ({
                                     ...prev,
@@ -2226,177 +3204,8 @@ function PackagesPage() {
               </div>
             </div>
 
-            {groupModalMode && (
-              <dialog className="modal modal-open">
-                <div className="modal-box max-w-3xl space-y-4">
-                  <h4 className="text-base font-semibold">
-                    {groupModalMode === 'create' ? t('utility.packages.groupsAdd') : t('utility.categories.saveEdit')}
-                  </h4>
-
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <label className="form-control sm:col-span-2">
-                      <span className="label-text mb-1 text-xs">{t('utility.packages.groupTitleLabel')}</span>
-                      <input
-                        className="input input-bordered w-full"
-                        value={groupDraft.title}
-                        onChange={(event) =>
-                          setGroupDraft((prev) => ({
-                            ...prev,
-                            title: event.target.value,
-                          }))
-                        }
-                        placeholder={t('utility.packages.groupTitlePlaceholder')}
-                      />
-                    </label>
-                    <label className="form-control sm:col-span-2">
-                      <span className="label-text mb-1 text-xs">{t('utility.packages.groupFieldLabel')}</span>
-                      <select
-                        className="select select-bordered w-full"
-                        value={groupDraft.fieldId}
-                        onChange={(event) =>
-                          setGroupDraft((prev) => ({
-                            ...prev,
-                            fieldId: event.target.value,
-                          }))
-                        }
-                      >
-                        {availableGroupFields.length === 0 && (
-                          <option value="">{t('utility.packages.noFieldOption')}</option>
-                        )}
-                        {availableGroupFields.map((field) => (
-                          <option key={field.id} value={field.id}>
-                            {field.title}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="form-control">
-                      <span className="label-text mb-1 text-xs">{t('utility.packages.groupYearMinLabel')}</span>
-                      <input
-                        type="number"
-                        min={1900}
-                        max={2100}
-                        className="input input-bordered w-full"
-                        value={groupDraft.birthYearMin}
-                        onChange={(event) =>
-                          setGroupDraft((prev) => ({
-                            ...prev,
-                            birthYearMin: Math.max(1900, Math.trunc(event.target.valueAsNumber || 1900)),
-                          }))
-                        }
-                      />
-                    </label>
-                    <label className="form-control">
-                      <span className="label-text mb-1 text-xs">{t('utility.packages.groupYearMaxLabel')}</span>
-                      <input
-                        type="number"
-                        min={1900}
-                        max={2100}
-                        className="input input-bordered w-full"
-                        value={groupDraft.birthYearMax}
-                        onChange={(event) =>
-                          setGroupDraft((prev) => ({
-                            ...prev,
-                            birthYearMax: Math.max(1900, Math.trunc(event.target.valueAsNumber || 1900)),
-                          }))
-                        }
-                      />
-                    </label>
-                  </div>
-
-                  <div className="space-y-2 rounded-lg border border-base-300 p-3">
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs font-medium">{t('utility.packages.groupScheduleLabel')}</p>
-                      <button
-                        type="button"
-                        className="btn btn-outline btn-xs"
-                        onClick={() =>
-                          setGroupDraft((prev) => ({
-                            ...prev,
-                            schedules: [...prev.schedules, createEmptyGroupSchedule()],
-                          }))
-                        }
-                      >
-                        {t('utility.packages.groupScheduleAdd')}
-                      </button>
-                    </div>
-
-                    <div className="space-y-2">
-                      {groupDraft.schedules.map((schedule) => (
-                        <div key={schedule.id} className="grid items-end gap-3 sm:grid-cols-[1fr_1fr_auto]">
-                          <label className="form-control">
-                            <span className="label-text mb-1 text-xs">{t('utility.packages.groupWeekdayLabel')}</span>
-                            <select
-                              className="select select-bordered w-full"
-                              value={schedule.weekday}
-                              onChange={(event) =>
-                                setGroupDraft((prev) => ({
-                                  ...prev,
-                                  schedules: prev.schedules.map((entry) =>
-                                    entry.id === schedule.id ? { ...entry, weekday: Number(event.target.value) } : entry,
-                                  ),
-                                }))
-                              }
-                            >
-                              {WEEK_DAYS.map((day) => (
-                                <option key={day.value} value={day.value}>
-                                  {t(day.labelKey)}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                          <label className="form-control">
-                            <span className="label-text mb-1 text-xs">{t('utility.packages.groupTimeLabel')}</span>
-                            <input
-                              type="time"
-                              className="input input-bordered w-full"
-                              value={schedule.time}
-                              onChange={(event) =>
-                                setGroupDraft((prev) => ({
-                                  ...prev,
-                                  schedules: prev.schedules.map((entry) =>
-                                    entry.id === schedule.id ? { ...entry, time: event.target.value } : entry,
-                                  ),
-                                }))
-                              }
-                            />
-                          </label>
-                          <button
-                            type="button"
-                            className="btn btn-ghost btn-xs text-error"
-                            disabled={groupDraft.schedules.length <= 1}
-                            onClick={() =>
-                              setGroupDraft((prev) => ({
-                                ...prev,
-                                schedules:
-                                  prev.schedules.length > 1
-                                    ? prev.schedules.filter((entry) => entry.id !== schedule.id)
-                                    : prev.schedules,
-                              }))
-                            }
-                          >
-                            {t('utility.packages.groupScheduleRemove')}
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="modal-action gap-3">
-                    <button type="button" className="btn btn-ghost" onClick={closeGroupModal}>
-                      {t('utility.categories.cancelEdit')}
-                    </button>
-                    <button type="button" className="btn btn-primary" onClick={saveGroupModal}>
-                      {groupModalMode === 'create' ? t('utility.packages.groupsAdd') : t('utility.categories.saveEdit')}
-                    </button>
-                  </div>
-                </div>
-                <button type="button" className="modal-backdrop" onClick={closeGroupModal} />
-              </dialog>
-            )}
-
             <div className="modal-action gap-3">
-              <button type="button" className="btn btn-ghost" onClick={() => setIsModalOpen(false)}>
+              <button type="button" className="btn btn-ghost" onClick={closePackageModal}>
                 {t('utility.categories.cancelEdit')}
               </button>
               <button type="button" className="btn btn-primary" onClick={handleSubmit}>
@@ -2407,7 +3216,7 @@ function PackagesPage() {
           <button
             type="button"
             className="modal-backdrop"
-            onClick={() => setIsModalOpen(false)}
+            onClick={closePackageModal}
             aria-label={t('utility.categories.cancelEdit')}
           />
         </dialog>

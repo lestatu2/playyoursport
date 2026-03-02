@@ -19,6 +19,15 @@ export type PackageGroup = {
   fieldId: string
   schedules: PackageGroupSchedule[]
 }
+export type GroupGender = 'male' | 'female' | 'mixed'
+export type UtilityGroup = {
+  id: string
+  title: string
+  audience: AudienceCode
+  gender: GroupGender
+  birthYearMin: number
+  birthYearMax: number
+}
 export type PackageGalleryImage = {
   id: string
   src: string
@@ -107,17 +116,21 @@ export type PackageAdditionalServiceSelection = {
 
 export type SportPackage = {
   id: string
+  productId: string
+  editionYear: number
   categoryId: string
   companyId: string
   enrollmentId: string
   enrollmentPrice: number
   trainerIds: number[]
   whatsappAccountIds: string[]
+  whatsappGroupLink: string
   additionalFixedServices: PackageAdditionalServiceSelection[]
   additionalVariableServices: PackageAdditionalServiceSelection[]
   audience: AudienceCode
   name: string
   description: string
+  disclaimer: string
   ageMin: number
   ageMax: number
   durationType: PackageDurationType
@@ -137,6 +150,9 @@ export type SportPackage = {
   trainingAddress: string
   entriesCount: number | null
   userSelectableSchedule: boolean
+  contractHeaderImage: string
+  contractHeaderText: string
+  contractRegulation: string
   featuredImage: string
   isFeatured: boolean
   isDescriptive: boolean
@@ -146,6 +162,7 @@ export type SportPackage = {
 type MockPackageCatalog = {
   sportCategories: PackageCategory[]
   fields: SportField[]
+  groups: UtilityGroup[]
   enrollments: EnrollmentType[]
   whatsappAccounts: WhatsAppAccount[]
   additionalServices: AdditionalService[]
@@ -156,6 +173,7 @@ type MockPackageCatalog = {
 type StoredPackageCatalog = Partial<{
   sportCategories: PackageCategory[]
   fields: SportField[]
+  groups: UtilityGroup[]
   enrollments: EnrollmentType[]
   whatsappAccounts: WhatsAppAccount[]
   additionalServices: AdditionalService[]
@@ -183,6 +201,18 @@ export type SaveFieldPayload = {
 export type SaveFieldResult =
   | { ok: true; field: SportField }
   | { ok: false; error: 'invalid' | 'categoryNotFound' | 'notFound' | 'fieldInUse' }
+
+export type SaveGroupPayload = {
+  title: string
+  audience: AudienceCode
+  gender: GroupGender
+  birthYearMin: number
+  birthYearMax: number
+}
+
+export type SaveGroupResult =
+  | { ok: true; group: UtilityGroup }
+  | { ok: false; error: 'invalid' | 'fieldNotFound' | 'notFound' | 'groupInUse' }
 
 export type SaveEnrollmentPayload = {
   title: string
@@ -251,14 +281,18 @@ export type RemoveCompanyResult =
   | { ok: false; error: 'notFound' | 'companyInUse' }
 
 export type SavePackagePayload = {
+  productId: string
+  editionYear: number
   name: string
   description: string
+  disclaimer: string
   categoryId: string
   companyId: string
   enrollmentId: string
   enrollmentPrice: number
   trainerIds: number[]
   whatsappAccountIds: string[]
+  whatsappGroupLink: string
   additionalFixedServices: PackageAdditionalServiceSelection[]
   additionalVariableServices: PackageAdditionalServiceSelection[]
   audience: AudienceCode
@@ -281,6 +315,9 @@ export type SavePackagePayload = {
   trainingAddress: string
   entriesCount: number | null
   userSelectableSchedule: boolean
+  contractHeaderImage: string
+  contractHeaderText: string
+  contractRegulation: string
   featuredImage: string
   isFeatured: boolean
   isDescriptive: boolean
@@ -292,6 +329,8 @@ export type SavePackageResult =
       ok: false
       error:
         | 'invalid'
+        | 'invalidEdition'
+        | 'duplicateEditionYear'
         | 'invalidAgeRange'
         | 'invalidDuration'
         | 'invalidPayment'
@@ -309,6 +348,8 @@ export type UpdatePackageResult =
       ok: false
       error:
         | 'invalid'
+        | 'invalidEdition'
+        | 'duplicateEditionYear'
         | 'invalidAgeRange'
         | 'invalidDuration'
         | 'invalidPayment'
@@ -352,6 +393,7 @@ function readStoredCatalog(): StoredPackageCatalog {
 function writeStoredCatalog(value: {
   sportCategories: PackageCategory[]
   fields: SportField[]
+  groups: UtilityGroup[]
   enrollments: EnrollmentType[]
   whatsappAccounts: WhatsAppAccount[]
   additionalServices: AdditionalService[]
@@ -365,6 +407,7 @@ function writeStoredCatalog(value: {
 function getStoredCatalog(): {
   sportCategories: PackageCategory[]
   fields: SportField[]
+  groups: UtilityGroup[]
   enrollments: EnrollmentType[]
   whatsappAccounts: WhatsAppAccount[]
   additionalServices: AdditionalService[]
@@ -374,6 +417,7 @@ function getStoredCatalog(): {
   const stored = readStoredCatalog()
   const baseCategories = stored.sportCategories ?? packageDefaults.sportCategories
   const baseFields = stored.fields ?? packageDefaults.fields ?? []
+  const baseGroups = stored.groups ?? packageDefaults.groups ?? []
   const baseEnrollments = stored.enrollments ?? packageDefaults.enrollments ?? []
   const baseWhatsAppAccounts = stored.whatsappAccounts ?? packageDefaults.whatsappAccounts ?? []
   const baseAdditionalServices = stored.additionalServices ?? packageDefaults.additionalServices ?? []
@@ -390,6 +434,15 @@ function getStoredCatalog(): {
       title: field.title ?? '',
       description: field.description ?? '',
       categoryId: field.categoryId ?? '',
+    })),
+    groups: baseGroups.map((group) => ({
+      ...group,
+      title: group.title ?? '',
+      audience: group.audience === 'youth' ? 'youth' : 'adult',
+      gender:
+        group.gender === 'female' ? 'female' : group.gender === 'mixed' ? 'mixed' : 'male',
+      birthYearMin: Number.isFinite(group.birthYearMin) ? Math.trunc(group.birthYearMin) : 2014,
+      birthYearMax: Number.isFinite(group.birthYearMax) ? Math.trunc(group.birthYearMax) : 2014,
     })),
     enrollments: baseEnrollments.map((enrollment) => ({
       ...enrollment,
@@ -434,57 +487,72 @@ function getStoredCatalog(): {
       consentInformationNotice: company.consentInformationNotice ?? '',
       consentDataProcessing: company.consentDataProcessing ?? '',
     })),
-    packages: basePackages.map((item) => ({
-      ...defaultAgeRangeByAudience(item.audience),
-      ...normalizePackageDuration({
-        durationType: item.durationType ?? 'single-event',
-        eventDate: item.eventDate ?? '',
-        eventTime: item.eventTime ?? '',
-        periodStartDate: item.periodStartDate ?? '',
-        periodEndDate: item.periodEndDate ?? '',
+    packages: basePackages.map((item) =>
+      applyKnownPackageMigrations({
+        ...defaultAgeRangeByAudience(item.audience),
+        ...normalizePackageDuration({
+          durationType: item.durationType ?? 'single-event',
+          eventDate: item.eventDate ?? '',
+          eventTime: item.eventTime ?? '',
+          periodStartDate: item.periodStartDate ?? '',
+          periodEndDate: item.periodEndDate ?? '',
+        }),
+        ...normalizePackagePayment({
+          recurringPaymentEnabled: item.recurringPaymentEnabled ?? false,
+          paymentFrequency: item.paymentFrequency ?? 'monthly',
+          priceAmount: item.priceAmount ?? 0,
+          monthlyDueDay: item.monthlyDueDay ?? null,
+          monthlyNextCycleOpenDay: item.monthlyNextCycleOpenDay ?? null,
+          weeklyDueWeekday: item.weeklyDueWeekday ?? null,
+          firstPaymentOnSite: item.firstPaymentOnSite ?? false,
+        }),
+        ...normalizePackageEntries({
+          recurringPaymentEnabled: item.recurringPaymentEnabled ?? false,
+          paymentFrequency: item.paymentFrequency ?? 'monthly',
+          entriesCount: item.entriesCount ?? null,
+        }),
+        ...item,
+        productId:
+          typeof item.productId === 'string' && item.productId.trim().length > 0
+            ? item.productId.trim()
+            : `product-${normalizeCode(item.name ?? item.id ?? '').slice(0, 40) || item.id}`,
+        editionYear:
+          Number.isInteger(item.editionYear) && Number(item.editionYear) >= 2000 && Number(item.editionYear) <= 2100
+            ? Number(item.editionYear)
+            : inferEditionYear(item),
+        gallery: normalizePackageGallery(item.gallery),
+        groups: normalizePackageGroups(item.groups),
+        description: item.description ?? '',
+        disclaimer: item.disclaimer ?? '',
+        featuredImage: item.featuredImage ?? '',
+        companyId: item.companyId ?? '',
+        enrollmentId: item.enrollmentId ?? '',
+        enrollmentPrice: Number.isFinite(item.enrollmentPrice) ? Number(item.enrollmentPrice) : 0,
+        trainerIds: normalizePackageTrainers(item.trainerIds),
+        whatsappAccountIds: normalizePackageWhatsAppAccountIds(item.whatsappAccountIds),
+        whatsappGroupLink: item.whatsappGroupLink ?? '',
+        additionalFixedServices: normalizePackageAdditionalServices(
+          (item as { additionalFixedServices?: unknown }).additionalFixedServices ??
+            (item as { additionalFixedServiceIds?: unknown }).additionalFixedServiceIds,
+        ),
+        additionalVariableServices: normalizePackageAdditionalServices(
+          (item as { additionalVariableServices?: unknown }).additionalVariableServices ??
+            (item as { additionalVariableServiceIds?: unknown }).additionalVariableServiceIds,
+        ),
+        ageMin: item.ageMin ?? defaultAgeRangeByAudience(item.audience).ageMin,
+        ageMax: item.ageMax ?? defaultAgeRangeByAudience(item.audience).ageMax,
+        isFeatured: item.isFeatured ?? false,
+        isDescriptive: item.isDescriptive ?? false,
+        trainingAddress: item.trainingAddress ?? '',
+        entriesCount:
+          item.entriesCount ??
+          (item.recurringPaymentEnabled && item.paymentFrequency === 'daily' ? null : 1),
+        userSelectableSchedule: item.userSelectableSchedule ?? false,
+        contractHeaderImage: item.contractHeaderImage ?? '',
+        contractHeaderText: item.contractHeaderText ?? '',
+        contractRegulation: item.contractRegulation ?? '',
       }),
-      ...normalizePackagePayment({
-        recurringPaymentEnabled: item.recurringPaymentEnabled ?? false,
-        paymentFrequency: item.paymentFrequency ?? 'monthly',
-        priceAmount: item.priceAmount ?? 0,
-        monthlyDueDay: item.monthlyDueDay ?? null,
-        monthlyNextCycleOpenDay: item.monthlyNextCycleOpenDay ?? null,
-        weeklyDueWeekday: item.weeklyDueWeekday ?? null,
-        firstPaymentOnSite: item.firstPaymentOnSite ?? false,
-      }),
-      ...normalizePackageEntries({
-        recurringPaymentEnabled: item.recurringPaymentEnabled ?? false,
-        paymentFrequency: item.paymentFrequency ?? 'monthly',
-        entriesCount: item.entriesCount ?? null,
-      }),
-      ...item,
-      gallery: normalizePackageGallery(item.gallery),
-      groups: normalizePackageGroups(item.groups),
-      description: item.description ?? '',
-      featuredImage: item.featuredImage ?? '',
-      companyId: item.companyId ?? '',
-      enrollmentId: item.enrollmentId ?? '',
-      enrollmentPrice: Number.isFinite(item.enrollmentPrice) ? Number(item.enrollmentPrice) : 0,
-      trainerIds: normalizePackageTrainers(item.trainerIds),
-      whatsappAccountIds: normalizePackageWhatsAppAccountIds(item.whatsappAccountIds),
-      additionalFixedServices: normalizePackageAdditionalServices(
-        (item as { additionalFixedServices?: unknown }).additionalFixedServices ??
-          (item as { additionalFixedServiceIds?: unknown }).additionalFixedServiceIds,
-      ),
-      additionalVariableServices: normalizePackageAdditionalServices(
-        (item as { additionalVariableServices?: unknown }).additionalVariableServices ??
-          (item as { additionalVariableServiceIds?: unknown }).additionalVariableServiceIds,
-      ),
-      ageMin: item.ageMin ?? defaultAgeRangeByAudience(item.audience).ageMin,
-      ageMax: item.ageMax ?? defaultAgeRangeByAudience(item.audience).ageMax,
-      isFeatured: item.isFeatured ?? false,
-      isDescriptive: item.isDescriptive ?? false,
-      trainingAddress: item.trainingAddress ?? '',
-      entriesCount:
-        item.entriesCount ??
-        (item.recurringPaymentEnabled && item.paymentFrequency === 'daily' ? null : 1),
-      userSelectableSchedule: item.userSelectableSchedule ?? false,
-    })),
+    ),
   }
 }
 
@@ -496,6 +564,79 @@ function normalizeCode(code: string): string {
     .replace(/[^a-z0-9-]/g, '')
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '')
+}
+
+function inferEditionYear(item: Partial<SportPackage>): number {
+  const currentYear = new Date().getFullYear()
+  const fromEvent = Number.parseInt((item.eventDate ?? '').slice(0, 4), 10)
+  if (Number.isInteger(fromEvent) && fromEvent >= 2000 && fromEvent <= 2100) {
+    return fromEvent
+  }
+  const fromPeriod = Number.parseInt((item.periodStartDate ?? '').slice(0, 4), 10)
+  if (Number.isInteger(fromPeriod) && fromPeriod >= 2000 && fromPeriod <= 2100) {
+    return fromPeriod
+  }
+  return currentYear
+}
+
+function applyKnownPackageMigrations(item: SportPackage): SportPackage {
+  if (item.id !== 'pkg-football-adult-base') {
+    return item
+  }
+  return {
+    ...item,
+    name: 'Football Academy',
+    audience: 'youth',
+    ageMin: 6,
+    ageMax: 17,
+    status: 'published',
+    durationType: 'period',
+    eventDate: '',
+    eventTime: '',
+    periodStartDate: '2025-09-01',
+    periodEndDate: '2026-05-31',
+    enrollmentId: 'enrollment-agonista',
+    enrollmentPrice: 40,
+    recurringPaymentEnabled: true,
+    paymentFrequency: 'monthly',
+    priceAmount: 79,
+    monthlyDueDay: 5,
+    monthlyNextCycleOpenDay: 20,
+    weeklyDueWeekday: null,
+    firstPaymentOnSite: false,
+    entriesCount: 12,
+    trainingAddress: item.trainingAddress?.trim() || 'Via dei Campi 12, Milano',
+    whatsappAccountIds: ['wa-segreteria'],
+    whatsappGroupLink: item.whatsappGroupLink?.trim() || 'https://chat.whatsapp.com/football-academy-group',
+    additionalFixedServices:
+      item.additionalFixedServices?.length > 0
+        ? item.additionalFixedServices
+        : [{ serviceId: 'service-kit-allenamento', isActive: true }],
+    additionalVariableServices:
+      item.additionalVariableServices?.length > 0
+        ? item.additionalVariableServices
+        : [{ serviceId: 'service-noleggio-attrezzatura', isActive: true }],
+    groups:
+      item.groups?.length > 0
+        ? item.groups
+        : [
+            {
+              id: 'group-youth-male-main',
+              title: 'Gruppo Ragazzi Maschi',
+              birthYearMin: 2008,
+              birthYearMax: 2016,
+              fieldId: 'field-football-main',
+              schedules: [
+                { id: 'pkg-football-sch-1', weekday: 1, time: '17:00' },
+                { id: 'pkg-football-sch-2', weekday: 3, time: '17:00' }
+              ]
+            }
+          ],
+    featuredImage: item.featuredImage?.trim() || '/images/calcio.jpg',
+    description: item.description?.trim()
+      ? item.description
+      : 'Programma academy dedicato ai ragazzi con percorso tecnico progressivo.',
+  }
 }
 
 function normalizeIban(iban: string): string {
@@ -624,6 +765,13 @@ function nextFieldId(): string {
     return `field-${crypto.randomUUID()}`
   }
   return `field-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+}
+
+function nextGroupId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return `group-${crypto.randomUUID()}`
+  }
+  return `group-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 }
 
 function nextEnrollmentId(): string {
@@ -1085,6 +1233,10 @@ export function getFields(): SportField[] {
   return getStoredCatalog().fields
 }
 
+export function getGroups(): UtilityGroup[] {
+  return getStoredCatalog().groups
+}
+
 export function getCompanies(): Company[] {
   return getStoredCatalog().companies
 }
@@ -1268,6 +1420,110 @@ export function removeField(id: string): SaveFieldResult {
     fields: catalog.fields.filter((field) => field.id !== id),
   })
   return { ok: true, field: current }
+}
+
+function normalizeAndValidateGroupPayload(
+  payload: SaveGroupPayload,
+  _categories: PackageCategory[],
+): { ok: true; data: Omit<UtilityGroup, 'id'> } | { ok: false; error: 'invalid' | 'fieldNotFound' } {
+  const title = payload.title.trim()
+  const audience: AudienceCode = payload.audience === 'youth' ? 'youth' : 'adult'
+  const gender: GroupGender =
+    payload.gender === 'female' ? 'female' : payload.gender === 'mixed' ? 'mixed' : 'male'
+  const birthYearMin = Number.isFinite(payload.birthYearMin) ? Math.trunc(payload.birthYearMin) : NaN
+  const birthYearMax = Number.isFinite(payload.birthYearMax) ? Math.trunc(payload.birthYearMax) : NaN
+  if (!title || !Number.isInteger(birthYearMin) || !Number.isInteger(birthYearMax) || birthYearMin > birthYearMax) {
+    return { ok: false, error: 'invalid' }
+  }
+
+  return {
+    ok: true,
+    data: {
+      title,
+      audience,
+      gender,
+      birthYearMin,
+      birthYearMax,
+    },
+  }
+}
+
+export function createGroup(payload: SaveGroupPayload): SaveGroupResult {
+  const catalog = getStoredCatalog()
+  const normalized = normalizeAndValidateGroupPayload(payload, catalog.sportCategories)
+  if (!normalized.ok) {
+    return normalized
+  }
+
+  const group: UtilityGroup = {
+    id: nextGroupId(),
+    ...normalized.data,
+  }
+
+  writeStoredCatalog({
+    ...catalog,
+    groups: [...catalog.groups, group],
+  })
+
+  return { ok: true, group }
+}
+
+export function updateGroup(id: string, payload: SaveGroupPayload): SaveGroupResult {
+  const catalog = getStoredCatalog()
+  const current = catalog.groups.find((item) => item.id === id)
+  if (!current) {
+    return { ok: false, error: 'notFound' }
+  }
+  const normalized = normalizeAndValidateGroupPayload(payload, catalog.sportCategories)
+  if (!normalized.ok) {
+    return normalized
+  }
+
+  const group: UtilityGroup = {
+    ...current,
+    ...normalized.data,
+  }
+
+  writeStoredCatalog({
+    ...catalog,
+    groups: catalog.groups.map((item) => (item.id === id ? group : item)),
+    packages: catalog.packages.map((item) => ({
+      ...item,
+      groups: item.groups.map((existing) =>
+        existing.id === id
+          ? {
+              id: group.id,
+              title: group.title,
+              birthYearMin: group.birthYearMin,
+              birthYearMax: group.birthYearMax,
+              fieldId: existing.fieldId,
+              schedules: existing.schedules,
+            }
+          : existing,
+      ),
+    })),
+  })
+
+  return { ok: true, group }
+}
+
+export function removeGroup(id: string): SaveGroupResult {
+  const catalog = getStoredCatalog()
+  const current = catalog.groups.find((item) => item.id === id)
+  if (!current) {
+    return { ok: false, error: 'notFound' }
+  }
+  const groupInUse = catalog.packages.some((item) => item.groups.some((group) => group.id === id))
+  if (groupInUse) {
+    return { ok: false, error: 'groupInUse' }
+  }
+
+  writeStoredCatalog({
+    ...catalog,
+    groups: catalog.groups.filter((item) => item.id !== id),
+  })
+
+  return { ok: true, group: current }
 }
 
 export function createEnrollment(payload: SaveEnrollmentPayload): SaveEnrollmentResult {
@@ -1557,6 +1813,7 @@ type NormalizedCompanyPayload = {
 type PreparedPackagePayload = {
   name: string
   description: string
+  disclaimer: string
   featuredImage: string
   duration: Pick<SportPackage, 'durationType' | 'eventDate' | 'eventTime' | 'periodStartDate' | 'periodEndDate'>
   gallery: PackageGalleryImage[]
@@ -1574,8 +1831,10 @@ type PreparedPackagePayload = {
   packageEntries: Pick<SavePackagePayload, 'entriesCount'>
   trainerIds: number[]
   whatsappAccountIds: string[]
+  whatsappGroupLink: string
   additionalFixedServices: PackageAdditionalServiceSelection[]
   additionalVariableServices: PackageAdditionalServiceSelection[]
+  contract: Pick<SavePackagePayload, 'contractHeaderImage' | 'contractHeaderText' | 'contractRegulation'>
 }
 
 function normalizeAndValidateCompanyPayload(
@@ -1645,6 +1904,7 @@ function preparePackagePayload(payload: SavePackagePayload): PreparedPackagePayl
   return {
     name: payload.name.trim(),
     description: payload.description.trim(),
+    disclaimer: payload.disclaimer.trim(),
     featuredImage: payload.featuredImage.trim(),
     duration: normalizePackageDuration(payload),
     gallery: normalizePackageGallery(payload.gallery),
@@ -1653,8 +1913,14 @@ function preparePackagePayload(payload: SavePackagePayload): PreparedPackagePayl
     packageEntries: normalizePackageEntries(payload),
     trainerIds: normalizePackageTrainers(payload.trainerIds),
     whatsappAccountIds: normalizePackageWhatsAppAccountIds(payload.whatsappAccountIds),
+    whatsappGroupLink: payload.whatsappGroupLink.trim(),
     additionalFixedServices: normalizePackageAdditionalServices(payload.additionalFixedServices),
     additionalVariableServices: normalizePackageAdditionalServices(payload.additionalVariableServices),
+    contract: {
+      contractHeaderImage: payload.contractHeaderImage.trim(),
+      contractHeaderText: payload.contractHeaderText.trim(),
+      contractRegulation: payload.contractRegulation,
+    },
   }
 }
 
@@ -1662,9 +1928,13 @@ function validatePreparedPackagePayload(
   payload: SavePackagePayload,
   prepared: PreparedPackagePayload,
   catalog: ReturnType<typeof getStoredCatalog>,
+  currentId?: string,
 ): Extract<SavePackageResult, { ok: false }>['error'] | null {
   if (!prepared.name || !prepared.description || !payload.categoryId || !payload.companyId) {
     return 'invalid'
+  }
+  if (!payload.productId.trim() || !Number.isInteger(payload.editionYear) || payload.editionYear < 2000 || payload.editionYear > 2100) {
+    return 'invalidEdition'
   }
   if (!isValidAgeRange(payload.ageMin, payload.ageMax)) {
     return 'invalidAgeRange'
@@ -1696,6 +1966,15 @@ function validatePreparedPackagePayload(
   if (!isValidPackageGroups(prepared.groups, catalog.fields, payload.categoryId)) {
     return 'invalidGroups'
   }
+  const duplicateEdition = catalog.packages.some(
+    (item) =>
+      item.id !== currentId &&
+      item.productId === payload.productId.trim() &&
+      item.editionYear === payload.editionYear,
+  )
+  if (duplicateEdition) {
+    return 'duplicateEditionYear'
+  }
   return null
 }
 
@@ -1708,12 +1987,16 @@ function buildSportPackageFromPayload(
   return {
     ...(current ?? { status: 'draft' as const }),
     id,
+    productId: payload.productId.trim(),
+    editionYear: payload.editionYear,
     name: prepared.name,
     description: prepared.description,
+    disclaimer: prepared.disclaimer,
     enrollmentId: payload.enrollmentId.trim(),
     enrollmentPrice: Number(payload.enrollmentPrice),
     trainerIds: prepared.trainerIds,
     whatsappAccountIds: prepared.whatsappAccountIds,
+    whatsappGroupLink: prepared.whatsappGroupLink,
     additionalFixedServices: prepared.additionalFixedServices,
     additionalVariableServices: prepared.additionalVariableServices,
     ageMin: payload.ageMin,
@@ -1735,6 +2018,9 @@ function buildSportPackageFromPayload(
     trainingAddress: payload.trainingAddress.trim(),
     entriesCount: prepared.packageEntries.entriesCount,
     userSelectableSchedule: payload.userSelectableSchedule,
+    contractHeaderImage: prepared.contract.contractHeaderImage,
+    contractHeaderText: prepared.contract.contractHeaderText,
+    contractRegulation: prepared.contract.contractRegulation,
     featuredImage: prepared.featuredImage,
     isFeatured: payload.isFeatured,
     isDescriptive: payload.isDescriptive,
@@ -1824,7 +2110,7 @@ export function createSportPackage(payload: SavePackagePayload): SavePackageResu
 export function updateSportPackage(id: string, payload: SavePackagePayload): UpdatePackageResult {
   const prepared = preparePackagePayload(payload)
   const catalog = getStoredCatalog()
-  const validationError = validatePreparedPackagePayload(payload, prepared, catalog)
+  const validationError = validatePreparedPackagePayload(payload, prepared, catalog, id)
   if (validationError) {
     return { ok: false, error: validationError }
   }

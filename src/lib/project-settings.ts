@@ -15,6 +15,18 @@ export type ProjectSettings = {
   logoUrl: string
   googleMapsApiKey: string
   paymentCurrency: string
+  homepageSliderEnabledContentTypes: SliderContentType[]
+  homepageSliderItems: HomepageSliderItem[]
+}
+
+export type SliderContentType = 'packages'
+
+export type HomepageSliderItem = {
+  id: string
+  contentType: SliderContentType
+  contentId: string
+  isActive: boolean
+  sortOrder: number
 }
 
 const projectDefaults = mockProject as MockProject
@@ -43,6 +55,8 @@ export function getDefaultProjectSettings(): ProjectSettings {
     logoUrl: projectDefaults.defaultLogo,
     googleMapsApiKey: projectDefaults.defaultGoogleMapsApiKey ?? '',
     paymentCurrency: projectDefaults.defaultPaymentCurrency ?? 'EUR',
+    homepageSliderEnabledContentTypes: ['packages'],
+    homepageSliderItems: [],
   }
 }
 
@@ -56,6 +70,37 @@ export function getProjectSettings(): ProjectSettings {
     paymentCurrency: typeof stored.paymentCurrency === 'string' && stored.paymentCurrency.trim()
       ? stored.paymentCurrency.trim().toUpperCase()
       : defaults.paymentCurrency,
+    homepageSliderEnabledContentTypes:
+      Array.isArray(stored.homepageSliderEnabledContentTypes) &&
+      stored.homepageSliderEnabledContentTypes.includes('packages')
+        ? ['packages']
+        : defaults.homepageSliderEnabledContentTypes,
+    homepageSliderItems: Array.isArray(stored.homepageSliderItems)
+      ? stored.homepageSliderItems
+          .map((item): HomepageSliderItem | null => {
+            if (!item || typeof item !== 'object') {
+              return null
+            }
+            const typed = item as Partial<HomepageSliderItem>
+            if (
+              typeof typed.id !== 'string' ||
+              typed.id.trim().length === 0 ||
+              typed.contentType !== 'packages' ||
+              typeof typed.contentId !== 'string' ||
+              typed.contentId.trim().length === 0
+            ) {
+              return null
+            }
+            return {
+              id: typed.id,
+              contentType: 'packages',
+              contentId: typed.contentId,
+              isActive: typed.isActive ?? true,
+              sortOrder: Number.isFinite(typed.sortOrder) ? Number(typed.sortOrder) : 0,
+            }
+          })
+          .filter((item): item is HomepageSliderItem => Boolean(item))
+      : defaults.homepageSliderItems,
   }
 }
 
@@ -77,6 +122,27 @@ export function setProjectLogo(logoUrl: string): void {
 export function clearProjectLogo(): void {
   const settings = getProjectSettings()
   writeSettings({ ...settings, logoUrl: '' })
+}
+
+export function setHomepageSliderEnabledContentTypes(types: SliderContentType[]): void {
+  const settings = getProjectSettings()
+  const nextTypes: SliderContentType[] = types.includes('packages') ? ['packages'] : []
+  writeSettings({
+    ...settings,
+    homepageSliderEnabledContentTypes: nextTypes,
+  })
+}
+
+export function setHomepageSliderItems(items: HomepageSliderItem[]): void {
+  const settings = getProjectSettings()
+  writeSettings({
+    ...settings,
+    homepageSliderItems: items.map((item, index) => ({
+      ...item,
+      contentType: 'packages',
+      sortOrder: Number.isFinite(item.sortOrder) ? item.sortOrder : index,
+    })),
+  })
 }
 
 export function setGoogleMapsApiKey(apiKey: string): void {

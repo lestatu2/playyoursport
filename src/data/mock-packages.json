@@ -1,66 +1,26 @@
 {
   "sportCategories": [
-    {
-      "id": "sport-football",
-      "kind": "sport",
-      "code": "football",
-      "label": "Calcio",
-      "icon": "",
-      "isActive": true,
-      "sortOrder": 1
-    },
-    {
-      "id": "sport-tennis",
-      "kind": "sport",
-      "code": "tennis",
-      "label": "Tennis",
-      "icon": "",
-      "isActive": true,
-      "sortOrder": 2
-    },
-    {
-      "id": "sport-padel",
-      "kind": "sport",
-      "code": "padel",
-      "label": "Padel",
-      "icon": "",
-      "isActive": true,
-      "sortOrder": 3
-    },
-    {
-      "id": "sport-campo-scuola",
-      "kind": "sport",
-      "code": "campo-scuola",
-      "label": "Campo Scuola",
-      "icon": "",
-      "isActive": true,
-      "sortOrder": 4
-    }
+    { "id": "sport-football", "kind": "sport", "code": "football", "label": "Calcio", "icon": "", "isActive": true, "sortOrder": 1 },
+    { "id": "sport-tennis", "kind": "sport", "code": "tennis", "label": "Tennis", "icon": "", "isActive": true, "sortOrder": 2 },
+    { "id": "sport-padel", "kind": "sport", "code": "padel", "label": "Padel", "icon": "", "isActive": true, "sortOrder": 3 },
+    { "id": "sport-campo-scuola", "kind": "sport", "code": "campo-scuola", "label": "Campo Scuola", "icon": "", "isActive": true, "sortOrder": 4 }
   ],
   "fields": [
-    {
-      "id": "field-football-main",
-      "title": "Campo principale",
-      "categoryId": "sport-football",
-      "description": "Campo regolamentare in erba sintetica."
-    }
+    { "id": "field-football-main", "title": "Campo calcio principale", "categoryId": "sport-football", "description": "Campo regolamentare in erba sintetica." },
+    { "id": "field-football-secondary", "title": "Campo calcio secondario", "categoryId": "sport-football", "description": "Campo allenamento ridotto 7vs7." },
+    { "id": "field-tennis-central", "title": "Campo tennis centrale", "categoryId": "sport-tennis", "description": "Campo in terra rossa coperto." },
+    { "id": "field-padel-1", "title": "Campo padel 1", "categoryId": "sport-padel", "description": "Campo panoramico in vetro." },
+    { "id": "field-campo-scuola-track", "title": "Campo scuola pista", "categoryId": "sport-campo-scuola", "description": "Pista e area coordinativa." }
+  ],
+  "groups": [
+    { "id": "group-adult-mixed-main", "title": "Gruppo Adulti Misto", "audience": "adult", "gender": "mixed", "birthYearMin": 1980, "birthYearMax": 2007 },
+    { "id": "group-youth-male-main", "title": "Gruppo Ragazzi Maschi", "audience": "youth", "gender": "male", "birthYearMin": 2008, "birthYearMax": 2016 },
+    { "id": "group-youth-female-main", "title": "Gruppo Ragazze", "audience": "youth", "gender": "female", "birthYearMin": 2008, "birthYearMax": 2016 }
   ],
   "enrollments": [
-    {
-      "id": "enrollment-agonista",
-      "title": "Agonista",
-      "description": "Iscrizione agonista."
-    },
-    {
-      "id": "enrollment-non-agonista",
-      "title": "Non agonista",
-      "description": "Iscrizione non agonista."
-    },
-    {
-      "id": "enrollment-campo-scuola",
-      "title": "Campo scuola",
-      "description": "Iscrizione campo scuola."
-    }
+    { "id": "enrollment-agonista", "title": "Agonista", "description": "Iscrizione agonista federale." },
+    { "id": "enrollment-non-agonista", "title": "Non agonista", "description": "Iscrizione non agonista annuale." },
+    { "id": "enrollment-campo-scuola", "title": "Campo scuola", "description": "Iscrizione programmi campo scuola." }
   ],
   "whatsappAccounts": [
     {
@@ -72,30 +32,27 @@
       "alwaysAvailable": true,
       "availabilitySlots": [],
       "offlineMessage": "Al momento non siamo disponibili. Ti rispondiamo appena possibile.",
-      "buttonStyle": {
-        "label": "Scrivici su WhatsApp",
-        "backgroundColor": "#25D366",
-        "textColor": "#ffffff"
-      }
+      "buttonStyle": { "label": "Scrivici su WhatsApp", "backgroundColor": "#25D366", "textColor": "#ffffff" }
+    },
+    {
+      "id": "wa-coach",
+      "title": "Coach Desk",
+      "phoneNumber": "+393339998887",
+      "avatarUrl": "",
+      "isActive": true,
+      "alwaysAvailable": false,
+      "availabilitySlots": [
+        { "id": "wa-slot-1", "weekday": 1, "startTime": "15:00", "endTime": "19:00" },
+        { "id": "wa-slot-2", "weekday": 3, "startTime": "15:00", "endTime": "19:00" }
+      ],
+      "offlineMessage": "Coach offline, lasciaci un messaggio.",
+      "buttonStyle": { "label": "Contatta il coach", "backgroundColor": "#0ea5e9", "textColor": "#ffffff" }
     }
   ],
   "additionalServices": [
-    {
-      "id": "service-kit-allenamento",
-      "title": "Kit allenamento",
-      "type": "fixed",
-      "price": 25,
-      "isActive": true,
-      "description": "Include maglia e pantaloncino ufficiali."
-    },
-    {
-      "id": "service-noleggio-attrezzatura",
-      "title": "Noleggio attrezzatura",
-      "type": "variable",
-      "price": null,
-      "isActive": true,
-      "description": "Costo variabile in base al materiale richiesto."
-    }
+    { "id": "service-kit-allenamento", "title": "Kit allenamento", "type": "fixed", "price": 25, "isActive": true, "description": "Include maglia e pantaloncino ufficiali." },
+    { "id": "service-visita-medica", "title": "Visita medica sportiva", "type": "fixed", "price": 45, "isActive": true, "description": "Visita convenzionata presso centro partner." },
+    { "id": "service-noleggio-attrezzatura", "title": "Noleggio attrezzatura", "type": "variable", "price": null, "isActive": true, "description": "Costo variabile in base al materiale richiesto." }
   ],
   "companies": [
     {
@@ -108,160 +65,257 @@
       "paypalEnabled": false,
       "paypalClientId": "",
       "email": "info@playyoursport.com",
-      "consentMinors": "<p>Testo consenso minorenni.</p>",
-      "consentAdults": "<p>Testo consenso maggiorenni.</p>",
-      "consentInformationNotice": "<p>Testo presa visione informativa.</p>",
-      "consentDataProcessing": "<p>Testo consenso trattamento dati personali.</p>"
+      "consentMinors": "<p>Consenso minorenni PlayYourSport.</p>",
+      "consentAdults": "<p>Consenso maggiorenni PlayYourSport.</p>",
+      "consentInformationNotice": "<p>Presa visione informativa PlayYourSport.</p>",
+      "consentDataProcessing": "<p>Consenso trattamento dati personali PlayYourSport.</p>"
+    },
+    {
+      "id": "company-academy-center",
+      "title": "Academy Center ASD",
+      "headquartersAddress": "Viale dello Sport 21, Torino",
+      "googlePlaceId": "ChIJY2Y6L6JtiEcR4sRG1QfVf8w",
+      "vatNumber": "IT98765432109",
+      "iban": "IT39G0306909606100000123456",
+      "paypalEnabled": true,
+      "paypalClientId": "PAYPAL-MOCK-CLIENT-ID",
+      "email": "segreteria@academycenter.it",
+      "consentMinors": "<p>Consenso minorenni Academy Center.</p>",
+      "consentAdults": "<p>Consenso maggiorenni Academy Center.</p>",
+      "consentInformationNotice": "<p>Presa visione informativa Academy Center.</p>",
+      "consentDataProcessing": "<p>Consenso trattamento dati personali Academy Center.</p>"
     }
   ],
   "packages": [
     {
       "id": "pkg-football-adult-base",
+      "productId": "product-football-adult-base",
+      "editionYear": 2026,
       "categoryId": "sport-football",
       "companyId": "company-playyoursport",
       "enrollmentId": "enrollment-agonista",
-      "enrollmentPrice": 0,
-      "trainerIds": [],
-      "whatsappAccountIds": [],
-      "additionalFixedServices": [],
-      "additionalVariableServices": [],
-      "audience": "adult",
-      "name": "Football Adult Base",
-      "description": "Pacchetto base per allenamenti adulti.",
-      "ageMin": 18,
-      "ageMax": 99,
-      "durationType": "single-event",
+      "enrollmentPrice": 40,
+      "trainerIds": [4],
+      "whatsappAccountIds": ["wa-segreteria", "wa-coach"],
+      "whatsappGroupLink": "https://chat.whatsapp.com/football-academy-group",
+      "additionalFixedServices": [{ "serviceId": "service-kit-allenamento", "isActive": true }],
+      "additionalVariableServices": [{ "serviceId": "service-noleggio-attrezzatura", "isActive": true }],
+      "audience": "youth",
+      "name": "Football Academy",
+      "description": "Programma academy dedicato ai ragazzi con percorso tecnico progressivo.",
+      "disclaimer": "Stagione sportiva soggetta a posti disponibili e conferma segreteria.",
+      "ageMin": 6,
+      "ageMax": 17,
+      "durationType": "period",
       "eventDate": "",
       "eventTime": "",
-      "periodStartDate": "",
-      "periodEndDate": "",
-      "gallery": [],
-      "groups": [],
-      "recurringPaymentEnabled": false,
+      "periodStartDate": "2025-09-01",
+      "periodEndDate": "2026-05-31",
+      "gallery": [
+        { "id": "gallery-football-1", "src": "/images/calcio.jpg", "caption": "Allenamento Football Academy" }
+      ],
+      "groups": [
+        {
+          "id": "group-youth-male-main",
+          "title": "Gruppo Ragazzi Maschi",
+          "birthYearMin": 2008,
+          "birthYearMax": 2016,
+          "fieldId": "field-football-main",
+          "schedules": [
+            { "id": "pkg-football-sch-1", "weekday": 1, "time": "17:00" },
+            { "id": "pkg-football-sch-2", "weekday": 3, "time": "17:00" }
+          ]
+        },
+        {
+          "id": "group-youth-female-main",
+          "title": "Gruppo Ragazze",
+          "birthYearMin": 2008,
+          "birthYearMax": 2016,
+          "fieldId": "field-football-secondary",
+          "schedules": [
+            { "id": "pkg-football-sch-3", "weekday": 2, "time": "18:00" }
+          ]
+        }
+      ],
+      "recurringPaymentEnabled": true,
       "paymentFrequency": "monthly",
-      "priceAmount": 0,
-      "monthlyDueDay": null,
-      "monthlyNextCycleOpenDay": null,
+      "priceAmount": 79,
+      "monthlyDueDay": 5,
+      "monthlyNextCycleOpenDay": 20,
       "weeklyDueWeekday": null,
       "firstPaymentOnSite": false,
-      "trainingAddress": "",
-      "entriesCount": 1,
-      "userSelectableSchedule": false,
-      "featuredImage": "",
-      "isFeatured": false,
-      "isDescriptive": false,
-      "status": "draft"
+      "trainingAddress": "Via dei Campi 12, Milano",
+      "entriesCount": 12,
+      "userSelectableSchedule": true,
+      "contractHeaderImage": "/images/calcio.jpg",
+      "contractHeaderText": "Regolamento Football Academy 2025/2026",
+      "contractRegulation": "<p>Regolamento ufficiale Football Academy.</p>",
+      "featuredImage": "/images/calcio.jpg",
+      "isFeatured": true,
+      "isDescriptive": true,
+      "status": "published"
     },
     {
       "id": "pkg-tennis-base",
+      "productId": "product-tennis-base",
+      "editionYear": 2026,
       "categoryId": "sport-tennis",
-      "companyId": "company-playyoursport",
+      "companyId": "company-academy-center",
       "enrollmentId": "enrollment-non-agonista",
-      "enrollmentPrice": 0,
-      "trainerIds": [],
-      "whatsappAccountIds": [],
-      "additionalFixedServices": [],
+      "enrollmentPrice": 25,
+      "trainerIds": [4],
+      "whatsappAccountIds": ["wa-segreteria"],
+      "whatsappGroupLink": "https://chat.whatsapp.com/tennis-base-group",
+      "additionalFixedServices": [{ "serviceId": "service-visita-medica", "isActive": true }],
       "additionalVariableServices": [],
       "audience": "adult",
       "name": "Tennis Base",
       "description": "Pacchetto base per lezioni di tennis.",
+      "disclaimer": "Lezioni pianificate secondo disponibilita' campi e calendario tecnico.",
       "ageMin": 18,
-      "ageMax": 99,
+      "ageMax": 65,
       "durationType": "single-event",
-      "eventDate": "",
-      "eventTime": "",
+      "eventDate": "2026-02-10",
+      "eventTime": "19:00",
       "periodStartDate": "",
       "periodEndDate": "",
-      "gallery": [],
-      "groups": [],
+      "gallery": [{ "id": "gallery-tennis-1", "src": "/images/tennis.jpg", "caption": "Sessione tennis serale" }],
+      "groups": [
+        {
+          "id": "group-adult-mixed-main",
+          "title": "Gruppo Adulti Misto",
+          "birthYearMin": 1980,
+          "birthYearMax": 2007,
+          "fieldId": "field-tennis-central",
+          "schedules": [{ "id": "pkg-tennis-sch-1", "weekday": 4, "time": "19:00" }]
+        }
+      ],
       "recurringPaymentEnabled": false,
       "paymentFrequency": "monthly",
-      "priceAmount": 0,
+      "priceAmount": 35,
       "monthlyDueDay": null,
       "monthlyNextCycleOpenDay": null,
       "weeklyDueWeekday": null,
-      "firstPaymentOnSite": false,
-      "trainingAddress": "",
+      "firstPaymentOnSite": true,
+      "trainingAddress": "Corso Tennis 8, Torino",
       "entriesCount": 1,
       "userSelectableSchedule": false,
-      "featuredImage": "",
-      "isFeatured": false,
-      "isDescriptive": false,
-      "status": "draft"
+      "contractHeaderImage": "/images/tennis.jpg",
+      "contractHeaderText": "Regolamento Tennis Base",
+      "contractRegulation": "<p>Regolamento pacchetto tennis.</p>",
+      "featuredImage": "/images/tennis.jpg",
+      "isFeatured": true,
+      "isDescriptive": true,
+      "status": "published"
     },
     {
       "id": "pkg-padel-base",
+      "productId": "product-padel-base",
+      "editionYear": 2026,
       "categoryId": "sport-padel",
-      "companyId": "company-playyoursport",
+      "companyId": "company-academy-center",
       "enrollmentId": "enrollment-non-agonista",
-      "enrollmentPrice": 0,
-      "trainerIds": [],
-      "whatsappAccountIds": [],
-      "additionalFixedServices": [],
-      "additionalVariableServices": [],
+      "enrollmentPrice": 20,
+      "trainerIds": [4],
+      "whatsappAccountIds": ["wa-coach"],
+      "whatsappGroupLink": "https://chat.whatsapp.com/padel-base-group",
+      "additionalFixedServices": [{ "serviceId": "service-kit-allenamento", "isActive": true }],
+      "additionalVariableServices": [{ "serviceId": "service-noleggio-attrezzatura", "isActive": true }],
       "audience": "adult",
       "name": "Padel Base",
       "description": "Pacchetto base per lezioni di padel.",
+      "disclaimer": "Attivita' programmata su campi disponibili della struttura.",
       "ageMin": 18,
-      "ageMax": 99,
-      "durationType": "single-event",
+      "ageMax": 65,
+      "durationType": "period",
       "eventDate": "",
       "eventTime": "",
-      "periodStartDate": "",
-      "periodEndDate": "",
-      "gallery": [],
-      "groups": [],
-      "recurringPaymentEnabled": false,
-      "paymentFrequency": "monthly",
-      "priceAmount": 0,
+      "periodStartDate": "2026-01-10",
+      "periodEndDate": "2026-06-30",
+      "gallery": [{ "id": "gallery-padel-1", "src": "/images/tennis.jpg", "caption": "Allenamento padel" }],
+      "groups": [
+        {
+          "id": "group-adult-mixed-main",
+          "title": "Gruppo Adulti Misto",
+          "birthYearMin": 1980,
+          "birthYearMax": 2007,
+          "fieldId": "field-padel-1",
+          "schedules": [
+            { "id": "pkg-padel-sch-1", "weekday": 2, "time": "20:00" },
+            { "id": "pkg-padel-sch-2", "weekday": 5, "time": "20:00" }
+          ]
+        }
+      ],
+      "recurringPaymentEnabled": true,
+      "paymentFrequency": "weekly",
+      "priceAmount": 29,
       "monthlyDueDay": null,
       "monthlyNextCycleOpenDay": null,
-      "weeklyDueWeekday": null,
+      "weeklyDueWeekday": 4,
       "firstPaymentOnSite": false,
-      "trainingAddress": "",
-      "entriesCount": 1,
-      "userSelectableSchedule": false,
-      "featuredImage": "",
+      "trainingAddress": "Via Padel 4, Torino",
+      "entriesCount": 2,
+      "userSelectableSchedule": true,
+      "contractHeaderImage": "/images/tennis.jpg",
+      "contractHeaderText": "Regolamento Padel Base",
+      "contractRegulation": "<p>Regolamento pacchetto padel.</p>",
+      "featuredImage": "/images/tennis.jpg",
       "isFeatured": false,
-      "isDescriptive": false,
-      "status": "draft"
+      "isDescriptive": true,
+      "status": "published"
     },
     {
       "id": "pkg-campo-scuola-base",
+      "productId": "product-campo-scuola-base",
+      "editionYear": 2026,
       "categoryId": "sport-campo-scuola",
       "companyId": "company-playyoursport",
       "enrollmentId": "enrollment-campo-scuola",
-      "enrollmentPrice": 0,
-      "trainerIds": [],
-      "whatsappAccountIds": [],
-      "additionalFixedServices": [],
+      "enrollmentPrice": 35,
+      "trainerIds": [4],
+      "whatsappAccountIds": ["wa-segreteria"],
+      "whatsappGroupLink": "https://chat.whatsapp.com/campo-scuola-group",
+      "additionalFixedServices": [{ "serviceId": "service-visita-medica", "isActive": true }],
       "additionalVariableServices": [],
-      "audience": "adult",
+      "audience": "youth",
       "name": "Campo Scuola Base",
       "description": "Pacchetto base per attivita' di campo scuola.",
-      "ageMin": 18,
-      "ageMax": 99,
-      "durationType": "single-event",
+      "disclaimer": "Programma dedicato in base alla fascia d'eta' e ai gruppi formati.",
+      "ageMin": 7,
+      "ageMax": 14,
+      "durationType": "period",
       "eventDate": "",
       "eventTime": "",
-      "periodStartDate": "",
-      "periodEndDate": "",
-      "gallery": [],
-      "groups": [],
-      "recurringPaymentEnabled": false,
-      "paymentFrequency": "monthly",
-      "priceAmount": 0,
+      "periodStartDate": "2026-06-15",
+      "periodEndDate": "2026-07-31",
+      "gallery": [{ "id": "gallery-campo-1", "src": "/images/campo_scuola.jpg", "caption": "Attivita' campo scuola" }],
+      "groups": [
+        {
+          "id": "group-youth-male-main",
+          "title": "Gruppo Ragazzi Maschi",
+          "birthYearMin": 2008,
+          "birthYearMax": 2016,
+          "fieldId": "field-campo-scuola-track",
+          "schedules": [{ "id": "pkg-campo-sch-1", "weekday": 1, "time": "09:00" }]
+        }
+      ],
+      "recurringPaymentEnabled": true,
+      "paymentFrequency": "daily",
+      "priceAmount": 15,
       "monthlyDueDay": null,
       "monthlyNextCycleOpenDay": null,
       "weeklyDueWeekday": null,
-      "firstPaymentOnSite": false,
-      "trainingAddress": "",
-      "entriesCount": 1,
+      "firstPaymentOnSite": true,
+      "trainingAddress": "Via Atletica 2, Milano",
+      "entriesCount": null,
       "userSelectableSchedule": false,
-      "featuredImage": "",
-      "isFeatured": false,
-      "isDescriptive": false,
-      "status": "draft"
+      "contractHeaderImage": "/images/campo_scuola.jpg",
+      "contractHeaderText": "Regolamento Campo Scuola",
+      "contractRegulation": "<p>Regolamento campo scuola estivo.</p>",
+      "featuredImage": "/images/campo_scuola.jpg",
+      "isFeatured": true,
+      "isDescriptive": true,
+      "status": "published"
     }
   ]
 }

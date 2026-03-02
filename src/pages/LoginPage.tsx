@@ -59,7 +59,7 @@ function LoginPage({ session, onLogin }: LoginPageProps) {
           </section>
 
           <section className="p-8">
-            <h2 className="text-xl font-semibold">{t('login.formTitle')}</h2>
+            <h2 className="text-xl font-semibold">Login amministrazione</h2>
             <p className="mt-1 text-sm opacity-70">{t('login.formSubtitle')}</p>
 
             <form
@@ -101,6 +101,12 @@ function LoginPage({ session, onLogin }: LoginPageProps) {
             <div className="mt-6 rounded-lg border border-base-300 p-3 text-xs">
               <p className="font-semibold">{t('login.demoUser')}</p>
               <p>superadmin@playyoursport.test / SuperAdmin123!</p>
+            </div>
+
+            <div className="mt-3 text-right">
+              <a href="/" className="link link-primary text-sm">
+                Vai al portale pubblico
+              </a>
             </div>
           </section>
         </div>

@@ -1,6 +1,7 @@
 import mockAuth from '../data/mock-auth.json'
 
 const SESSION_KEY = 'pys_auth_session'
+const PUBLIC_SESSION_KEY = 'pys_public_auth_session'
 const ROLE_LABELS_KEY = 'pys_role_labels'
 const USERS_KEY = 'pys_auth_users'
 const USERS_CHANGED_EVENT = 'pys-auth-users-changed'
@@ -48,6 +49,14 @@ export type AuthSession = {
   token: string
 }
 
+export type PublicSession = {
+  userId: number
+  name: string
+  email: string
+  role: 'subscribers' | 'client'
+  token: string
+}
+
 export type SaveUserPayload = {
   role: RoleKey
   firstName: string
@@ -65,6 +74,10 @@ export type SaveUserPayload = {
 type LoginResult =
   | { ok: true; session: AuthSession }
   | { ok: false; errorKey: 'invalidCredentials' }
+
+type PublicLoginResult =
+  | { ok: true; session: PublicSession }
+  | { ok: false; errorKey: 'invalidCredentials' | 'roleNotAllowed' }
 
 export type SaveUserResult =
   | { ok: true; user: MockUser }
@@ -320,6 +333,18 @@ export function clearSession(): void {
   localStorage.removeItem(SESSION_KEY)
 }
 
+export function getPublicSession(): PublicSession | null {
+  return readJsonStorage<PublicSession | null>(PUBLIC_SESSION_KEY, null)
+}
+
+export function clearPublicSession(): void {
+  localStorage.removeItem(PUBLIC_SESSION_KEY)
+}
+
+export function isPortalRole(role: string): role is 'subscribers' | 'client' {
+  return role === 'subscribers' || role === 'client'
+}
+
 function createSession(user: MockUser): AuthSession {
   const session: AuthSession = {
     userId: user.id,
@@ -330,6 +355,19 @@ function createSession(user: MockUser): AuthSession {
   }
 
   localStorage.setItem(SESSION_KEY, JSON.stringify(session))
+  return session
+}
+
+function createPublicSession(user: MockUser): PublicSession {
+  const normalizedRole: 'subscribers' | 'client' = user.role === 'client' ? 'client' : 'subscribers'
+  const session: PublicSession = {
+    userId: user.id,
+    name: `${user.firstName} ${user.lastName}`.trim(),
+    email: user.email,
+    role: normalizedRole,
+    token: `public-${user.id}-${Date.now()}`,
+  }
+  localStorage.setItem(PUBLIC_SESSION_KEY, JSON.stringify(session))
   return session
 }
 
@@ -345,6 +383,54 @@ export function loginWithEmailPassword(email: string, password: string): LoginRe
     ok: true,
     session: createSession(user),
   }
+}
+
+export function loginPublicWithEmailPassword(email: string, password: string): PublicLoginResult {
+  const normalizedEmail = email.trim().toLowerCase()
+  const user = getUsers().find((item) => item.email.toLowerCase() === normalizedEmail)
+  if (!user || user.password !== password) {
+    return { ok: false, errorKey: 'invalidCredentials' }
+  }
+  if (!isPortalRole(user.role)) {
+    return { ok: false, errorKey: 'roleNotAllowed' }
+  }
+  return { ok: true, session: createPublicSession(user) }
+}
+
+export function registerSubscriberPublic(payload: {
+  firstName: string
+  lastName: string
+  email: string
+  login: string
+  password: string
+}): SaveUserResult {
+  return createUser({
+    role: 'subscribers',
+    firstName: payload.firstName,
+    lastName: payload.lastName,
+    avatarUrl: '',
+    login: payload.login,
+    password: payload.password,
+    email: payload.email,
+    age: null,
+    sector: '',
+    profession: '',
+    permissions: [],
+  })
+}
+
+export function convertSubscriberToClient(userId: number): { ok: true; session: PublicSession } | { ok: false } {
+  const users = getUsers()
+  const user = users.find((item) => item.id === userId)
+  if (!user) {
+    return { ok: false }
+  }
+  const converted: MockUser = {
+    ...user,
+    role: 'client',
+  }
+  writeUsers(users.map((item) => (item.id === userId ? converted : item)))
+  return { ok: true, session: createPublicSession(converted) }
 }
 
 export function createUser(payload: SaveUserPayload, actorRole?: string): SaveUserResult {

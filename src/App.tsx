@@ -9,19 +9,27 @@ import UtilityCategoriesPage from './pages/UtilityCategoriesPage'
 import PackagesPage from './pages/PackagesPage'
 import UtilityCompaniesPage from './pages/UtilityCompaniesPage'
 import UtilityFieldsPage from './pages/UtilityFieldsPage'
+import UtilityGroupsPage from './pages/UtilityGroupsPage'
 import UtilityEnrollmentsPage from './pages/UtilityEnrollmentsPage'
 import UtilityAdditionalServicesPage from './pages/UtilityAdditionalServicesPage'
 import UtilityWhatsAppAccountsPage from './pages/UtilityWhatsAppAccountsPage'
 import UsersPage from './pages/UsersPage'
+import PublicPortalPage from './pages/PublicPortalPage'
+import SitePage from './pages/SitePage'
+import PublicPackagesPage from './pages/PublicPackagesPage'
+import PublicPackageDetailPage from './pages/PublicPackageDetailPage'
 import {
   canAccessConfiguration,
   canAccessPackages,
   canAccessUsersPage,
   canAccessUtility,
+  clearPublicSession,
   clearSession,
+  getPublicSession,
   getSession,
   isManagementRole,
   type AuthSession,
+  type PublicSession,
   hasSessionPermission,
 } from './lib/auth'
 
@@ -129,16 +137,40 @@ function UsersRoute({ session, children }: UtilityRouteProps) {
 
 function App() {
   const [session, setSession] = useState<AuthSession | null>(() => getSession())
+  const [publicSession, setPublicSession] = useState<PublicSession | null>(() => getPublicSession())
 
   const handleLogout = () => {
     clearSession()
     setSession(null)
   }
 
-  const redirectTarget = session && isManagementRole(session.role) ? '/app' : '/login'
+  const handlePublicLogout = () => {
+    clearPublicSession()
+    setPublicSession(null)
+  }
+
+  const redirectTarget = session && isManagementRole(session.role) ? '/app' : '/'
 
   return (
     <Routes>
+      <Route
+        path="/"
+        element={
+          <PublicPortalPage
+            session={publicSession}
+            onLogin={setPublicSession}
+            onLogout={handlePublicLogout}
+          />
+        }
+      />
+      <Route
+        path="/pacchetti"
+        element={<PublicPackagesPage session={publicSession} onLogout={handlePublicLogout} />}
+      />
+      <Route
+        path="/pacchetti/:packageId"
+        element={<PublicPackageDetailPage session={publicSession} onLogout={handlePublicLogout} />}
+      />
       <Route path="/login" element={<LoginPage session={session} onLogin={setSession} />} />
       <Route
         path="/app"
@@ -154,6 +186,14 @@ function App() {
           element={
             <PackagesRoute session={session}>
               <PackagesPage />
+            </PackagesRoute>
+          }
+        />
+        <Route
+          path="sito"
+          element={
+            <PackagesRoute session={session}>
+              <SitePage />
             </PackagesRoute>
           }
         />
@@ -187,6 +227,14 @@ function App() {
           element={
             <UtilityRoute session={session}>
               <UtilityFieldsPage />
+            </UtilityRoute>
+          }
+        />
+        <Route
+          path="utility/gruppi"
+          element={
+            <UtilityRoute session={session}>
+              <UtilityGroupsPage />
             </UtilityRoute>
           }
         />

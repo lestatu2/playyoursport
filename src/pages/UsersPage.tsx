@@ -293,11 +293,11 @@ function UsersPage({ session }: UsersPageProps) {
       id: 'actions',
       header: () => <div className="text-right">{t('utility.categories.actions')}</div>,
       cell: ({ row }) => (
-        <div className="flex justify-end gap-2">
-          <button type="button" className="btn btn-ghost btn-sm px-2 text-warning" onClick={() => openEditModal(row.original)}>
+        <div className="flex justify-end gap-1">
+          <button type="button" className="btn btn-ghost btn-sm px-1 text-warning" onClick={() => openEditModal(row.original)}>
             <SquarePen className="h-4 w-4" />
           </button>
-          <button type="button" className="btn btn-ghost btn-sm px-2 text-error" onClick={() => handleDelete(row.original)}>
+          <button type="button" className="btn btn-ghost btn-sm px-1 text-error" onClick={() => handleDelete(row.original)}>
             <Trash2 className="h-4 w-4" />
           </button>
         </div>

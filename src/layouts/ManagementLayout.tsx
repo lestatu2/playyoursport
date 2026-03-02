@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
-import { Boxes, ChevronLeft, ChevronRight, LayoutDashboard, Menu, Package, Settings, Users } from 'lucide-react'
+import { Boxes, ChevronLeft, ChevronRight, Globe, LayoutDashboard, Menu, Package, Settings, Users } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import FlagIcon from '../components/FlagIcon'
 import {
@@ -176,6 +176,15 @@ function ManagementLayout({ session, onLogout }: ManagementLayoutProps) {
                   collapsed={collapsed}
                 />
               )}
+            {canAccessPackages(session.role) &&
+              (session.role !== 'editor-admin' || hasSessionPermission('packages.manage')) && (
+                <MenuItem
+                  to="/app/sito"
+                  icon={<Globe className="h-5 w-5 shrink-0" />}
+                  label={t('nav.site')}
+                  collapsed={collapsed}
+                />
+              )}
             {canAccessUsersPage(session.role) &&
               (session.role !== 'editor-admin' || hasSessionPermission('users.read')) && (
               <MenuItem
@@ -205,6 +214,12 @@ function ManagementLayout({ session, onLogout }: ManagementLayoutProps) {
                       to="/app/utility/campi"
                       icon={<Boxes className="h-5 w-5 shrink-0" />}
                       label={t('nav.utilityFields')}
+                      collapsed={collapsed}
+                    />
+                    <MenuItem
+                      to="/app/utility/gruppi"
+                      icon={<Boxes className="h-5 w-5 shrink-0" />}
+                      label={t('nav.utilityGroups')}
                       collapsed={collapsed}
                     />
                     <MenuItem
@@ -268,6 +283,18 @@ function ManagementLayout({ session, onLogout }: ManagementLayoutProps) {
                             }
                           >
                             {t('nav.utilityFields')}
+                          </NavLink>
+                        </li>
+                        <li>
+                          <NavLink
+                            to="/app/utility/gruppi"
+                            className={({ isActive }) =>
+                              `rounded-lg px-3 py-2 text-sm transition ${
+                                isActive ? 'bg-primary text-primary-content' : 'hover:bg-base-300'
+                              }`
+                            }
+                          >
+                            {t('nav.utilityGroups')}
                           </NavLink>
                         </li>
                         <li>
