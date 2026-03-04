@@ -1,16 +1,31 @@
+import { useMemo, useState } from 'react'
 import PublicSiteHeader from '../components/PublicSiteHeader'
 import { clearPublicSession, type PublicSession } from '../lib/auth'
 import { getCurrentPublicPackageEditions } from '../lib/public-content'
 import { Link } from 'react-router-dom'
 import { getSubscriptionCtaLabel, resolvePublicPackageImage } from '../lib/public-content'
+import PublicEnrollmentModal from '../components/PublicEnrollmentModal'
+import type { SportPackage } from '../lib/package-catalog'
 
 type PublicPackagesPageProps = {
   session: PublicSession | null
+  onLogin: (session: PublicSession) => void
   onLogout: () => void
 }
 
-function PublicPackagesPage({ session, onLogout }: PublicPackagesPageProps) {
+function PublicPackagesPage({ session, onLogin, onLogout }: PublicPackagesPageProps) {
   const packages = getCurrentPublicPackageEditions()
+  const [guestYouthPackageId, setGuestYouthPackageId] = useState<string | null>(null)
+  const [error, setError] = useState('')
+  const guestYouthPackage = useMemo(
+    () => packages.find((item) => item.id === guestYouthPackageId) ?? null,
+    [guestYouthPackageId, packages],
+  )
+
+  const openProductAction = (item: SportPackage) => {
+    setGuestYouthPackageId(item.id)
+    setError('')
+  }
 
   return (
     <main className="min-h-screen bg-base-200">
@@ -25,6 +40,7 @@ function PublicPackagesPage({ session, onLogout }: PublicPackagesPageProps) {
         <div>
           <h1 className="text-3xl font-semibold">Pacchetti</h1>
           <p className="text-sm opacity-70">Archivio delle edizioni correnti attive.</p>
+          {error ? <p className="mt-3 rounded-lg bg-error/15 px-3 py-2 text-sm text-error">{error}</p> : null}
         </div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {packages.map((item) => (
@@ -43,14 +59,25 @@ function PublicPackagesPage({ session, onLogout }: PublicPackagesPageProps) {
                 <p className="text-sm opacity-90">Edizione {item.editionYear}</p>
                 <p className="mt-2 text-sm line-clamp-3">{item.disclaimer || item.description}</p>
                 <p className="mt-3 text-sm font-medium">Prezzo: {item.priceAmount}</p>
-                <Link to={`/pacchetti/${item.id}`} className="btn btn-primary btn-sm mt-3">
-                  {getSubscriptionCtaLabel(item)}
-                </Link>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Link to={`/pacchetti/${item.id}`} className="btn btn-outline btn-sm">
+                    Vai al dettaglio
+                  </Link>
+                  <button type="button" className="btn btn-primary btn-sm" onClick={() => openProductAction(item)}>
+                    {getSubscriptionCtaLabel(item)}
+                  </button>
+                </div>
               </div>
             </article>
           ))}
         </div>
       </section>
+      <PublicEnrollmentModal
+        packageItem={guestYouthPackage}
+        isOpen={Boolean(guestYouthPackage)}
+        session={session}
+        onClose={() => setGuestYouthPackageId(null)}
+      />
     </main>
   )
 }

@@ -54,20 +54,17 @@ export function resolvePublicPackageImage(item: SportPackage): string {
   return ''
 }
 
-function getFrequencyLabelItalian(item: SportPackage): string {
-  if (!item.recurringPaymentEnabled) {
-    return 'periodo'
-  }
+function getFrequencyPhraseItalian(item: SportPackage): string {
   if (item.paymentFrequency === 'daily') {
-    return 'giorno'
+    return 'al giorno'
   }
   if (item.paymentFrequency === 'weekly') {
-    return 'settimana'
+    return 'alla settimana'
   }
   if (item.paymentFrequency === 'monthly') {
-    return 'mese'
+    return 'al mese'
   }
-  return 'anno'
+  return "all'anno"
 }
 
 export function getSubscriptionCtaLabel(item: SportPackage): string {
@@ -79,5 +76,5 @@ export function getSubscriptionCtaLabel(item: SportPackage): string {
     currency,
     maximumFractionDigits: 2,
   }).format(amount)
-  return `Abbonati a partire da ${formattedAmount} al ${getFrequencyLabelItalian(item)}`
+  return `Abbonati a partire da ${formattedAmount} ${getFrequencyPhraseItalian(item)}`
 }

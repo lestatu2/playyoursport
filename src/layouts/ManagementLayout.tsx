@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
-import { Boxes, ChevronLeft, ChevronRight, Globe, LayoutDashboard, Menu, Package, Settings, Users } from 'lucide-react'
+import { Boxes, ChevronLeft, ChevronRight, CircleUser, Globe, LayoutDashboard, Menu, Package, Settings, UserCheck, Users, Wallet } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import FlagIcon from '../components/FlagIcon'
 import {
@@ -167,6 +167,35 @@ function ManagementLayout({ session, onLogout }: ManagementLayoutProps) {
               collapsed={collapsed}
               exact
             />
+            {canAccessUsersPage(session.role) &&
+              (session.role !== 'editor-admin' || hasSessionPermission('users.read')) && (
+              <>
+                <MenuItem
+                  to="/app/utenti"
+                  icon={<Users className="h-5 w-5 shrink-0" />}
+                  label={t('nav.users')}
+                  collapsed={collapsed}
+                />
+                <MenuItem
+                  to="/app/clienti"
+                  icon={<UserCheck className="h-5 w-5 shrink-0" />}
+                  label={t('nav.clients')}
+                  collapsed={collapsed}
+                />
+                <MenuItem
+                  to="/app/atleti"
+                  icon={<CircleUser className="h-5 w-5 shrink-0" />}
+                  label={t('nav.athletes')}
+                  collapsed={collapsed}
+                />
+                <MenuItem
+                  to="/app/attivita-pagamenti"
+                  icon={<Wallet className="h-5 w-5 shrink-0" />}
+                  label={t('nav.activitiesPayments')}
+                  collapsed={collapsed}
+                />
+              </>
+            )}
             {canAccessPackages(session.role) &&
               (session.role !== 'editor-admin' || hasSessionPermission('packages.manage')) && (
                 <MenuItem
@@ -185,15 +214,6 @@ function ManagementLayout({ session, onLogout }: ManagementLayoutProps) {
                   collapsed={collapsed}
                 />
               )}
-            {canAccessUsersPage(session.role) &&
-              (session.role !== 'editor-admin' || hasSessionPermission('users.read')) && (
-              <MenuItem
-                to="/app/utenti"
-                icon={<Users className="h-5 w-5 shrink-0" />}
-                label={t('nav.users')}
-                collapsed={collapsed}
-              />
-            )}
             {canAccessUtility(session.role) && (
               <>
                 {collapsed ? (
@@ -232,6 +252,12 @@ function ManagementLayout({ session, onLogout }: ManagementLayoutProps) {
                       to="/app/utility/servizi-aggiuntivi"
                       icon={<Boxes className="h-5 w-5 shrink-0" />}
                       label={t('nav.utilityAdditionalServices')}
+                      collapsed={collapsed}
+                    />
+                    <MenuItem
+                      to="/app/utility/metodi-pagamento"
+                      icon={<Boxes className="h-5 w-5 shrink-0" />}
+                      label={t('nav.utilityPaymentMethods')}
                       collapsed={collapsed}
                     />
                     <MenuItem
@@ -319,6 +345,18 @@ function ManagementLayout({ session, onLogout }: ManagementLayoutProps) {
                             }
                           >
                             {t('nav.utilityAdditionalServices')}
+                          </NavLink>
+                        </li>
+                        <li>
+                          <NavLink
+                            to="/app/utility/metodi-pagamento"
+                            className={({ isActive }) =>
+                              `rounded-lg px-3 py-2 text-sm transition ${
+                                isActive ? 'bg-primary text-primary-content' : 'hover:bg-base-300'
+                              }`
+                            }
+                          >
+                            {t('nav.utilityPaymentMethods')}
                           </NavLink>
                         </li>
                         <li>

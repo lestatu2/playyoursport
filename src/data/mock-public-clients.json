@@ -1,0 +1,24 @@
+[
+  {
+    "id": 9001,
+    "userId": 6,
+    "parentFirstName": "Sara",
+    "parentLastName": "Gialli",
+    "parentEmail": "client@playyoursport.test",
+    "parentPhone": "+39 333 1234567",
+    "parentSecondaryPhone": "",
+    "parentBirthDate": "1996-04-18",
+    "parentBirthPlace": "Milano",
+    "parentTaxCode": "GLLSRA96D58F205X",
+    "residenceAddress": "Via Roma 12, Milano",
+    "consentEnrollmentAccepted": true,
+    "consentInformationAccepted": true,
+    "consentDataProcessingAccepted": true,
+    "consentDataProcessingSignatureDataUrl": "",
+    "enrollmentConfirmationSignatureDataUrl": "",
+    "parentTaxCodeImageDataUrl": "",
+    "parentIdentityDocumentImageDataUrl": "",
+    "validationStatus": "validated",
+    "createdAt": "2026-03-04T09:00:00.000Z"
+  }
+]

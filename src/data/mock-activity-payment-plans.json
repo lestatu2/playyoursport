@@ -1,0 +1,106 @@
+[
+  {
+    "activityKey": "direct-direct-athlete-1",
+    "packageId": "pkg-tennis-base",
+    "athleteKey": "direct-direct-athlete-1",
+    "createdAt": "2026-01-02T09:00:00.000Z",
+    "config": {
+      "enrollmentFee": 25,
+      "recurringAmount": 35,
+      "fixedServicesAmount": 0,
+      "variableServicesAmount": 0,
+      "services": [],
+      "frequency": "monthly",
+      "recurringEnabled": true,
+      "startDate": "2026-01-01",
+      "endDate": "2026-07-31",
+      "selectedPaymentMethodCode": "onsite_pos"
+    },
+    "installments": [
+      {
+        "id": "ins-1-2026-01-01",
+        "dueDate": "2026-01-05",
+        "amount": 60,
+        "label": "Rata 1",
+        "services": [],
+        "paymentMethodCode": "onsite_pos",
+        "paymentStatus": "paid",
+        "paymentProofDataUrl": "",
+        "paidAt": "2026-01-05T11:00:00.000Z",
+        "unlocked": false
+      },
+      {
+        "id": "ins-2-2026-02-01",
+        "dueDate": "2026-02-05",
+        "amount": 35,
+        "label": "Rata 2",
+        "services": [],
+        "paymentMethodCode": "onsite_pos",
+        "paymentStatus": "pending",
+        "paymentProofDataUrl": "",
+        "paidAt": "",
+        "unlocked": false
+      },
+      {
+        "id": "ins-3-2026-03-01",
+        "dueDate": "2026-03-05",
+        "amount": 35,
+        "label": "Rata 3",
+        "services": [],
+        "paymentMethodCode": "onsite_pos",
+        "paymentStatus": "pending",
+        "paymentProofDataUrl": "",
+        "paidAt": "",
+        "unlocked": false
+      },
+      {
+        "id": "ins-4-2026-04-01",
+        "dueDate": "2026-04-05",
+        "amount": 35,
+        "label": "Rata 4",
+        "services": [],
+        "paymentMethodCode": "onsite_pos",
+        "paymentStatus": "pending",
+        "paymentProofDataUrl": "",
+        "paidAt": "",
+        "unlocked": false
+      },
+      {
+        "id": "ins-5-2026-05-01",
+        "dueDate": "2026-05-05",
+        "amount": 35,
+        "label": "Rata 5",
+        "services": [],
+        "paymentMethodCode": "onsite_pos",
+        "paymentStatus": "pending",
+        "paymentProofDataUrl": "",
+        "paidAt": "",
+        "unlocked": false
+      },
+      {
+        "id": "ins-6-2026-06-01",
+        "dueDate": "2026-06-05",
+        "amount": 35,
+        "label": "Rata 6",
+        "services": [],
+        "paymentMethodCode": "onsite_pos",
+        "paymentStatus": "pending",
+        "paymentProofDataUrl": "",
+        "paidAt": "",
+        "unlocked": false
+      },
+      {
+        "id": "ins-7-2026-07-01",
+        "dueDate": "2026-07-05",
+        "amount": 35,
+        "label": "Rata 7",
+        "services": [],
+        "paymentMethodCode": "onsite_pos",
+        "paymentStatus": "pending",
+        "paymentProofDataUrl": "",
+        "paidAt": "",
+        "unlocked": false
+      }
+    ]
+  }
+]

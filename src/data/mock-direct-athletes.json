@@ -1,0 +1,20 @@
+[
+  {
+    "id": "direct-athlete-1",
+    "userId": 6,
+    "clientId": 9001,
+    "packageId": "pkg-tennis-base",
+    "firstName": "Sara",
+    "lastName": "Gialli",
+    "birthDate": "1996-04-18",
+    "birthPlace": "Milano",
+    "residenceAddress": "Via Roma 12, Milano",
+    "taxCode": "GLLSRA96D58F205X",
+    "email": "client@playyoursport.test",
+    "phone": "+39 333 1234567",
+    "medicalCertificateImageDataUrl": "",
+    "medicalCertificateExpiryDate": "2026-12-31",
+    "validationStatus": "validated",
+    "createdAt": "2026-03-04T09:00:00.000Z"
+  }
+]

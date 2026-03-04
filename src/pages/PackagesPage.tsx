@@ -6,6 +6,7 @@ import { SortableContext, arrayMove, rectSortingStrategy, useSortable } from '@d
 import { CSS } from '@dnd-kit/utilities'
 import { GripVertical, MessageCircle, SquarePen, Trash2 } from 'lucide-react'
 import { DayPicker, type DateRange } from 'react-day-picker'
+import { useSearchParams } from 'react-router-dom'
 import 'react-day-picker/style.css'
 import DataTable from '../components/DataTable'
 import RichTextEditor from '../components/RichTextEditor'
@@ -255,6 +256,7 @@ function GallerySortableCard({
 
 function PackagesPage() {
   const { t } = useTranslation()
+  const [searchParams, setSearchParams] = useSearchParams()
   const currentYear = new Date().getFullYear()
   const [packages, setPackages] = useState<SportPackage[]>(() => getPackages())
   const [categories, setCategories] = useState(() => getSportCategories().filter((category) => category.isActive))
@@ -961,23 +963,16 @@ function PackagesPage() {
     (item: Pick<SportPackage, 'recurringPaymentEnabled' | 'paymentFrequency' | 'priceAmount'>): string => {
       const amount = Number.isFinite(item.priceAmount) ? Number(item.priceAmount) : 0
       try {
-        const formattedAmount = new Intl.NumberFormat(undefined, {
+        return new Intl.NumberFormat(undefined, {
           style: 'currency',
           currency: paymentCurrency,
           maximumFractionDigits: 2,
         }).format(amount)
-        if (!item.recurringPaymentEnabled) {
-          return formattedAmount
-        }
-        return `${formattedAmount}/${formatPackageFrequency(item)}`
       } catch {
-        if (!item.recurringPaymentEnabled) {
-          return `${amount} ${paymentCurrency}`
-        }
-        return `${amount} ${paymentCurrency}/${formatPackageFrequency(item)}`
+        return `${amount} ${paymentCurrency}`
       }
     },
-    [formatPackageFrequency, paymentCurrency],
+    [paymentCurrency],
   )
 
   type ProductRow = {
@@ -1064,10 +1059,17 @@ function PackagesPage() {
   )
 
   const filteredProducts = useMemo(() => {
+    const lockedPackageId = searchParams.get('packageId')
+    const lockedProductId = lockedPackageId
+      ? (packages.find((item) => item.id === lockedPackageId)?.productId ?? null)
+      : null
     const normalizedSearch = searchQuery.trim().toLowerCase()
     const ageMinFilter = filterAgeMin.trim() === '' ? null : Number(filterAgeMin)
     const ageMaxFilter = filterAgeMax.trim() === '' ? null : Number(filterAgeMax)
     return productRows.filter((item) => {
+      if (lockedProductId && item.productId !== lockedProductId) {
+        return false
+      }
       if (filterCategoryId && item.categoryId !== filterCategoryId) {
         return false
       }
@@ -1117,10 +1119,25 @@ function PackagesPage() {
     filterCompanyId,
     filterFrequency,
     formatPackageFrequency,
+    packages,
     productRows,
     searchQuery,
+    searchParams,
     t,
   ])
+
+  const resetFilters = () => {
+    setSearchQuery('')
+    setFilterCategoryId('')
+    setFilterCompanyId('')
+    setFilterAudience('all')
+    setFilterFrequency('all')
+    setFilterAgeMin('')
+    setFilterAgeMax('')
+    const next = new URLSearchParams(searchParams)
+    next.delete('packageId')
+    setSearchParams(next, { replace: true })
+  }
 
   const openEditionsModal = (productId: string) => {
     setSelectedProductId(productId)
@@ -1392,97 +1409,96 @@ function PackagesPage() {
             </p>
           )}
 
-          <div className="collapse collapse-arrow rounded-lg border border-base-300">
-            <input type="checkbox" />
-            <div className="collapse-title text-sm font-medium">{t('utility.packages.filtersTitle')}</div>
-            <div className="collapse-content space-y-3">
-              <div className="flex justify-end">
+          <div className="space-y-3 rounded-lg border border-base-300 bg-base-100 p-3">
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-12">
+              <label className="form-control lg:col-span-3">
+                <span className="label-text mb-1 text-xs">{t('utility.packages.searchLabel')}</span>
+                <input
+                  className="input input-bordered w-full"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder={t('utility.packages.searchPlaceholder')}
+                />
+              </label>
+              <label className="form-control lg:col-span-1">
+                <span className="label-text mb-1 text-xs">{t('utility.packages.categoryLabel')}</span>
+                <select className="select select-bordered w-full" value={filterCategoryId} onChange={(event) => setFilterCategoryId(event.target.value)}>
+                  <option value="">{t('utility.packages.filterAllOption')}</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="form-control lg:col-span-1">
+                <span className="label-text mb-1 text-xs">{t('utility.packages.companyLabel')}</span>
+                <select className="select select-bordered w-full" value={filterCompanyId} onChange={(event) => setFilterCompanyId(event.target.value)}>
+                  <option value="">{t('utility.packages.filterAllOption')}</option>
+                  {companies.map((company) => (
+                    <option key={company.id} value={company.id}>
+                      {company.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="form-control lg:col-span-1">
+                <span className="label-text mb-1 text-xs">{t('utility.packages.audienceLabel')}</span>
+                <select
+                  className="select select-bordered w-full"
+                  value={filterAudience}
+                  onChange={(event) => setFilterAudience(event.target.value as 'all' | AudienceCode)}
+                >
+                  <option value="all">{t('utility.packages.filterAllOption')}</option>
+                  <option value="adult">{t('utility.packages.audienceAdult')}</option>
+                  <option value="youth">{t('utility.packages.audienceYouth')}</option>
+                </select>
+              </label>
+              <label className="form-control lg:col-span-2">
+                <span className="label-text mb-1 text-xs">{t('utility.packages.paymentFrequencyLabel')}</span>
+                <select
+                  className="select select-bordered w-full"
+                  value={filterFrequency}
+                  onChange={(event) =>
+                    setFilterFrequency(event.target.value as 'all' | 'non-recurring' | PackagePaymentFrequency)
+                  }
+                >
+                  <option value="all">{t('utility.packages.filterAllOption')}</option>
+                  <option value="non-recurring">{t('utility.packages.nonRecurringFrequency')}</option>
+                  {PAYMENT_FREQUENCIES.map((item) => (
+                    <option key={item.value} value={item.value}>
+                      {t(item.labelKey)}
+                    </option>
+                    ))}
+                </select>
+              </label>
+              <label className="form-control lg:col-span-1">
+                <span className="label-text mb-1 text-xs">{t('utility.packages.filterAgeMin')}</span>
+                <input
+                  type="number"
+                  min={0}
+                  className="input input-bordered w-full"
+                  value={filterAgeMin}
+                  onChange={(event) => setFilterAgeMin(event.target.value)}
+                />
+              </label>
+              <label className="form-control lg:col-span-1">
+                <span className="label-text mb-1 text-xs">{t('utility.packages.filterAgeMax')}</span>
+                <input
+                  type="number"
+                  min={0}
+                  className="input input-bordered w-full"
+                  value={filterAgeMax}
+                  onChange={(event) => setFilterAgeMax(event.target.value)}
+                />
+              </label>
+              <div className="lg:col-span-2 flex items-end justify-end gap-2">
                 <button type="button" className="btn btn-outline btn-sm" onClick={openPriorityModal}>
                   {t('utility.packages.columnPriorityButton')}
                 </button>
-              </div>
-              <div className="grid gap-3 md:grid-cols-12">
-                <label className="form-control md:col-span-12">
-                  <span className="label-text mb-1 text-xs">{t('utility.packages.searchLabel')}</span>
-                  <input
-                    className="input input-bordered w-full"
-                    value={searchQuery}
-                    onChange={(event) => setSearchQuery(event.target.value)}
-                    placeholder={t('utility.packages.searchPlaceholder')}
-                  />
-                </label>
-                <label className="form-control md:col-span-3">
-                  <span className="label-text mb-1 text-xs">{t('utility.packages.categoryLabel')}</span>
-                  <select className="select select-bordered w-full" value={filterCategoryId} onChange={(event) => setFilterCategoryId(event.target.value)}>
-                    <option value="">{t('utility.packages.filterAllOption')}</option>
-                    {categories.map((category) => (
-                      <option key={category.id} value={category.id}>
-                        {category.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="form-control md:col-span-3">
-                  <span className="label-text mb-1 text-xs">{t('utility.packages.companyLabel')}</span>
-                  <select className="select select-bordered w-full" value={filterCompanyId} onChange={(event) => setFilterCompanyId(event.target.value)}>
-                    <option value="">{t('utility.packages.filterAllOption')}</option>
-                    {companies.map((company) => (
-                      <option key={company.id} value={company.id}>
-                        {company.title}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="form-control md:col-span-2">
-                  <span className="label-text mb-1 text-xs">{t('utility.packages.audienceLabel')}</span>
-                  <select
-                    className="select select-bordered w-full"
-                    value={filterAudience}
-                    onChange={(event) => setFilterAudience(event.target.value as 'all' | AudienceCode)}
-                  >
-                    <option value="all">{t('utility.packages.filterAllOption')}</option>
-                    <option value="adult">{t('utility.packages.audienceAdult')}</option>
-                    <option value="youth">{t('utility.packages.audienceYouth')}</option>
-                  </select>
-                </label>
-                <label className="form-control md:col-span-2">
-                  <span className="label-text mb-1 text-xs">{t('utility.packages.paymentFrequencyLabel')}</span>
-                  <select
-                    className="select select-bordered w-full"
-                    value={filterFrequency}
-                    onChange={(event) =>
-                      setFilterFrequency(event.target.value as 'all' | 'non-recurring' | PackagePaymentFrequency)
-                    }
-                  >
-                    <option value="all">{t('utility.packages.filterAllOption')}</option>
-                    <option value="non-recurring">{t('utility.packages.nonRecurringFrequency')}</option>
-                    {PAYMENT_FREQUENCIES.map((item) => (
-                      <option key={item.value} value={item.value}>
-                        {t(item.labelKey)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="form-control md:col-span-1">
-                  <span className="label-text mb-1 text-xs">{t('utility.packages.filterAgeMin')}</span>
-                  <input
-                    type="number"
-                    min={0}
-                    className="input input-bordered w-full"
-                    value={filterAgeMin}
-                    onChange={(event) => setFilterAgeMin(event.target.value)}
-                  />
-                </label>
-                <label className="form-control md:col-span-1">
-                  <span className="label-text mb-1 text-xs">{t('utility.packages.filterAgeMax')}</span>
-                  <input
-                    type="number"
-                    min={0}
-                    className="input input-bordered w-full"
-                    value={filterAgeMax}
-                    onChange={(event) => setFilterAgeMax(event.target.value)}
-                  />
-                </label>
+                <button type="button" className="btn btn-outline btn-sm" onClick={resetFilters}>
+                  {t('common.resetFilters')}
+                </button>
               </div>
             </div>
           </div>

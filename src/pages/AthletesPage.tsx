@@ -1,0 +1,659 @@
+import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { AlertTriangle, FileText, Wallet } from 'lucide-react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import {
+  getPublicClients,
+  getPublicMinors,
+  updatePublicMinorRecord,
+  updatePublicMinorValidationStatus,
+  type PublicMinorRecord,
+} from '../lib/public-customer-records'
+import {
+  getPublicDirectAthletes,
+  updatePublicDirectAthleteRecord,
+  updatePublicDirectAthleteValidationStatus,
+  type PublicDirectAthleteRecord,
+} from '../lib/public-direct-athletes'
+import { getPackages } from '../lib/package-catalog'
+
+type MinorDraft = Pick<
+  PublicMinorRecord,
+  | 'firstName'
+  | 'lastName'
+  | 'birthDate'
+  | 'birthPlace'
+  | 'residenceAddress'
+  | 'taxCode'
+  | 'medicalCertificateImageDataUrl'
+  | 'medicalCertificateExpiryDate'
+>
+type AthleteRow =
+  | { type: 'minor'; id: string; minor: PublicMinorRecord }
+  | {
+      type: 'direct'
+      id: string
+      direct: PublicDirectAthleteRecord
+    }
+type DirectDraft = Pick<
+  PublicDirectAthleteRecord,
+  | 'firstName'
+  | 'lastName'
+  | 'birthDate'
+  | 'birthPlace'
+  | 'residenceAddress'
+  | 'taxCode'
+  | 'email'
+  | 'phone'
+  | 'medicalCertificateImageDataUrl'
+  | 'medicalCertificateExpiryDate'
+>
+
+function AthleteDocumentPreview({ dataUrl }: { dataUrl: string }) {
+  if (!dataUrl) {
+    return <p className="text-sm opacity-70">-</p>
+  }
+  if (dataUrl.startsWith('data:image')) {
+    return <img src={dataUrl} alt="" className="max-h-64 rounded border border-base-300 object-contain" />
+  }
+  return (
+    <a className="link link-primary text-sm" href={dataUrl} target="_blank" rel="noreferrer">
+      Apri documento
+    </a>
+  )
+}
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '')
+    reader.onerror = () => reject(new Error('file_read_error'))
+    reader.readAsDataURL(file)
+  })
+}
+
+function isCertificateValid(expiryDate: string): boolean {
+  if (!expiryDate) {
+    return false
+  }
+  return expiryDate >= new Date().toISOString().slice(0, 10)
+}
+
+function AthletesPage() {
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [minors, setMinors] = useState<PublicMinorRecord[]>(() => getPublicMinors())
+  const [directAthletes, setDirectAthletes] = useState<PublicDirectAthleteRecord[]>(() => getPublicDirectAthletes())
+  const [message, setMessage] = useState('')
+  const [activeMinorId, setActiveMinorId] = useState<number | null>(null)
+  const [minorDraft, setMinorDraft] = useState<MinorDraft | null>(null)
+  const [activeDirectId, setActiveDirectId] = useState<string | null>(null)
+  const [directDraft, setDirectDraft] = useState<DirectDraft | null>(null)
+  const [globalSearch, setGlobalSearch] = useState('')
+  const [packageFilter, setPackageFilter] = useState('all')
+  const [typeFilter, setTypeFilter] = useState<'all' | 'minor' | 'adult'>('all')
+  const [validationFilter, setValidationFilter] = useState<'all' | 'validated' | 'not_validated'>('all')
+  const [certificateFilter, setCertificateFilter] = useState<'all' | 'expired' | 'valid'>('all')
+  const [expiryFrom, setExpiryFrom] = useState('')
+  const [expiryTo, setExpiryTo] = useState('')
+  const lockedAthleteId = searchParams.get('athleteId')
+
+  const clientsById = useMemo(() => new Map(getPublicClients().map((client) => [client.id, client])), [minors])
+  const packages = useMemo(() => getPackages(), [])
+  const packagesById = useMemo(() => new Map(packages.map((item) => [item.id, item])), [packages])
+  const filteredAthletes = useMemo(() => {
+    const allRows: AthleteRow[] = [
+      ...minors.map((minor) => ({ type: 'minor' as const, id: `minor-${minor.id}`, minor })),
+      ...directAthletes.map((direct) => ({ type: 'direct' as const, id: `direct-${direct.id}`, direct })),
+    ]
+    return allRows.filter((row) => {
+      const isLegacyIdMatch =
+        row.type === 'minor' ? lockedAthleteId === String(row.minor.id) : lockedAthleteId === row.direct.id
+      if (lockedAthleteId && row.id !== lockedAthleteId && !isLegacyIdMatch) {
+        return false
+      }
+      const packageId = row.type === 'minor' ? row.minor.packageId : row.direct.packageId
+      const packageItem = packagesById.get(packageId)
+      const validationStatus = row.type === 'minor' ? row.minor.validationStatus : row.direct.validationStatus
+      const parent = row.type === 'minor' ? clientsById.get(row.minor.clientId) : null
+      const expiresAt =
+        row.type === 'minor'
+          ? row.minor.medicalCertificateExpiryDate || ''
+          : row.direct.medicalCertificateExpiryDate || ''
+      const firstName = row.type === 'minor' ? row.minor.firstName : row.direct.firstName
+      const lastName = row.type === 'minor' ? row.minor.lastName : row.direct.lastName
+      const taxCode = row.type === 'minor' ? row.minor.taxCode : row.direct.taxCode
+      const birthPlace = row.type === 'minor' ? row.minor.birthPlace : row.direct.birthPlace
+      const residence = row.type === 'minor' ? row.minor.residenceAddress : row.direct.residenceAddress
+      const directEmail = row.type === 'direct' ? row.direct.email : ''
+      const directPhone = row.type === 'direct' ? row.direct.phone : ''
+      const searchHaystack = [
+        firstName,
+        lastName,
+        taxCode,
+        birthPlace,
+        residence,
+        directEmail,
+        directPhone,
+        parent?.parentFirstName ?? '',
+        parent?.parentLastName ?? '',
+        packageItem?.name ?? '',
+      ]
+        .join(' ')
+        .toLowerCase()
+      if (globalSearch.trim() && !searchHaystack.includes(globalSearch.trim().toLowerCase())) {
+        return false
+      }
+      if (packageFilter !== 'all' && packageId !== packageFilter) {
+        return false
+      }
+      if (typeFilter !== 'all') {
+        if (typeFilter === 'minor' && row.type !== 'minor') {
+          return false
+        }
+        if (typeFilter === 'adult' && row.type !== 'direct') {
+          return false
+        }
+      }
+      if (validationFilter !== 'all' && validationStatus !== validationFilter) {
+        return false
+      }
+      if (certificateFilter !== 'all') {
+        const isValidCertificate = Boolean(expiresAt) && isCertificateValid(expiresAt)
+        if (certificateFilter === 'valid' && !isValidCertificate) {
+          return false
+        }
+        if (certificateFilter === 'expired' && isValidCertificate) {
+          return false
+        }
+      }
+      if (expiryFrom && (!expiresAt || expiresAt < expiryFrom)) {
+        return false
+      }
+      if (expiryTo && (!expiresAt || expiresAt > expiryTo)) {
+        return false
+      }
+      return true
+    })
+  }, [certificateFilter, clientsById, directAthletes, expiryFrom, expiryTo, globalSearch, lockedAthleteId, minors, packageFilter, packagesById, typeFilter, validationFilter])
+  const activeMinor = useMemo(
+    () => (activeMinorId === null ? null : minors.find((item) => item.id === activeMinorId) ?? null),
+    [activeMinorId, minors],
+  )
+  const activeDirect = useMemo(
+    () => (activeDirectId === null ? null : directAthletes.find((item) => item.id === activeDirectId) ?? null),
+    [activeDirectId, directAthletes],
+  )
+
+  const refresh = () => {
+    setMinors(getPublicMinors())
+    setDirectAthletes(getPublicDirectAthletes())
+  }
+
+  const openAthleteModal = (minor: PublicMinorRecord) => {
+    setActiveMinorId(minor.id)
+    setMinorDraft({
+      firstName: minor.firstName,
+      lastName: minor.lastName,
+      birthDate: minor.birthDate,
+      birthPlace: minor.birthPlace,
+      residenceAddress: minor.residenceAddress,
+      taxCode: minor.taxCode,
+      medicalCertificateImageDataUrl: minor.medicalCertificateImageDataUrl,
+      medicalCertificateExpiryDate: minor.medicalCertificateExpiryDate,
+    })
+  }
+
+  const closeModal = () => {
+    setActiveMinorId(null)
+    setMinorDraft(null)
+    setActiveDirectId(null)
+    setDirectDraft(null)
+  }
+
+  const openDirectAthleteModal = (direct: PublicDirectAthleteRecord) => {
+    setActiveDirectId(direct.id)
+    setDirectDraft({
+      firstName: direct.firstName,
+      lastName: direct.lastName,
+      birthDate: direct.birthDate,
+      birthPlace: direct.birthPlace,
+      residenceAddress: direct.residenceAddress,
+      taxCode: direct.taxCode,
+      email: direct.email,
+      phone: direct.phone,
+      medicalCertificateImageDataUrl: direct.medicalCertificateImageDataUrl,
+      medicalCertificateExpiryDate: direct.medicalCertificateExpiryDate,
+    })
+  }
+
+  const saveChanges = (silent = false) => {
+    if (!activeMinor || !minorDraft) {
+      return
+    }
+    updatePublicMinorRecord(activeMinor.id, minorDraft)
+    refresh()
+    if (!silent) {
+      setMessage(t('athletes.updated'))
+    }
+  }
+
+  const setValidationStatus = (status: 'validated' | 'not_validated') => {
+    if (!activeMinor) {
+      return
+    }
+    saveChanges(true)
+    updatePublicMinorValidationStatus(activeMinor.id, status)
+    refresh()
+    setMessage(t('athletes.updated'))
+  }
+
+  const saveDirectChanges = (silent = false) => {
+    if (!activeDirect || !directDraft) {
+      return
+    }
+    updatePublicDirectAthleteRecord(activeDirect.id, directDraft)
+    refresh()
+    if (!silent) {
+      setMessage(t('athletes.updated'))
+    }
+  }
+
+  const setDirectValidationStatus = (status: 'validated' | 'not_validated') => {
+    if (!activeDirect) {
+      return
+    }
+    saveDirectChanges(true)
+    updatePublicDirectAthleteValidationStatus(activeDirect.id, status)
+    refresh()
+    setMessage(t('athletes.updated'))
+  }
+
+  const resetFilters = () => {
+    setGlobalSearch('')
+    setPackageFilter('all')
+    setTypeFilter('all')
+    setValidationFilter('all')
+    setCertificateFilter('all')
+    setExpiryFrom('')
+    setExpiryTo('')
+    const next = new URLSearchParams(searchParams)
+    next.delete('athleteId')
+    setSearchParams(next, { replace: true })
+  }
+
+  return (
+    <section className="space-y-4">
+      <div>
+        <h2 className="text-2xl font-semibold">{t('athletes.title')}</h2>
+        <p className="text-sm opacity-70">{t('athletes.description')}</p>
+      </div>
+      {message ? <p className="rounded-lg bg-success/15 px-3 py-2 text-sm text-success">{message}</p> : null}
+      <div className="grid grid-cols-1 gap-3 rounded-lg border border-base-300 bg-base-100 p-3 md:grid-cols-2 lg:grid-cols-12">
+        <label className="form-control lg:col-span-2">
+          <span className="label-text mb-1 text-xs">{t('athletes.searchLabel')}</span>
+          <input
+            className="input input-bordered w-full"
+            value={globalSearch}
+            onChange={(event) => setGlobalSearch(event.target.value)}
+            placeholder={t('athletes.searchPlaceholder')}
+          />
+        </label>
+        <label className="form-control lg:col-span-2">
+          <span className="label-text mb-1 text-xs">{t('athletes.packageFilter')}</span>
+          <select className="select select-bordered w-full" value={packageFilter} onChange={(event) => setPackageFilter(event.target.value)}>
+            <option value="all">{t('athletes.allPackages')}</option>
+            {packages.map((item) => (
+              <option key={item.id} value={item.id}>{item.name}</option>
+            ))}
+          </select>
+        </label>
+        <label className="form-control lg:col-span-1">
+          <span className="label-text mb-1 text-xs">{t('athletes.typeFilter')}</span>
+          <select
+            className="select select-bordered w-full"
+            value={typeFilter}
+            onChange={(event) => setTypeFilter(event.target.value as 'all' | 'minor' | 'adult')}
+          >
+            <option value="all">{t('athletes.allTypes')}</option>
+            <option value="minor">{t('athletes.minorType')}</option>
+            <option value="adult">{t('athletes.adultType')}</option>
+          </select>
+        </label>
+        <label className="form-control lg:col-span-2">
+          <span className="label-text mb-1 text-xs">{t('athletes.validationFilter')}</span>
+          <select
+            className="select select-bordered w-full"
+            value={validationFilter}
+            onChange={(event) => setValidationFilter(event.target.value as 'all' | 'validated' | 'not_validated')}
+          >
+            <option value="all">{t('athletes.allStatuses')}</option>
+            <option value="validated">{t('athletes.validated')}</option>
+            <option value="not_validated">{t('athletes.notValidated')}</option>
+          </select>
+        </label>
+        <label className="form-control lg:col-span-2">
+          <span className="label-text mb-1 text-xs">{t('athletes.certificateFilter')}</span>
+          <select
+            className="select select-bordered w-full"
+            value={certificateFilter}
+            onChange={(event) => setCertificateFilter(event.target.value as 'all' | 'expired' | 'valid')}
+          >
+            <option value="all">{t('athletes.allCertificates')}</option>
+            <option value="valid">{t('athletes.certificateValid')}</option>
+            <option value="expired">{t('athletes.certificateExpired')}</option>
+          </select>
+        </label>
+        <div className="grid grid-cols-2 gap-2 lg:col-span-2">
+          <label className="form-control">
+            <span className="label-text mb-1 text-xs">{t('athletes.expiryFrom')}</span>
+            <input type="date" className="input input-bordered w-full" value={expiryFrom} onChange={(event) => setExpiryFrom(event.target.value)} />
+          </label>
+          <label className="form-control">
+            <span className="label-text mb-1 text-xs">{t('athletes.expiryTo')}</span>
+            <input type="date" className="input input-bordered w-full" value={expiryTo} onChange={(event) => setExpiryTo(event.target.value)} />
+          </label>
+        </div>
+        <div className="lg:col-span-1 flex items-end justify-end">
+          <button type="button" className="btn btn-outline btn-sm" onClick={resetFilters}>
+            {t('common.resetFilters')}
+          </button>
+        </div>
+      </div>
+      <div className="overflow-x-auto rounded-lg border border-base-300 bg-base-100">
+        <table className="table">
+          <thead>
+            <tr>
+              <th>{t('athletes.athlete')}</th>
+              <th>{t('athletes.type')}</th>
+              <th>{t('athletes.birthDate')}</th>
+              <th>{t('athletes.parent')}</th>
+              <th>{t('athletes.package')}</th>
+              <th>{t('athletes.certificateExpiry')}</th>
+              <th>{t('athletes.status')}</th>
+              <th>{t('athletes.actions')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredAthletes.length === 0 ? (
+              <tr>
+                <td colSpan={8} className="text-center text-sm opacity-70">{t('athletes.empty')}</td>
+              </tr>
+            ) : (
+              filteredAthletes.map((row) => {
+                const minor = row.type === 'minor' ? row.minor : null
+                const direct = row.type === 'direct' ? row.direct : null
+                const client = minor ? clientsById.get(minor.clientId) : null
+                const packageItem = packagesById.get(minor ? minor.packageId : (direct?.packageId ?? ''))
+                const isValidated = (minor ? minor.validationStatus : direct?.validationStatus) === 'validated'
+                return (
+                  <tr key={row.id}>
+                    <td>{minor ? `${minor.firstName} ${minor.lastName}` : `${direct?.firstName ?? ''} ${direct?.lastName ?? ''}`}</td>
+                    <td>
+                      <span className={`badge ${minor ? 'badge-info' : 'badge-primary'}`}>
+                        {minor ? t('athletes.minorType') : t('athletes.adultType')}
+                      </span>
+                    </td>
+                    <td>{minor?.birthDate ?? direct?.birthDate ?? '-'}</td>
+                    <td>
+                      {minor && client ? (
+                        <button
+                          type="button"
+                          className="link text-base-content text-left"
+                          onClick={() => navigate(`/app/clienti?clientId=${client.id}`)}
+                        >
+                          {client.parentFirstName} {client.parentLastName}
+                        </button>
+                      ) : (
+                        '-'
+                      )}
+                    </td>
+                    <td>
+                      {minor?.packageId || direct?.packageId ? (
+                        <button
+                          type="button"
+                          className="link text-base-content text-left"
+                          onClick={() => navigate(`/app/pacchetti?packageId=${minor?.packageId ?? direct?.packageId}`)}
+                        >
+                          {packageItem?.name ?? (minor?.packageId ?? direct?.packageId ?? '-')}
+                        </button>
+                      ) : (
+                        '-'
+                      )}
+                    </td>
+                    <td>
+                      {(minor?.medicalCertificateExpiryDate || direct?.medicalCertificateExpiryDate) ? (
+                        <span
+                          className={
+                            isCertificateValid(minor?.medicalCertificateExpiryDate || direct?.medicalCertificateExpiryDate || '')
+                              ? 'text-success font-medium'
+                              : 'text-error font-medium'
+                          }
+                        >
+                          {minor?.medicalCertificateExpiryDate || direct?.medicalCertificateExpiryDate}
+                        </span>
+                      ) : (
+                        <span className="text-error font-medium">-</span>
+                      )}
+                    </td>
+                    <td>
+                      <span className={`badge ${isValidated ? 'badge-success' : 'badge-warning'}`}>
+                        {isValidated
+                          ? t('athletes.validated')
+                          : t('athletes.notValidated')}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm btn-square"
+                          onClick={() => (minor ? openAthleteModal(minor) : direct ? openDirectAthleteModal(direct) : undefined)}
+                          title={isValidated ? t('athletes.openProfile') : t('athletes.openValidation')}
+                        >
+                          {isValidated
+                            ? <FileText className="h-4 w-4" />
+                            : <AlertTriangle className="h-4 w-4 text-warning" />}
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm btn-square"
+                          title={t('athletes.openActivitiesPayments')}
+                          onClick={() => navigate(`/app/attivita-pagamenti?athleteId=${row.id}`)}
+                        >
+                          <Wallet className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {activeMinor && minorDraft ? (
+        <dialog className="modal modal-open">
+          <div className="modal-box w-11/12 max-w-3xl">
+            <h3 className="text-lg font-semibold">{t('athletes.detailTitle')}</h3>
+            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+              <label className="form-control">
+                <span className="label-text mb-1 text-xs">{t('athletes.firstName')}</span>
+                <input className="input input-bordered w-full" value={minorDraft.firstName} onChange={(event) => setMinorDraft((prev) => (prev ? { ...prev, firstName: event.target.value } : prev))} />
+              </label>
+              <label className="form-control">
+                <span className="label-text mb-1 text-xs">{t('athletes.lastName')}</span>
+                <input className="input input-bordered w-full" value={minorDraft.lastName} onChange={(event) => setMinorDraft((prev) => (prev ? { ...prev, lastName: event.target.value } : prev))} />
+              </label>
+              <label className="form-control">
+                <span className="label-text mb-1 text-xs">{t('athletes.birthDate')}</span>
+                <input type="date" className="input input-bordered w-full" value={minorDraft.birthDate} onChange={(event) => setMinorDraft((prev) => (prev ? { ...prev, birthDate: event.target.value } : prev))} />
+              </label>
+              <label className="form-control">
+                <span className="label-text mb-1 text-xs">{t('athletes.birthPlace')}</span>
+                <input className="input input-bordered w-full" value={minorDraft.birthPlace} onChange={(event) => setMinorDraft((prev) => (prev ? { ...prev, birthPlace: event.target.value } : prev))} />
+              </label>
+              <label className="form-control">
+                <span className="label-text mb-1 text-xs">{t('athletes.taxCode')}</span>
+                <input className="input input-bordered w-full" value={minorDraft.taxCode} onChange={(event) => setMinorDraft((prev) => (prev ? { ...prev, taxCode: event.target.value } : prev))} />
+              </label>
+              <label className="form-control">
+                <span className="label-text mb-1 text-xs">{t('athletes.certificateExpiry')}</span>
+                <input type="date" className="input input-bordered w-full" value={minorDraft.medicalCertificateExpiryDate} onChange={(event) => setMinorDraft((prev) => (prev ? { ...prev, medicalCertificateExpiryDate: event.target.value } : prev))} />
+              </label>
+              <label className="form-control">
+                <span className="label-text mb-1 text-xs">{t('athletes.certificateUpload')}</span>
+                <input
+                  type="file"
+                  className="file-input file-input-bordered w-full"
+                  accept="image/*,.pdf"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0]
+                    if (!file) {
+                      return
+                    }
+                    void readFileAsDataUrl(file).then((dataUrl) => {
+                      setMinorDraft((prev) => (prev ? { ...prev, medicalCertificateImageDataUrl: dataUrl } : prev))
+                    })
+                  }}
+                />
+              </label>
+              <label className="form-control md:col-span-2">
+                <span className="label-text mb-1 text-xs">{t('athletes.residence')}</span>
+                <input className="input input-bordered w-full" value={minorDraft.residenceAddress} onChange={(event) => setMinorDraft((prev) => (prev ? { ...prev, residenceAddress: event.target.value } : prev))} />
+              </label>
+            </div>
+
+            {activeMinor.validationStatus === 'not_validated' ? (
+              <div className="mt-4 rounded border border-base-300">
+                <div className="collapse collapse-arrow">
+                  <input type="checkbox" />
+                  <div className="collapse-title text-sm font-medium">{t('athletes.checkDocuments')}</div>
+                  <div className="collapse-content">
+                    <p className="mb-1 text-xs font-semibold">{t('athletes.taxCodeDocument')}</p>
+                    <AthleteDocumentPreview dataUrl={activeMinor.taxCodeImageDataUrl} />
+                    <p className="mb-1 mt-4 text-xs font-semibold">{t('athletes.certificateDocument')}</p>
+                    <AthleteDocumentPreview dataUrl={minorDraft.medicalCertificateImageDataUrl} />
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            <div className="modal-action">
+              <button type="button" className="btn btn-ghost" onClick={closeModal}>{t('public.common.close')}</button>
+              <button type="button" className="btn btn-outline" onClick={() => saveChanges()}>{t('common.save')}</button>
+              {activeMinor.validationStatus === 'validated' ? (
+                <button type="button" className="btn btn-warning" onClick={() => setValidationStatus('not_validated')}>
+                  {t('athletes.markNotValidated')}
+                </button>
+              ) : (
+                <button type="button" className="btn btn-primary" onClick={() => setValidationStatus('validated')}>
+                  {t('athletes.markValidated')}
+                </button>
+              )}
+            </div>
+          </div>
+          <button type="button" className="modal-backdrop" onClick={closeModal} />
+        </dialog>
+      ) : null}
+
+      {activeDirect && directDraft ? (
+        <dialog className="modal modal-open">
+          <div className="modal-box w-11/12 max-w-3xl">
+            <h3 className="text-lg font-semibold">{t('athletes.detailTitle')}</h3>
+            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+              <label className="form-control">
+                <span className="label-text mb-1 text-xs">{t('athletes.firstName')}</span>
+                <input className="input input-bordered w-full" value={directDraft.firstName} onChange={(event) => setDirectDraft((prev) => (prev ? { ...prev, firstName: event.target.value } : prev))} />
+              </label>
+              <label className="form-control">
+                <span className="label-text mb-1 text-xs">{t('athletes.lastName')}</span>
+                <input className="input input-bordered w-full" value={directDraft.lastName} onChange={(event) => setDirectDraft((prev) => (prev ? { ...prev, lastName: event.target.value } : prev))} />
+              </label>
+              <label className="form-control">
+                <span className="label-text mb-1 text-xs">{t('athletes.birthDate')}</span>
+                <input type="date" className="input input-bordered w-full" value={directDraft.birthDate} onChange={(event) => setDirectDraft((prev) => (prev ? { ...prev, birthDate: event.target.value } : prev))} />
+              </label>
+              <label className="form-control">
+                <span className="label-text mb-1 text-xs">{t('athletes.birthPlace')}</span>
+                <input className="input input-bordered w-full" value={directDraft.birthPlace} onChange={(event) => setDirectDraft((prev) => (prev ? { ...prev, birthPlace: event.target.value } : prev))} />
+              </label>
+              <label className="form-control">
+                <span className="label-text mb-1 text-xs">{t('athletes.taxCode')}</span>
+                <input className="input input-bordered w-full" value={directDraft.taxCode} onChange={(event) => setDirectDraft((prev) => (prev ? { ...prev, taxCode: event.target.value } : prev))} />
+              </label>
+              <label className="form-control">
+                <span className="label-text mb-1 text-xs">{t('clients.phone')}</span>
+                <input className="input input-bordered w-full" value={directDraft.phone} onChange={(event) => setDirectDraft((prev) => (prev ? { ...prev, phone: event.target.value } : prev))} />
+              </label>
+              <label className="form-control">
+                <span className="label-text mb-1 text-xs">{t('athletes.certificateExpiry')}</span>
+                <input
+                  type="date"
+                  className="input input-bordered w-full"
+                  value={directDraft.medicalCertificateExpiryDate}
+                  onChange={(event) => setDirectDraft((prev) => (prev ? { ...prev, medicalCertificateExpiryDate: event.target.value } : prev))}
+                />
+              </label>
+              <label className="form-control md:col-span-2">
+                <span className="label-text mb-1 text-xs">{t('athletes.certificateUpload')}</span>
+                <input
+                  type="file"
+                  className="file-input file-input-bordered w-full"
+                  accept="image/*,.pdf"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0]
+                    if (!file) {
+                      return
+                    }
+                    void readFileAsDataUrl(file).then((dataUrl) => {
+                      setDirectDraft((prev) => (prev ? { ...prev, medicalCertificateImageDataUrl: dataUrl } : prev))
+                    })
+                  }}
+                />
+              </label>
+              <label className="form-control md:col-span-2">
+                <span className="label-text mb-1 text-xs">{t('clients.email')}</span>
+                <input className="input input-bordered w-full" value={directDraft.email} onChange={(event) => setDirectDraft((prev) => (prev ? { ...prev, email: event.target.value } : prev))} />
+              </label>
+              <label className="form-control md:col-span-2">
+                <span className="label-text mb-1 text-xs">{t('athletes.residence')}</span>
+                <input className="input input-bordered w-full" value={directDraft.residenceAddress} onChange={(event) => setDirectDraft((prev) => (prev ? { ...prev, residenceAddress: event.target.value } : prev))} />
+              </label>
+            </div>
+            {activeDirect.validationStatus === 'not_validated' ? (
+              <div className="mt-4 rounded border border-base-300">
+                <div className="collapse collapse-arrow">
+                  <input type="checkbox" />
+                  <div className="collapse-title text-sm font-medium">{t('athletes.checkDocuments')}</div>
+                  <div className="collapse-content">
+                    <p className="mb-1 text-xs font-semibold">{t('athletes.certificateDocument')}</p>
+                    <AthleteDocumentPreview dataUrl={directDraft.medicalCertificateImageDataUrl} />
+                  </div>
+                </div>
+              </div>
+            ) : null}
+            <div className="modal-action">
+              <button type="button" className="btn btn-ghost" onClick={closeModal}>{t('public.common.close')}</button>
+              <button type="button" className="btn btn-outline" onClick={() => saveDirectChanges()}>{t('common.save')}</button>
+              {activeDirect.validationStatus === 'validated' ? (
+                <button type="button" className="btn btn-warning" onClick={() => setDirectValidationStatus('not_validated')}>
+                  {t('athletes.markNotValidated')}
+                </button>
+              ) : (
+                <button type="button" className="btn btn-primary" onClick={() => setDirectValidationStatus('validated')}>
+                  {t('athletes.markValidated')}
+                </button>
+              )}
+            </div>
+          </div>
+          <button type="button" className="modal-backdrop" onClick={closeModal} />
+        </dialog>
+      ) : null}
+    </section>
+  )
+}
+
+export default AthletesPage

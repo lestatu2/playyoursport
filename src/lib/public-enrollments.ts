@@ -12,6 +12,9 @@ export type PublicEnrollment = {
   parentLastName: string
   parentEmail: string
   selectedGroupId: string
+  selectedSchedulePreferenceIds: string[]
+  selectedAdditionalServiceIds: string[]
+  selectedPaymentMethodCode: string
   privacyAccepted: boolean
   createdAt: string
 }
@@ -23,7 +26,15 @@ function readEnrollments(): PublicEnrollment[] {
       return []
     }
     const parsed = JSON.parse(raw) as PublicEnrollment[]
-    return Array.isArray(parsed) ? parsed : []
+    if (!Array.isArray(parsed)) {
+      return []
+    }
+    return parsed.map((item) => ({
+      ...item,
+      selectedSchedulePreferenceIds: Array.isArray(item.selectedSchedulePreferenceIds)
+        ? item.selectedSchedulePreferenceIds
+        : [],
+    }))
   } catch {
     return []
   }
@@ -42,6 +53,8 @@ export function createPublicEnrollment(
 ): PublicEnrollment {
   const next: PublicEnrollment = {
     ...payload,
+    selectedSchedulePreferenceIds: payload.selectedSchedulePreferenceIds ?? [],
+    selectedPaymentMethodCode: payload.selectedPaymentMethodCode ?? '',
     id: `enr-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
     createdAt: new Date().toISOString(),
   }

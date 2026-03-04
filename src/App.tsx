@@ -13,7 +13,11 @@ import UtilityGroupsPage from './pages/UtilityGroupsPage'
 import UtilityEnrollmentsPage from './pages/UtilityEnrollmentsPage'
 import UtilityAdditionalServicesPage from './pages/UtilityAdditionalServicesPage'
 import UtilityWhatsAppAccountsPage from './pages/UtilityWhatsAppAccountsPage'
+import UtilityPaymentMethodsPage from './pages/UtilityPaymentMethodsPage'
 import UsersPage from './pages/UsersPage'
+import ClientsPage from './pages/ClientsPage'
+import AthletesPage from './pages/AthletesPage'
+import ActivitiesPaymentsPage from './pages/ActivitiesPaymentsPage'
 import PublicPortalPage from './pages/PublicPortalPage'
 import SitePage from './pages/SitePage'
 import PublicPackagesPage from './pages/PublicPackagesPage'
@@ -165,11 +169,15 @@ function App() {
       />
       <Route
         path="/pacchetti"
-        element={<PublicPackagesPage session={publicSession} onLogout={handlePublicLogout} />}
+        element={
+          <PublicPackagesPage session={publicSession} onLogin={setPublicSession} onLogout={handlePublicLogout} />
+        }
       />
       <Route
         path="/pacchetti/:packageId"
-        element={<PublicPackageDetailPage session={publicSession} onLogout={handlePublicLogout} />}
+        element={
+          <PublicPackageDetailPage session={publicSession} onLogin={setPublicSession} onLogout={handlePublicLogout} />
+        }
       />
       <Route path="/login" element={<LoginPage session={session} onLogin={setSession} />} />
       <Route
@@ -202,6 +210,30 @@ function App() {
           element={
             <UsersRoute session={session}>
               <UsersPage session={session!} />
+            </UsersRoute>
+          }
+        />
+        <Route
+          path="clienti"
+          element={
+            <UsersRoute session={session}>
+              <ClientsPage />
+            </UsersRoute>
+          }
+        />
+        <Route
+          path="atleti"
+          element={
+            <UsersRoute session={session}>
+              <AthletesPage />
+            </UsersRoute>
+          }
+        />
+        <Route
+          path="attivita-pagamenti"
+          element={
+            <UsersRoute session={session}>
+              <ActivitiesPaymentsPage />
             </UsersRoute>
           }
         />
@@ -251,6 +283,14 @@ function App() {
           element={
             <UtilityRoute session={session}>
               <UtilityAdditionalServicesPage />
+            </UtilityRoute>
+          }
+        />
+        <Route
+          path="utility/metodi-pagamento"
+          element={
+            <UtilityRoute session={session}>
+              <UtilityPaymentMethodsPage />
             </UtilityRoute>
           }
         />

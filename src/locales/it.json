@@ -1,7 +1,8 @@
-{
+﻿{
   "common": {
     "save": "Salva",
     "resetDefault": "Ripristina default",
+    "resetFilters": "Reset filtri",
     "logout": "Logout",
     "accessDenied": "Accesso negato"
   },
@@ -33,9 +34,12 @@
   },
   "nav": {
     "dashboard": "Dashboard",
+    "users": "Utenti",
+    "clients": "Clienti",
+    "athletes": "Atleti",
+    "activitiesPayments": "Attività & Pagamenti",
     "packages": "Pacchetti",
     "site": "Sito",
-    "users": "Utenti",
     "configuration": "Configurazione",
     "utility": "Utility",
     "utilityCategories": "Categorie",
@@ -44,7 +48,8 @@
     "utilityGroups": "Gruppi",
     "utilityEnrollments": "Iscrizioni",
     "utilityAdditionalServices": "Servizi aggiuntivi",
-    "utilityWhatsAppAccounts": "Account WhatsApp"
+    "utilityWhatsAppAccounts": "Account WhatsApp",
+    "utilityPaymentMethods": "Metodi pagamento"
   },
   "users": {
     "title": "Utenti",
@@ -76,6 +81,211 @@
       "packagesManage": "Gestione pacchetti",
       "usersRead": "Visualizzazione utenti",
       "subscribersManage": "Gestione subscribers"
+    }
+  },
+  "clients": {
+    "title": "Clienti",
+    "description": "Gestione genitori/clienti provenienti dal portale pubblico.",
+    "create": "Crea cliente",
+    "createTitle": "Crea cliente",
+    "createModeLabel": "Tipo creazione",
+    "createAsParent": "Cliente come genitore",
+    "createAsAthlete": "Cliente come atleta",
+    "createPackageLabel": "Pacchetto",
+    "createNoPackages": "Nessun pacchetto ragazzi disponibile",
+    "createRequired": "Compila tutti i campi obbligatori.",
+    "createSelectPackage": "Seleziona un pacchetto valido.",
+    "paymentMethod": "Metodo di pagamento",
+    "noPaymentMethods": "Nessun metodo disponibile",
+    "selectPaymentMethod": "Seleziona un metodo di pagamento.",
+    "minorAgeNotCompatible": "Età del minore non compatibile con il pacchetto selezionato ({{min}}-{{max}} anni).",
+    "createAthleteNotImplemented": "Creazione cliente come atleta non ancora disponibile.",
+    "addMinor": "Aggiungi minore",
+    "addMinorTitle": "Aggiungi minore",
+    "createAthlete": "Crea atleta",
+    "parent": "Genitore",
+    "minor": "Minore",
+    "email": "Email",
+    "phone": "Telefono",
+    "secondaryPhone": "Secondo telefono",
+    "birthDate": "Data nascita",
+    "gender": "Sesso",
+    "genderMale": "Maschio",
+    "genderFemale": "Femmina",
+    "birthPlace": "Luogo nascita",
+    "taxCode": "Codice fiscale",
+    "residence": "Residenza",
+    "parentFirstName": "Nome genitore",
+    "parentLastName": "Cognome genitore",
+    "minorFirstName": "Nome minore",
+    "minorLastName": "Cognome minore",
+    "detailTitle": "Scheda cliente",
+    "checkDocuments": "Controlla documenti",
+    "taxCodeDocument": "Documento codice fiscale",
+    "identityDocument": "Documento identità",
+    "linkedMinors": "Minori collegati",
+    "noLinkedMinors": "Nessun minore collegato.",
+    "openValidation": "Apri validazione cliente",
+    "openProfile": "Apri scheda cliente",
+    "minors": "Minori collegati",
+    "minorsCount": "Atleti collegati",
+    "status": "Stato validazione",
+    "searchLabel": "Cerca cliente",
+    "searchPlaceholder": "Cerca per nome, email, telefono, CF, minore",
+    "validationFilter": "Filtro validazione",
+    "allStatuses": "Tutti gli stati",
+    "actions": "Azioni",
+    "validated": "Validato",
+    "notValidated": "Non validato",
+    "markValidated": "Segna validato",
+    "markNotValidated": "Segna non validato",
+    "confirmValidateWithUnvalidatedMinors": "Ci sono minori a te collegati non validati. Vuoi validare il genitore ugualmente?",
+    "updated": "Stato cliente aggiornato.",
+    "created": "Cliente e minore creati e validati.",
+    "minorCreated": "Minore creato e validato.",
+    "empty": "Nessun cliente registrato."
+  },
+  "athletes": {
+    "title": "Atleti",
+    "description": "Gestione minori/atleti provenienti dal portale pubblico.",
+    "searchLabel": "Cerca atleta",
+    "searchPlaceholder": "Cerca per atleta, genitore, pacchetto o CF",
+    "packageFilter": "Filtro pacchetto",
+    "allPackages": "Tutti i pacchetti",
+    "typeFilter": "Filtro tipo",
+    "allTypes": "Tutti i tipi",
+    "validationFilter": "Filtro validazione",
+    "allStatuses": "Tutti gli stati",
+    "certificateFilter": "Filtro certificato",
+    "allCertificates": "Tutti i certificati",
+    "certificateValid": "Non scaduto",
+    "certificateExpired": "Scaduto",
+    "expiryFrom": "Scadenza da",
+    "expiryTo": "Scadenza a",
+    "athlete": "Atleta",
+    "type": "Tipo",
+    "minorType": "Minore",
+    "adultType": "Adulto",
+    "firstName": "Nome",
+    "lastName": "Cognome",
+    "birthDate": "Data nascita",
+    "birthPlace": "Luogo nascita",
+    "taxCode": "Codice fiscale",
+    "residence": "Residenza",
+    "parent": "Genitore",
+    "package": "Pacchetto",
+    "detailTitle": "Scheda atleta",
+    "checkDocuments": "Controlla documenti",
+    "taxCodeDocument": "Documento codice fiscale",
+    "certificateExpiry": "Scadenza certificato medico",
+    "certificateUpload": "Carica certificato medico",
+    "certificateDocument": "Documento certificato medico",
+    "openValidation": "Apri validazione atleta",
+    "openProfile": "Apri scheda atleta",
+    "openActivitiesPayments": "Apri attività e pagamenti atleta",
+    "status": "Stato validazione",
+    "actions": "Azioni",
+    "validated": "Validato",
+    "notValidated": "Non validato",
+    "markValidated": "Segna validato",
+    "markNotValidated": "Segna non validato",
+    "updated": "Stato atleta aggiornato.",
+    "empty": "Nessun atleta registrato."
+  },
+  "activitiesPayments": {
+    "title": "Attività & Pagamenti",
+    "description": "Gestione attività atleta e pagamenti collegati.",
+    "placeholder": "Sezione in preparazione: in questo step è disponibile la vista attività.",
+    "empty": "Nessuna attività trovata con i filtri selezionati.",
+    "selfPayer": "Se stesso",
+    "filters": {
+      "athlete": "Atleta",
+      "allAthletes": "Tutti gli atleti",
+      "search": "Cerca",
+      "searchPlaceholder": "Cerca per atleta, genitore, pacchetto",
+      "lockedAthlete": "Filtro atleta bloccato",
+      "periodMonth": "Periodo (mese)",
+      "package": "Pacchetto",
+      "allPackages": "Tutti i pacchetti",
+      "validation": "Validazione",
+      "allStatuses": "Tutti gli stati"
+    },
+    "tabs": {
+      "activities": "Attività",
+      "deadlines": "Scadenze",
+      "expired": "Scadute",
+      "collections": "Incassi",
+      "overdue": "Insoluti",
+      "history": "Storico"
+    },
+    "table": {
+      "athlete": "Atleta",
+      "athleteType": "Tipo atleta",
+      "parent": "Genitore",
+      "package": "Pacchetto",
+      "period": "Periodo",
+      "workflow": "Workflow",
+      "paymentStatus": "Stato pagamenti",
+      "plan": "Piano"
+    },
+    "types": {
+      "minor": "Minore",
+      "directUser": "Atleta diretto"
+    },
+    "period": {
+      "current": "Corrente",
+      "total": "Totale"
+    },
+    "workflow": {
+      "validated": "Validato",
+      "toValidate": "Da validare",
+      "toGenerate": "Da generare",
+      "generatePlan": "Genera piano",
+      "savePlan": "Salva piano",
+      "planGenerated": "Piano ({{count}} rate)"
+    },
+    "status": {
+      "noPlan": "Nessun piano",
+      "inRegola": "In regola",
+      "inScadenza": "In scadenza",
+      "scaduta": "Scaduta",
+      "insoluti": "Insoluti",
+      "insolutiCount": "Insoluti: {{count}}",
+      "currentPaid": "Rata periodo pagata",
+      "currentPendingCount": "Rate periodo da pagare: {{count}}",
+      "noInstallmentInPeriod": "Nessuna rata nel periodo"
+    },
+    "plan": {
+      "enrollmentFee": "Costo iscrizione",
+      "recurringAmount": "Costo ricorrente",
+      "fixedServices": "Totale servizi fissi",
+      "services": "Servizi",
+      "addService": "Aggiungi servizio",
+      "removeService": "Rimuovi servizio",
+      "noServiceAvailable": "Nessun altro servizio disponibile",
+      "fixedService": "Fisso",
+      "variableService": "Variabile",
+      "variableServices": "Servizi variabili",
+      "frequency": "Frequenza",
+      "startDate": "Data inizio piano",
+      "endDate": "Data fine piano",
+      "servicesTotal": "Totale servizi",
+      "installmentsCount": "Numero rate",
+      "dueDate": "Scadenza",
+      "amount": "Importo",
+      "servicesSnapshot": "Servizi rata",
+      "paymentMethod": "Metodo pagamento",
+      "paymentEvidence": "Evidenza",
+      "paymentStatus": "Stato pagamento",
+      "actions": "Azioni",
+      "viewEvidence": "Apri evidenza",
+      "noEvidence": "Nessuna evidenza",
+      "paid": "Pagata",
+      "pending": "Da pagare",
+      "paypalManagedFrontend": "Gestito da frontend",
+      "markPaid": "Segna pagata",
+      "unlockInstallment": "Sblocca rata",
+      "lockInstallment": "Blocca rata"
     }
   },
   "layout": {
@@ -472,6 +682,26 @@
       "updated": "Categoria aggiornata con successo.",
       "deleted": "Categoria eliminata con successo.",
       "confirmDelete": "Confermi eliminazione della categoria \"{{label}}\"?"
+    },
+    "paymentMethods": {
+      "title": "Metodi pagamento",
+      "description": "Attiva/disattiva i metodi di pagamento disponibili nel form pubblico.",
+      "updated": "Configurazione metodi pagamento aggiornata.",
+      "methods": {
+        "onsite_pos": {
+          "label": "In sede",
+          "help": "Pagamento in sede tramite POS o contanti."
+        },
+        "bank_transfer": {
+          "label": "Bonifico Bancario",
+          "help": "Bonifico intestato all'azienda con IBAN aziendale."
+        },
+        "paypal": {
+          "label": "Paypal",
+          "help": "Pagamento tramite account PayPal o carta di credito sul circuito PayPal."
+        }
+      },
+      "methodDescriptionTitle": "Descrizione metodo"
     }
   },
   "app": {
@@ -479,6 +709,169 @@
     "adminOnlyUtility": "Solo super administrator e administrator possono vedere la sezione Utility.",
     "usersOnly": "Solo super administrator, administrator ed editor-admin possono vedere la sezione Utenti.",
     "permissionDenied": "Non hai i permessi necessari per questa sezione."
+  },
+  "public": {
+    "common": {
+      "close": "Chiudi",
+      "back": "Indietro",
+      "continue": "Continua",
+      "scenarioUnavailable": "Scenario non ancora disponibile.",
+      "scenarioUnavailableLogged": "Scenario non ancora disponibile per utenti già loggati."
+    },
+    "youthWizard": {
+      "title": "Iscrizione minore",
+      "ageRange": "Fascia età pacchetto: {{ageLabel}}",
+      "steps": {
+        "minor": "Minore",
+        "parent": "Genitore",
+        "services": "Servizi",
+        "schedule": "Orario",
+        "consents": "Consensi",
+        "confirm": "Conferma"
+      },
+      "fields": {
+        "minorFirstName": "Nome minore",
+        "minorLastName": "Cognome minore",
+        "minorBirthDate": "Data di nascita minore",
+        "minorGender": "Sesso minore",
+        "minorBirthPlace": "Luogo di nascita minore",
+        "minorResidenceAddress": "Residenza minore",
+        "minorTaxCode": "Codice fiscale minore",
+        "minorTaxCodePhoto": "Foto codice fiscale minore",
+        "parentFirstName": "Nome adulto",
+        "parentLastName": "Cognome adulto",
+        "parentEmail": "Email adulto",
+        "parentPhone": "Telefono adulto (obbligatorio)",
+        "parentSecondaryPhone": "Secondo telefono adulto (opzionale)",
+        "parentBirthDate": "Data di nascita adulto",
+        "parentGender": "Sesso adulto",
+        "parentBirthPlace": "Luogo di nascita adulto",
+        "parentResidenceAddress": "Residenza adulto",
+        "parentTaxCode": "Codice fiscale adulto",
+        "parentTaxCodePhoto": "Foto codice fiscale adulto",
+        "parentIdentityDocument": "Documento di identità adulto",
+        "loginAuto": "Login account (automatico)",
+        "login": "Login account",
+        "password": "Password account"
+      },
+      "placeholders": {
+        "parentPhone": "Telefono principale",
+        "parentSecondaryPhone": "Secondo telefono"
+      },
+      "services": {
+        "fixedTitle": "Servizi fissi associati al pacchetto",
+        "fixedEmpty": "Nessun servizio fisso disponibile.",
+        "variableTitle": "Servizi variabili associati al pacchetto",
+        "variableEmpty": "Nessun servizio variabile disponibile.",
+        "price": "Prezzo: {{price}}",
+        "descriptionTitle": "Descrizione servizio",
+        "descriptionEmpty": "Nessuna descrizione disponibile."
+      },
+      "schedule": {
+        "title": "Scelta orario preferito",
+        "subtitle": "La scelta viene salvata come preferenza e dovrà essere confermata in validazione.",
+        "empty": "Nessun orario disponibile per sesso/gruppi del minore.",
+        "weekdays": {
+          "0": "Domenica",
+          "1": "Lunedì",
+          "2": "Martedì",
+          "3": "Mercoledì",
+          "4": "Giovedi",
+          "5": "Venerdì",
+          "6": "Sabato"
+        }
+      },
+      "consents": {
+        "enrollmentCheck": "Si confermo - Conferma di richiesta iscrizione e tesseramento",
+        "enrollmentTextTitle": "Testo consenso iscrizione/tesseramento",
+        "informationCheck": "Il genitore prende visione della presente informativa",
+        "informationTextTitle": "Testo informativa privacy",
+        "dataProcessingCheck": "Consenso al trattamento dei dati personali per specifiche finalità ulteriori",
+        "dataProcessingTextTitle": "Testo consenso trattamento dati",
+        "dataProcessingSignature": "Firma del genitore per consenso al trattamento dati",
+        "enrollmentSignature": "Firma del genitore che conferma iscrizione",
+        "emptyConsentText": "Nessun testo consenso configurato.",
+        "emptyInformationText": "Nessun testo informativa configurato."
+      },
+      "summary": {
+        "minorTitle": "Riepilogo minore",
+        "parentTitle": "Riepilogo genitore/account",
+        "birthDate": "Data nascita",
+        "birthPlace": "Luogo nascita",
+        "residence": "Residenza",
+        "taxCode": "CF",
+        "taxCodePhoto": "Foto CF",
+        "identityDocument": "Documento",
+        "phone": "Telefono",
+        "secondaryPhone": "Secondo telefono",
+        "notUploaded": "non caricata",
+        "selectedServices": "Servizi aggiuntivi selezionati",
+        "noServicesSelected": "Nessun servizio aggiuntivo selezionato.",
+        "selectedSchedules": "Orari preferiti selezionati",
+        "noSchedulesSelected": "Nessun orario preferito selezionato.",
+        "fixed": "Fisso",
+        "variable": "Variabile",
+        "privacyCheck": "Accetto privacy e termini",
+        "packageCost": "Costo pacchetto",
+        "enrollmentCost": "Costo iscrizione",
+        "additionalServicesTotal": "Totale servizi aggiuntivi",
+        "grandTotal": "Totale",
+        "uploaded": "caricato"
+      },
+      "errors": {
+        "minorRequired": "Compila tutti i dati del minore.",
+        "minorTaxCodePhotoRequired": "Carica la foto del codice fiscale del minore.",
+        "ageNotCompatible": "Età non compatibile con il pacchetto ({{ageLabel}}).",
+        "minorTaxCodeDuplicate": "Codice fiscale minore già presente.",
+        "parentRequired": "Compila tutti i dati del genitore e account.",
+        "parentTaxCodePhotoRequired": "Carica la foto del codice fiscale dell'adulto.",
+        "parentIdentityRequired": "Carica il documento di identità dell'adulto.",
+        "parentTaxCodeDuplicate": "Codice fiscale genitore/cliente già presente.",
+        "enrollmentConsentRequired": "Devi confermare richiesta iscrizione e tesseramento.",
+        "informationConsentRequired": "Devi prendere visione dell'informativa privacy.",
+        "dataProcessingConsentRequired": "Devi accettare il consenso al trattamento dati per finalità ulteriori.",
+        "dataProcessingSignatureRequired": "Firma obbligatoria per il consenso al trattamento dati.",
+        "enrollmentSignatureRequired": "Firma del genitore che conferma iscrizione obbligatoria.",
+        "privacyRequired": "Devi accettare privacy e termini.",
+        "registerInvalid": "Registrazione account non valida o già esistente.",
+        "autologinFailed": "Registrazione completata ma login automatico fallito.",
+        "invalidSession": "Sessione utente non valida.",
+        "documentUpload": "Errore durante il caricamento dei documenti.",
+        "convertClientFailed": "Acquisto creato ma conversione a client non riuscita.",
+        "paymentMethodRequired": "Seleziona un metodo di pagamento.",
+        "scheduleRequired": "Seleziona almeno un orario preferito.",
+        "documentUploadMinorTaxCode": "Errore caricamento foto codice fiscale del minore.",
+        "documentUploadParentTaxCode": "Errore caricamento foto codice fiscale dell'adulto.",
+        "documentUploadParentIdentity": "Errore caricamento documento di identità dell'adulto."
+      },
+      "success": {
+        "completed": "Registrazione e acquisto minore completati."
+      },
+      "submitting": "Invio...",
+      "submit": "Conferma e acquista",
+      "signature": {
+        "clear": "Cancella firma"
+      },
+      "payment": {
+        "title": "Metodo di pagamento",
+        "empty": "Nessun metodo di pagamento disponibile per questa azienda.",
+        "iban": "IBAN",
+        "paypalClientId": "PayPal Client ID"
+      },
+      "postSubmit": {
+        "title": "Richiesta inviata con successo",
+          "subtitle": "La tua richiesta è stata registrata.",
+        "summaryTitle": "Riepilogo acquisto",
+        "verificationNotice": "Per poter essere attivato, è necessaria la verifica dei dati del minore e dei dati del genitore.",
+        "activationNotice": "Dopo l'attivazione riceverai una notifica di validazione e potrai procedere al pagamento.",
+        "paymentMethodsNotice": "Potrai pagare con uno dei metodi di pagamento disponibili nel pacchetto.",
+        "firstPaymentOnSite": "Per questo pacchetto è previsto il primo pagamento in sede: recati presso la sede della struttura.",
+        "variableServicesNotice": "Il prezzo finale, dopo la validazione, può subire variazioni.",
+        "variableServicesGuaranteedNotice": "In presenza di servizi variabili, al totale verrà aggiunto il prezzo dei servizi variabili definito in fase di validazione."
+      }
+    }
   }
 }
+
+
 

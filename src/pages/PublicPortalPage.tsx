@@ -14,6 +14,7 @@ import {
 import { getHomepageSliderPackages, getSubscriptionCtaLabel, resolvePublicPackageImage } from '../lib/public-content'
 import { createPublicEnrollment, getPublicEnrollmentsByUser } from '../lib/public-enrollments'
 import PublicSiteHeader from '../components/PublicSiteHeader'
+import PublicEnrollmentModal from '../components/PublicEnrollmentModal'
 import type { SportPackage } from '../lib/package-catalog'
 
 type PublicPortalPageProps = {
@@ -57,9 +58,14 @@ function PublicPortalPage({ session, onLogin, onLogout }: PublicPortalPageProps)
   const [purchaseDraft, setPurchaseDraft] = useState<PurchaseDraft>(EMPTY_PURCHASE_DRAFT)
   const [purchaseError, setPurchaseError] = useState('')
   const [message, setMessage] = useState('')
+  const [guestYouthPackageId, setGuestYouthPackageId] = useState<string | null>(null)
 
   const enrollments = useMemo(() => (session ? getPublicEnrollmentsByUser(session.userId) : []), [session])
   const activePackage = useMemo(() => slides.find((item) => item.id === activePackageId) ?? null, [activePackageId, slides])
+  const guestYouthPackage = useMemo(
+    () => slides.find((item) => item.id === guestYouthPackageId) ?? null,
+    [guestYouthPackageId, slides],
+  )
 
   const submitAuth = () => {
     setAuthError('')
@@ -87,16 +93,8 @@ function PublicPortalPage({ session, onLogin, onLogout }: PublicPortalPageProps)
   }
 
   const openPurchase = (item: SportPackage) => {
-    if (!session) {
-      setAuthError('Per acquistare devi prima accedere o registrarti.')
-      return
-    }
-    setActivePackageId(item.id)
-    setPurchaseError('')
-    setPurchaseDraft({
-      ...EMPTY_PURCHASE_DRAFT,
-      parentEmail: session.email,
-    })
+    setGuestYouthPackageId(item.id)
+    setAuthError('')
   }
 
   const closePurchase = () => {
@@ -142,6 +140,9 @@ function PublicPortalPage({ session, onLogin, onLogout }: PublicPortalPageProps)
       parentLastName: purchaseDraft.parentLastName.trim(),
       parentEmail: purchaseDraft.parentEmail.trim().toLowerCase(),
       selectedGroupId: purchaseDraft.selectedGroupId,
+      selectedSchedulePreferenceIds: [],
+      selectedAdditionalServiceIds: [],
+      selectedPaymentMethodCode: '',
       privacyAccepted: true,
     })
 
@@ -355,6 +356,13 @@ function PublicPortalPage({ session, onLogin, onLogout }: PublicPortalPageProps)
           <button type="button" className="modal-backdrop" onClick={closePurchase} />
         </dialog>
       )}
+      <PublicEnrollmentModal
+        packageItem={guestYouthPackage}
+        isOpen={Boolean(guestYouthPackage)}
+        session={session}
+        onClose={() => setGuestYouthPackageId(null)}
+        onCompleted={setMessage}
+      />
     </main>
   )
 }

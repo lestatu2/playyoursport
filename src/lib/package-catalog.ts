@@ -603,7 +603,7 @@ function applyKnownPackageMigrations(item: SportPackage): SportPackage {
     monthlyDueDay: 5,
     monthlyNextCycleOpenDay: 20,
     weeklyDueWeekday: null,
-    firstPaymentOnSite: false,
+    firstPaymentOnSite: true,
     entriesCount: 12,
     trainingAddress: item.trainingAddress?.trim() || 'Via dei Campi 12, Milano',
     whatsappAccountIds: ['wa-segreteria'],

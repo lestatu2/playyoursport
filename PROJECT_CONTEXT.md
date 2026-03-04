@@ -243,6 +243,33 @@ Sezioni utility implementate con pattern table + modale:
     - clienti (id numerici)
     - minori/atleti collegati 1:1 al genitore via id numerico
 
+### Avanzamento implementazione (aggiornamento)
+- Implementata componente dedicata `PublicYouthEnrollmentModal` (DaisyUI modal fullscreen) per scenario:
+  - utente non collegato
+  - acquisto/iscrizione pacchetto con audience `youth`
+- Apertura form a step collegata ai bottoni prodotto su:
+  - home pubblica (`/`)
+  - archivio pubblico (`/pacchetti`)
+  - dettaglio pubblico (`/pacchetti/:packageId`)
+- Flusso step attuale:
+  - step 1: dati minore (data nascita completa, luogo nascita, residenza) + validazione eta su range `ageMin/ageMax` del pacchetto + controllo duplicato CF minore
+  - step 2: dati genitore/account (data nascita completa, luogo nascita, residenza) + controllo duplicato CF cliente
+  - step 3: conferma privacy e submit
+- Upload documentali obbligatori nel flusso:
+  - foto codice fiscale minore
+  - foto codice fiscale adulto
+  - documento identita adulto
+- Persistenza mock aggiunta:
+  - `src/lib/public-customer-records.ts` con storage separato:
+    - `pys_public_clients`
+    - `pys_public_minors`
+- In submit:
+  - crea utente `subscribers` (registrazione pubblica)
+  - login pubblico automatico
+  - crea record cliente + minore
+  - crea enrollment pubblico
+  - converte utente in `client` al primo acquisto
+
 ## Backend Laravel - linee guida concordate
 Obiettivo: mantenere separazione netta tra prodotto base e edizione annuale.
 
@@ -278,3 +305,210 @@ Obiettivo: mantenere separazione netta tra prodotto base e edizione annuale.
 - Validare unicita anno edizione per prodotto (oltre al vincolo DB).
 - Tutte le operazioni gestionali (iscrizioni/pagamenti/gruppi) devono riferirsi a `editionId`.
 - Le edizioni pubblicate devono essere trattate come snapshot versionate (no modifiche retroattive non controllate).
+
+## Aggiornamento odierno (2026-03-04)
+
+### Direzione generale
+- Decisione confermata: NON creare una modale diversa per ogni scenario.
+- Deve esistere un unico form/modale pubblico con step riutilizzabili, attivati/disattivati in base alle condizioni reali.
+- Lo scenario corrente prioritario e: utente non loggato che acquista pacchetto ragazzi per minore (scenario 1).
+
+### Scenario model (da usare come base)
+- Scenari identificati da condizioni, non da componenti verticali:
+  - non loggato + pacchetto youth + acquisto per minore
+  - loggato subscriber + nuovo acquisto per minore
+  - loggato con minore gia esistente + nuovo acquisto stesso/altro pacchetto
+  - loggato con minore gia esistente + acquisto per altro minore
+  - non loggato + pacchetto adulto per se stesso
+  - loggato subscriber + pacchetto adulto per se stesso
+  - loggato con storico adulto + nuovo acquisto/nuova edizione
+
+### Form pubblico (scenario 1)
+- Modale fullscreen DaisyUI.
+- Campi con label esplicite.
+- `birthDate` e data completa (non solo anno).
+- Campo sesso vicino a data/luogo nascita come richiesto.
+- Luogo nascita e residenza: input con Google Places dal sito pubblico usando API key da dashboard.
+- Codice fiscale:
+  - usare logica/calcolo in stile progetto maugieri (comuni + belfiore).
+  - NON mostrare box separato "codice calcolato".
+  - auto-compilare direttamente l input `codice fiscale` in base ai dati form.
+- Upload obbligatori scenario 1:
+  - foto codice fiscale minore
+  - foto codice fiscale adulto
+  - documento identita adulto
+
+### Step e UX richiesti
+- Navigazione step cliccabile solo in fase sviluppo (per debug/test rapido).
+- Step consensi:
+  - blocco 1: conferma richiesta iscrizione/tesseramento con check + testo da pacchetto in collapse
+  - blocco 2: presa visione informativa privacy con check + testo in collapse
+  - blocco 3: consenso trattamento dati per finalita ulteriori + firma
+  - blocco 4: firma conferma iscrizione
+- Componente firma riusabile tra scenari (salvataggio immagine firma).
+- Rimosso check ridondante "accetto termini" se gia coperto nei consensi.
+
+### Username/login pubblico
+- Login NON scelto dall utente.
+- Regola generazione:
+  - base: `nome.cognome`
+  - se esiste: `nome.cognome{annoNascita}`
+  - se omonimia con stesso anno: suffisso iniziale mese (esempio indicativo richiesto)
+- Campo readonly.
+
+### Servizi aggiuntivi
+- Step dedicato con servizi fissi e variabili del pacchetto.
+- Selezione via check.
+- Mostrare prezzo e descrizione per servizio.
+- Descrizione dentro collapse.
+- Prezzo servizio fisso deve essere visibile anche nel riepilogo.
+
+### Metodi di pagamento (utility + form)
+- Utility metodi pagamento con switch di attivazione.
+- Metodi previsti:
+  - In sede
+  - Bonifico bancario
+  - PayPal
+- Bonifico/PayPal disponibili solo se dati presenti in azienda.
+- Se metodo non configurato lato azienda, non deve apparire.
+- Se pacchetto ha `firstPaymentOnSite=true`, nel form mostrare solo In sede.
+- Descrizioni richieste:
+  - In sede: pagamento in sede tramite POS o contanti.
+  - Bonifico: bonifico intestato all azienda con IBAN aziendale.
+  - PayPal: pagamento con account PayPal o carta su circuito PayPal.
+- UI metodi:
+  - card con stessa altezza
+  - layout 3 colonne con Tailwind (desktop) e colonna singola mobile
+  - collapse autochiudibili
+  - titoli: `In sede`, `Bonifico Bancario`, `PayPal`
+
+### Riepilogo economico prima invio
+- Mostrare sotto metodo pagamento:
+  - costo pacchetto
+  - costo iscrizione
+  - totale servizi aggiuntivi
+  - totale evidenziato
+- Testi frequenza in italiano:
+  - mensile -> al mese
+  - settimanale -> alla settimana
+  - giornaliero -> al giorno
+  - annuale -> all anno
+
+### Submit scenario 1
+- Dopo invio: mostrare conferma richiesta, NON login automatico.
+- Messaggio conferma:
+  - richiesta registrata
+  - attivazione subordinata a verifica dati genitore/minore
+  - notifica successiva di validazione
+  - pagamento dopo validazione con metodi disponibili
+  - se primo pagamento in sede, indicare passaggio in sede
+  - testo variazioni prezzo:
+    - sempre indicare che il totale finale puo variare dopo validazione
+    - se presenti servizi variabili, indicare che il prezzo finale verra integrato con importi variabili definiti in validazione
+
+### Dashboard admin - menu e anagrafiche
+- Menu aggiornato con `Utenti` dopo Dashboard.
+- Sezioni dedicate:
+  - `Clienti` (genitori/clienti)
+  - `Atleti` (minori + adulti atleta diretto)
+- Icone differenziate richieste; per atleti usare `circle-user` (non coppa).
+- In tabella clienti mostrare anche i minori collegati (nomi/cognomi).
+- Relazioni:
+  - un genitore puo avere piu minori
+  - un minore ha un solo genitore
+  - atleta adulto cliente diretto: gestito come atleta con parent `-`
+
+### Validazione clienti e minori
+- In clienti:
+  - azione con icona che apre modale scheda
+  - se non validato: icona validazione
+  - se validato: icona scheda
+- Modale cliente:
+  - dati editabili
+  - collapse documenti
+  - bottoni `Verifica` + `Salva`
+  - se verificato: `Passa a non verificato` + `Salva`
+  - se si valida genitore e ci sono minori non validati: alert conferma
+- Minori collegati in modale cliente:
+  - apertura dati in collapse
+  - evidenza stato validato/non validato sul nome minore
+  - validazione minore nel suo collapse
+  - documenti minore in collapse quando non validato
+- Stessa logica validazione anche nella pagina Atleti (azioni su scheda atleta).
+
+### Certificato medico atleta
+- Gestione certificato per tutti gli atleti (minori e adulti):
+  - upload documento
+  - data scadenza
+- Colore scadenza:
+  - verde se valido
+  - rosso se scaduto
+- Filtri atleti:
+  - cerca globale testuale
+  - filtro pacchetto
+  - filtro validazione
+  - filtro certificato scaduto/non scaduto
+  - range date scadenza da/a
+  - reset filtri
+
+### Attivita e pagamenti (impostazione smart)
+- Non creare dashboard separata: integrare nel progetto corrente.
+- Nuova sezione `Attivita & Pagamenti` con logica centralizzata:
+  - vista attivita
+  - tab operative: scadenze, scadute, incassi, insoluti, storico
+  - apertura contestuale da atleta con filtro id
+- Link coerenti:
+  - da attivita verso clienti/atleti/pacchetti a seconda del tipo soggetto
+  - per atleta=cliente diretto, parent sempre `-` (non cliccabile)
+
+### Piano pagamenti (regole concordate)
+- Creazione piano solo dopo validazione workflow richiesta (utente/minore quando necessario).
+- Date inizio/fine piano non modificabili dopo salvataggio.
+- Piano composto da rate con importi editabili.
+- Servizi gestiti singolarmente (non solo totale):
+  - importo editabile per singolo servizio
+  - aggiungi servizio disponibile
+  - elimina servizio con icona
+- Ogni rata mantiene snapshot storico servizi attivi+prezzi.
+- Metodo pagamento modificabile per rata (admin: in sede/bonifico).
+- Pagato/non pagato:
+  - in sede: azione pagato
+  - bonifico: evidenza + azione pagato
+  - una rata pagata non e modificabile, salvo sblocco esplicito
+- PayPal:
+  - no gestione pagamento manuale backend
+  - solo eventuale visualizzazione stato/evento dal frontend
+- Regola servizi su rate:
+  - attivazione/disattivazione/modifica/cancellazione agisce solo su rata corrente non pagata
+  - mai su rate antecedenti
+  - se cambia mese, non agisce piu sulla rata precedente
+
+### Stato pagamenti e filtri periodo (definiti oggi)
+- Filtro mese:
+  - non deve consentire mesi futuri (max mese corrente).
+- Definizioni etichette:
+  - In scadenza: rata mese corrente non pagata e non oltre data limite
+  - Scaduta: rata mese corrente non pagata oltre data limite
+  - Insoluti: rate non pagate dei mesi precedenti
+  - Pagata: rata pagata del mese corrente o qualsiasi mese (tab incassi)
+- Tab:
+  - Scadenze: solo pending del mese corrente non scadute
+  - Scadute: solo pending del mese corrente scadute
+  - Insoluti: solo pending dei mesi precedenti
+  - Incassi: pagate cumulative fino al mese filtro
+- Stato in tab Attivita:
+  - mostra `Scaduta` quando c e rata corrente scaduta
+  - se esistono mesi precedenti non pagati, mostra dettaglio piccolo `Insoluti: N`
+  - evita doppio badge ambiguo in conflitto
+
+### Dati mock richiesti oggi
+- `Tennis Base` riconfigurato come pacchetto mensile a periodo:
+  - inizio: 2026-01-01
+  - fine: 2026-07-31
+  - scadenza rata mensile: giorno 5
+- Caso `Sara Gialli`:
+  - iscritta da gennaio
+  - gennaio pagato (con iscrizione)
+  - febbraio e marzo non pagati
+- Nota operativa mock:
+  - in presenza di dati su localStorage, i seed possono non riflettersi finche non si puliscono le chiavi coinvolte.

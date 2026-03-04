@@ -2,6 +2,7 @@
   "common": {
     "save": "Save",
     "resetDefault": "Reset default",
+    "resetFilters": "Reset filters",
     "logout": "Logout",
     "accessDenied": "Access denied"
   },
@@ -33,9 +34,12 @@
   },
   "nav": {
     "dashboard": "Dashboard",
+    "users": "Users",
+    "clients": "Clients",
+    "athletes": "Athletes",
+    "activitiesPayments": "Activities & Payments",
     "packages": "Packages",
     "site": "Site",
-    "users": "Users",
     "configuration": "Configuration",
     "utility": "Utility",
     "utilityCategories": "Categories",
@@ -44,7 +48,8 @@
     "utilityGroups": "Groups",
     "utilityEnrollments": "Enrollments",
     "utilityAdditionalServices": "Additional services",
-    "utilityWhatsAppAccounts": "WhatsApp accounts"
+    "utilityWhatsAppAccounts": "WhatsApp accounts",
+    "utilityPaymentMethods": "Payment methods"
   },
   "users": {
     "title": "Users",
@@ -76,6 +81,211 @@
       "packagesManage": "Packages management",
       "usersRead": "Users read access",
       "subscribersManage": "Subscribers management"
+    }
+  },
+  "clients": {
+    "title": "Clients",
+    "description": "Manage parents/clients coming from the public portal.",
+    "parent": "Parent",
+    "email": "Email",
+    "phone": "Phone",
+    "secondaryPhone": "Secondary phone",
+    "birthDate": "Birth date",
+    "birthPlace": "Birth place",
+    "taxCode": "Tax code",
+    "residence": "Residence",
+    "parentFirstName": "Parent first name",
+    "parentLastName": "Parent last name",
+    "minorFirstName": "Minor first name",
+    "minorLastName": "Minor last name",
+    "detailTitle": "Client profile",
+    "checkDocuments": "Check documents",
+    "taxCodeDocument": "Tax code document",
+    "identityDocument": "Identity document",
+    "linkedMinors": "Linked minors",
+    "noLinkedMinors": "No linked minor.",
+    "openValidation": "Open client validation",
+    "openProfile": "Open client profile",
+    "minors": "Linked minors",
+    "minorsCount": "Linked athletes",
+    "status": "Validation status",
+    "searchLabel": "Search client",
+    "searchPlaceholder": "Search by name, email, phone, tax code, minor",
+    "validationFilter": "Validation filter",
+    "allStatuses": "All statuses",
+    "actions": "Actions",
+    "validated": "Validated",
+    "notValidated": "Not validated",
+    "markValidated": "Mark validated",
+    "markNotValidated": "Mark not validated",
+    "confirmValidateWithUnvalidatedMinors": "There are linked minors not validated yet. Validate the parent anyway?",
+    "updated": "Client status updated.",
+    "empty": "No clients registered.",
+    "create": "Crea cliente",
+    "createTitle": "Crea cliente",
+    "createModeLabel": "Tipo creazione",
+    "createAsParent": "Cliente come genitore",
+    "createAsAthlete": "Cliente come atleta",
+    "createPackageLabel": "Pacchetto",
+    "createNoPackages": "Nessun pacchetto ragazzi disponibile",
+    "createRequired": "Compila tutti i campi obbligatori.",
+    "createSelectPackage": "Seleziona un pacchetto valido.",
+    "minorAgeNotCompatible": "Età del minore non compatibile con il pacchetto selezionato ({{min}}-{{max}} anni).",
+    "createAthleteNotImplemented": "Creazione cliente come atleta non ancora disponibile.",
+    "addMinor": "Aggiungi minore",
+    "addMinorTitle": "Aggiungi minore",
+    "createAthlete": "Crea atleta",
+    "minor": "Minore",
+    "gender": "Sesso",
+    "genderMale": "Maschio",
+    "genderFemale": "Femmina",
+    "created": "Cliente e minore creati e validati.",
+    "minorCreated": "Minore creato e validato.",
+    "paymentMethod": "Metodo di pagamento",
+    "noPaymentMethods": "Nessun metodo disponibile",
+    "selectPaymentMethod": "Seleziona un metodo di pagamento."
+  },
+  "athletes": {
+    "title": "Athletes",
+    "description": "Manage minors/athletes coming from the public portal.",
+    "searchLabel": "Search athlete",
+    "searchPlaceholder": "Search by athlete, parent, package or tax code",
+    "packageFilter": "Package filter",
+    "allPackages": "All packages",
+    "typeFilter": "Type filter",
+    "allTypes": "All types",
+    "validationFilter": "Validation filter",
+    "allStatuses": "All statuses",
+    "certificateFilter": "Certificate filter",
+    "allCertificates": "All certificates",
+    "certificateValid": "Not expired",
+    "certificateExpired": "Expired",
+    "expiryFrom": "Expiry from",
+    "expiryTo": "Expiry to",
+    "athlete": "Athlete",
+    "type": "Type",
+    "minorType": "Minor",
+    "adultType": "Adult",
+    "firstName": "First name",
+    "lastName": "Last name",
+    "birthDate": "Birth date",
+    "birthPlace": "Birth place",
+    "taxCode": "Tax code",
+    "residence": "Residence",
+    "parent": "Parent",
+    "package": "Package",
+    "detailTitle": "Athlete profile",
+    "checkDocuments": "Check documents",
+    "taxCodeDocument": "Tax code document",
+    "certificateExpiry": "Medical certificate expiry",
+    "certificateUpload": "Upload medical certificate",
+    "certificateDocument": "Medical certificate document",
+    "openValidation": "Open athlete validation",
+    "openProfile": "Open athlete profile",
+    "openActivitiesPayments": "Open athlete activities and payments",
+    "status": "Validation status",
+    "actions": "Actions",
+    "validated": "Validated",
+    "notValidated": "Not validated",
+    "markValidated": "Mark validated",
+    "markNotValidated": "Mark not validated",
+    "updated": "Athlete status updated.",
+    "empty": "No athletes registered."
+  },
+  "activitiesPayments": {
+    "title": "Activities & Payments",
+    "description": "Manage athlete activities and related payments.",
+    "placeholder": "Section in progress: in this step only activities view is available.",
+    "empty": "No activities found for selected filters.",
+    "selfPayer": "Self",
+    "filters": {
+      "athlete": "Athlete",
+      "allAthletes": "All athletes",
+      "search": "Search",
+      "searchPlaceholder": "Search by athlete, parent, package",
+      "lockedAthlete": "Locked athlete filter",
+      "package": "Package",
+      "allPackages": "All packages",
+      "validation": "Validation",
+      "allStatuses": "All statuses",
+      "periodMonth": "Periodo (mese)"
+    },
+    "tabs": {
+      "activities": "Activities",
+      "deadlines": "Deadlines",
+      "expired": "Expired",
+      "collections": "Collections",
+      "overdue": "Overdue",
+      "history": "History"
+    },
+    "table": {
+      "athlete": "Athlete",
+      "athleteType": "Athlete type",
+      "parent": "Parent",
+      "package": "Package",
+      "period": "Period",
+      "workflow": "Workflow",
+      "plan": "Plan",
+      "paymentStatus": "Stato pagamenti"
+    },
+    "types": {
+      "minor": "Minor",
+      "directUser": "Direct athlete"
+    },
+    "workflow": {
+      "validated": "Validated",
+      "toValidate": "To validate",
+      "toGenerate": "To generate",
+      "generatePlan": "Generate plan",
+      "savePlan": "Save plan",
+      "planGenerated": "Plan ({{count}} installments)"
+    },
+    "plan": {
+      "enrollmentFee": "Enrollment fee",
+      "recurringAmount": "Recurring amount",
+      "fixedServices": "Fixed services total",
+      "services": "Services",
+      "addService": "Add service",
+      "removeService": "Remove service",
+      "noServiceAvailable": "No more available services",
+      "fixedService": "Fixed",
+      "variableService": "Variable",
+      "variableServices": "Variable services",
+      "frequency": "Frequency",
+      "startDate": "Plan start date",
+      "endDate": "Plan end date",
+      "servicesTotal": "Services total",
+      "installmentsCount": "Installments count",
+      "dueDate": "Due date",
+      "amount": "Amount",
+      "servicesSnapshot": "Servizi rata",
+      "paymentMethod": "Metodo pagamento",
+      "paymentEvidence": "Evidenza",
+      "paymentStatus": "Stato pagamento",
+      "actions": "Azioni",
+      "viewEvidence": "Apri evidenza",
+      "noEvidence": "Nessuna evidenza",
+      "paid": "Pagata",
+      "pending": "Da pagare",
+      "paypalManagedFrontend": "Gestito da frontend",
+      "markPaid": "Segna pagata",
+      "unlockInstallment": "Sblocca rata",
+      "lockInstallment": "Blocca rata"
+    },
+    "status": {
+      "noPlan": "Nessun piano",
+      "inRegola": "In regola",
+      "inScadenza": "In scadenza",
+      "scaduta": "Scaduta",
+      "insoluti": "Insoluti",
+      "insolutiCount": "Insoluti: {{count}}",
+      "currentPaid": "Rata periodo pagata",
+      "currentPendingCount": "Rate periodo da pagare: {{count}}",
+      "noInstallmentInPeriod": "Nessuna rata nel periodo"
+    },
+    "period": {
+      "current": "Corrente",
+      "total": "Totale"
     }
   },
   "layout": {
@@ -181,7 +391,6 @@
       "noCompanyOption": "No companies available",
       "noEnrollmentOption": "No enrollments available",
       "noCategoryOption": "No categories available",
-      "categoryLabel": "Category",
       "audienceAdult": "Adult",
       "audienceYouth": "Youth",
       "isFeaturedLabel": "Featured package",
@@ -315,7 +524,8 @@
       "created": "Package created successfully.",
       "updated": "Package updated successfully.",
       "deleted": "Package deleted successfully.",
-      "confirmDelete": "Confirm deletion of package \"{{title}}\"?"
+      "confirmDelete": "Confirm deletion of package \"{{title}}\"?",
+      "audienceLabel": "Tipologia età"
     },
     "companies": {
       "title": "Companies",
@@ -415,7 +625,8 @@
       "created": "Additional service created successfully.",
       "updated": "Additional service updated successfully.",
       "deleted": "Additional service deleted successfully.",
-      "confirmDelete": "Confirm deletion of service \"{{title}}\"?"
+      "confirmDelete": "Confirm deletion of service \"{{title}}\"?",
+      "activeLabel": "Attivo"
     },
     "whatsappAccounts": {
       "title": "WhatsApp accounts",
@@ -472,6 +683,26 @@
       "updated": "Category updated successfully.",
       "deleted": "Category deleted successfully.",
       "confirmDelete": "Confirm deletion of category \"{{label}}\"?"
+    },
+    "paymentMethods": {
+      "title": "Payment methods",
+      "description": "Enable/disable payment methods available in the public form.",
+      "updated": "Payment methods configuration updated.",
+      "methods": {
+        "onsite_pos": {
+          "label": "On site",
+          "help": "On-site payment by POS or cash."
+        },
+        "bank_transfer": {
+          "label": "Bank Transfer",
+          "help": "Bank transfer to the company using the company IBAN."
+        },
+        "paypal": {
+          "label": "Paypal",
+          "help": "Pay with a PayPal account or credit card through the PayPal network."
+        }
+      },
+      "methodDescriptionTitle": "Method description"
     }
   },
   "app": {
@@ -479,6 +710,166 @@
     "adminOnlyUtility": "Only super administrator and administrator can access Utility.",
     "usersOnly": "Only super administrator, administrator and editor-admin can access Users.",
     "permissionDenied": "You do not have the required permissions for this section."
+  },
+  "public": {
+    "common": {
+      "close": "Close",
+      "back": "Back",
+      "continue": "Continue",
+      "scenarioUnavailable": "Scenario not available yet.",
+      "scenarioUnavailableLogged": "Scenario not available yet for logged-in users."
+    },
+    "youthWizard": {
+      "title": "Minor enrollment",
+      "ageRange": "Package age range: {{ageLabel}}",
+      "steps": {
+        "minor": "Minor",
+        "parent": "Parent",
+        "services": "Services",
+        "schedule": "Schedule",
+        "consents": "Consents",
+        "confirm": "Confirm"
+      },
+      "fields": {
+        "minorFirstName": "Minor first name",
+        "minorLastName": "Minor last name",
+        "minorBirthDate": "Minor birth date",
+        "minorGender": "Minor gender",
+        "minorBirthPlace": "Minor birth place",
+        "minorResidenceAddress": "Minor residence",
+        "minorTaxCode": "Minor tax code",
+        "minorTaxCodePhoto": "Minor tax code photo",
+        "parentFirstName": "Adult first name",
+        "parentLastName": "Adult last name",
+        "parentEmail": "Adult email",
+        "parentPhone": "Adult phone (required)",
+        "parentSecondaryPhone": "Adult second phone (optional)",
+        "parentBirthDate": "Adult birth date",
+        "parentGender": "Adult gender",
+        "parentBirthPlace": "Adult birth place",
+        "parentResidenceAddress": "Adult residence",
+        "parentTaxCode": "Adult tax code",
+        "parentTaxCodePhoto": "Adult tax code photo",
+        "parentIdentityDocument": "Adult identity document",
+        "loginAuto": "Account login (auto)",
+        "login": "Account login",
+        "password": "Account password"
+      },
+      "placeholders": {
+        "parentPhone": "Primary phone",
+        "parentSecondaryPhone": "Secondary phone"
+      },
+      "services": {
+        "fixedTitle": "Fixed services linked to package",
+        "fixedEmpty": "No fixed services available.",
+        "variableTitle": "Variable services linked to package",
+        "variableEmpty": "No variable services available.",
+        "price": "Price: {{price}}",
+        "descriptionTitle": "Service description",
+        "descriptionEmpty": "No description available."
+      },
+      "schedule": {
+        "title": "Preferred schedule selection",
+        "subtitle": "This choice is saved as a preference and will be confirmed during validation.",
+        "empty": "No schedule available for this minor gender/group setup.",
+        "weekdays": {
+          "0": "Sunday",
+          "1": "Monday",
+          "2": "Tuesday",
+          "3": "Wednesday",
+          "4": "Thursday",
+          "5": "Friday",
+          "6": "Saturday"
+        }
+      },
+      "consents": {
+        "enrollmentCheck": "Yes, I confirm enrollment request and membership",
+        "enrollmentTextTitle": "Enrollment/membership consent text",
+        "informationCheck": "Parent acknowledges this notice",
+        "informationTextTitle": "Privacy notice text",
+        "dataProcessingCheck": "Consent to processing personal data for additional specific purposes",
+        "dataProcessingTextTitle": "Data processing consent text",
+        "dataProcessingSignature": "Parent signature for data processing consent",
+        "enrollmentSignature": "Parent signature confirming enrollment",
+        "emptyConsentText": "No consent text configured.",
+        "emptyInformationText": "No privacy notice text configured."
+      },
+      "summary": {
+        "minorTitle": "Minor summary",
+        "parentTitle": "Parent/account summary",
+        "birthDate": "Birth date",
+        "birthPlace": "Birth place",
+        "residence": "Residence",
+        "taxCode": "Tax code",
+        "taxCodePhoto": "Tax code photo",
+        "identityDocument": "Document",
+        "phone": "Phone",
+        "secondaryPhone": "Second phone",
+        "notUploaded": "not uploaded",
+        "selectedServices": "Selected additional services",
+        "noServicesSelected": "No additional service selected.",
+        "selectedSchedules": "Selected preferred schedules",
+        "noSchedulesSelected": "No preferred schedule selected.",
+        "fixed": "Fixed",
+        "variable": "Variable",
+        "privacyCheck": "I accept privacy and terms",
+        "packageCost": "Package cost",
+        "enrollmentCost": "Enrollment cost",
+        "additionalServicesTotal": "Additional services total",
+        "grandTotal": "Total",
+        "uploaded": "uploaded"
+      },
+      "errors": {
+        "minorRequired": "Fill in all minor data.",
+        "minorTaxCodePhotoRequired": "Upload the minor tax code photo.",
+        "ageNotCompatible": "Age not compatible with package ({{ageLabel}}).",
+        "minorTaxCodeDuplicate": "Minor tax code already exists.",
+        "parentRequired": "Fill in all parent and account data.",
+        "parentTaxCodePhotoRequired": "Upload the adult tax code photo.",
+        "parentIdentityRequired": "Upload the adult identity document.",
+        "parentTaxCodeDuplicate": "Parent/client tax code already exists.",
+        "enrollmentConsentRequired": "You must confirm enrollment and membership request.",
+        "informationConsentRequired": "You must acknowledge the privacy notice.",
+        "dataProcessingConsentRequired": "You must accept data processing consent for additional purposes.",
+        "dataProcessingSignatureRequired": "Signature required for data processing consent.",
+        "enrollmentSignatureRequired": "Parent signature confirming enrollment is required.",
+        "privacyRequired": "You must accept privacy and terms.",
+        "registerInvalid": "Invalid registration or account already exists.",
+        "autologinFailed": "Registration completed but automatic login failed.",
+        "invalidSession": "Invalid user session.",
+        "documentUpload": "Error while uploading documents.",
+        "convertClientFailed": "Purchase created but conversion to client failed.",
+        "paymentMethodRequired": "Select a payment method.",
+        "scheduleRequired": "Select at least one preferred schedule.",
+        "documentUploadMinorTaxCode": "Error uploading minor tax code image.",
+        "documentUploadParentTaxCode": "Error uploading adult tax code image.",
+        "documentUploadParentIdentity": "Error uploading adult identity document."
+      },
+      "success": {
+        "completed": "Minor registration and purchase completed."
+      },
+      "submitting": "Sending...",
+      "submit": "Confirm and purchase",
+      "signature": {
+        "clear": "Clear signature"
+      },
+      "payment": {
+        "title": "Payment method",
+        "empty": "No payment method available for this company.",
+        "iban": "IBAN",
+        "paypalClientId": "PayPal Client ID"
+      },
+      "postSubmit": {
+        "title": "Request sent successfully",
+        "subtitle": "Your request has been recorded.",
+        "summaryTitle": "Purchase summary",
+        "verificationNotice": "Activation requires verification of both minor and parent data.",
+        "activationNotice": "After activation you will receive a validation notification and you will be able to proceed with payment.",
+        "paymentMethodsNotice": "You will be able to pay using one of the payment methods available for this package.",
+        "firstPaymentOnSite": "For this package the first payment is on site: please go to the facility office.",
+        "variableServicesNotice": "The final price may change after validation.",
+        "variableServicesGuaranteedNotice": "When variable services are present, the final total will include the variable service price set during validation."
+      }
+    }
   }
 }
-
