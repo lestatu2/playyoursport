@@ -4,10 +4,13 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Plus, Trash2 } from 'lucide-react'
 import {
   getAdditionalServices,
+  getCompanies,
+  getEnrollmentById,
   getPackages,
   type AdditionalService,
   type PackagePaymentFrequency,
 } from '../lib/package-catalog'
+import { hasActiveCoverageForEnrollment, upsertCoverageFromEnrollmentPurchase } from '../lib/athlete-enrollment-coverages'
 import { getPublicClients, getPublicMinors } from '../lib/public-customer-records'
 import { getPublicDirectAthletes } from '../lib/public-direct-athletes'
 import {
@@ -17,8 +20,11 @@ import {
   type ActivityPaymentPlan,
   type PaymentInstallment,
 } from '../lib/activity-payment-plans'
+import { getAthleteActivities } from '../lib/athlete-activities'
+import { downloadContractPdf, type ContractPdfPayload } from '../lib/contract-pdf'
 
-type ActivitiesPaymentsTab = 'activities' | 'deadlines' | 'expired' | 'collections' | 'overdue' | 'history'
+type ActivitiesPaymentsTab = 'activities' | 'deadlines' | 'expired' | 'collections' | 'overdue'
+type FrequencyFilter = 'all' | 'daily' | 'weekly' | 'monthly' | 'yearly'
 type AthleteSubjectType = 'minor' | 'direct_user'
 type AthleteActivityItem = {
   key: string
@@ -137,26 +143,71 @@ function dateOnly(value: Date): Date {
   return new Date(value.getFullYear(), value.getMonth(), value.getDate())
 }
 
+function isEditionClosed(input: { durationType: string; periodEndDate?: string; eventDate?: string }, today: Date): boolean {
+  if (input.durationType === 'period') {
+    const end = parseIsoDate(input.periodEndDate || '')
+    return Boolean(end && dateOnly(end) < today)
+  }
+  const eventDate = parseIsoDate(input.eventDate || '')
+  return Boolean(eventDate && dateOnly(eventDate) < today)
+}
+
+function formatPeriodMonthLabel(periodMonth: string, locale: string): string {
+  const [yearStr, monthStr] = periodMonth.split('-')
+  const year = Number(yearStr)
+  const month = Number(monthStr)
+  if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) {
+    return periodMonth
+  }
+  const date = new Date(year, month - 1, 1)
+  const formatted = new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric' }).format(date)
+  return formatted.charAt(0).toUpperCase() + formatted.slice(1)
+}
+
+function monthShift(periodMonth: string, deltaMonths: number): string {
+  const [yearStr, monthStr] = periodMonth.split('-')
+  const year = Number(yearStr)
+  const month = Number(monthStr)
+  if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) {
+    return periodMonth
+  }
+  const date = new Date(year, month - 1 + deltaMonths, 1)
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+}
+
+function getFrequencyLabelKey(frequency: PackagePaymentFrequency): string {
+  return `utility.packages.paymentFrequency${frequency[0].toUpperCase()}${frequency.slice(1)}`
+}
+
 function ActivitiesPaymentsPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [tab, setTab] = useState<ActivitiesPaymentsTab>('activities')
   const [globalSearch, setGlobalSearch] = useState('')
   const [packageFilter, setPackageFilter] = useState('all')
-  const [statusFilter, setStatusFilter] = useState<'all' | 'validated' | 'not_validated'>('all')
+  const [frequencyFilter, setFrequencyFilter] = useState<FrequencyFilter>('all')
+  const [planFilter, setPlanFilter] = useState<'all' | 'generated' | 'not_generated'>('all')
   const [plansVersion, setPlansVersion] = useState(0)
   const [activePlanItemKey, setActivePlanItemKey] = useState<string | null>(null)
   const [planDraft, setPlanDraft] = useState<PlanDraft | null>(null)
+  const [isEnrollmentFeeCovered, setIsEnrollmentFeeCovered] = useState(false)
   const adminPaymentMethodOptions = ['onsite_pos', 'bank_transfer'] as const
-  const [periodMonth, setPeriodMonth] = useState(getCurrentPeriodMonthValue)
   const currentPeriodMonth = getCurrentPeriodMonthValue()
+  const [periodFromMonth, setPeriodFromMonth] = useState(currentPeriodMonth)
+  const [periodToMonth, setPeriodToMonth] = useState(currentPeriodMonth)
   const [newServiceOptionKey, setNewServiceOptionKey] = useState('')
 
   const minors = useMemo(() => getPublicMinors(), [])
   const directAthletes = useMemo(() => getPublicDirectAthletes(), [])
+  const minorsById = useMemo(() => new Map(minors.map((item) => [String(item.id), item])), [minors])
+  const directAthletesById = useMemo(
+    () => new Map(directAthletes.map((item) => [item.id, item])),
+    [directAthletes],
+  )
   const clientsById = useMemo(() => new Map(getPublicClients().map((item) => [item.id, item])), [])
   const packages = useMemo(() => getPackages(), [])
+  const companiesById = useMemo(() => new Map(getCompanies().map((item) => [item.id, item])), [])
   const packagesById = useMemo(() => new Map(packages.map((item) => [item.id, item])), [packages])
   const additionalServicesById = useMemo(
     () => new Map(getAdditionalServices().map((service) => [service.id, service])),
@@ -166,40 +217,101 @@ function ActivitiesPaymentsPage() {
     const items = getActivityPaymentPlans()
     return new Map(items.map((item) => [item.activityKey, item]))
   }, [plansVersion])
-  const periodRange = useMemo(() => getPeriodRange(periodMonth), [periodMonth])
+  const periodFromRange = useMemo(() => getPeriodRange(periodFromMonth), [periodFromMonth])
+  const periodToRange = useMemo(() => getPeriodRange(periodToMonth), [periodToMonth])
+  const periodRange = useMemo(() => {
+    const start = periodFromRange.start <= periodToRange.start ? periodFromRange.start : periodToRange.start
+    const end = periodFromRange.start <= periodToRange.start ? periodToRange.end : periodFromRange.end
+    return { start, end }
+  }, [periodFromRange.end, periodFromRange.start, periodToRange.end, periodToRange.start])
+  const periodMonthLabel = useMemo(
+    () => formatPeriodMonthLabel(currentPeriodMonth, i18n.resolvedLanguage || i18n.language || 'it'),
+    [currentPeriodMonth, i18n.language, i18n.resolvedLanguage],
+  )
+  const periodFilterLabel = useMemo(() => {
+    const locale = i18n.resolvedLanguage || i18n.language || 'it'
+    const fromLabel = formatPeriodMonthLabel(periodFromMonth, locale)
+    const toLabel = formatPeriodMonthLabel(periodToMonth, locale)
+    if (periodFromMonth === periodToMonth) {
+      return fromLabel
+    }
+    return `${fromLabel} - ${toLabel}`
+  }, [i18n.language, i18n.resolvedLanguage, periodFromMonth, periodToMonth])
+  const currentMonthRange = useMemo(() => getPeriodRange(currentPeriodMonth), [currentPeriodMonth])
+
+  const applyPeriodPreset = (preset: 'current' | 'last3' | 'last6' | 'year') => {
+    if (preset === 'current') {
+      setPeriodFromMonth(currentPeriodMonth)
+      setPeriodToMonth(currentPeriodMonth)
+      return
+    }
+    if (preset === 'last3') {
+      setPeriodToMonth(currentPeriodMonth)
+      setPeriodFromMonth(monthShift(currentPeriodMonth, -2))
+      return
+    }
+    if (preset === 'last6') {
+      setPeriodToMonth(currentPeriodMonth)
+      setPeriodFromMonth(monthShift(currentPeriodMonth, -5))
+      return
+    }
+    const [year] = currentPeriodMonth.split('-')
+    setPeriodFromMonth(`${year}-01`)
+    setPeriodToMonth(currentPeriodMonth)
+  }
+
+  const onChangePeriodFrom = (value: string) => {
+    const next = value || currentPeriodMonth
+    const clamped = next > currentPeriodMonth ? currentPeriodMonth : next
+    setPeriodFromMonth(clamped)
+    if (clamped > periodToMonth) {
+      setPeriodToMonth(clamped)
+    }
+  }
+
+  const onChangePeriodTo = (value: string) => {
+    const next = value || currentPeriodMonth
+    const clamped = next > currentPeriodMonth ? currentPeriodMonth : next
+    setPeriodToMonth(clamped)
+    if (clamped < periodFromMonth) {
+      setPeriodFromMonth(clamped)
+    }
+  }
   const lockedAthleteId = searchParams.get('athleteId')
+  const lockedClientId = searchParams.get('clientId')
   const activityItems = useMemo<AthleteActivityItem[]>(() => {
-    const minorItems: AthleteActivityItem[] = minors.map((minor) => {
-      const parent = clientsById.get(minor.clientId)
+    const today = dateOnly(new Date())
+    return getAthleteActivities()
+      .map((activity) => {
+      const packageItem = packagesById.get(activity.packageId)
+      if (!packageItem || isEditionClosed(packageItem, today)) {
+        return null
+      }
+      const minor = activity.type === 'minor' ? minorsById.get(activity.athleteId) : null
+      const direct = activity.type === 'direct_user' ? directAthletesById.get(activity.athleteId) : null
+      if (!minor && !direct) {
+        return null
+      }
+      const parent = minor ? clientsById.get(minor.clientId) : null
       return {
-        key: `minor-${minor.id}`,
-        type: 'minor',
-        athleteId: String(minor.id),
-        clientId: minor.clientId,
-        firstName: minor.firstName,
-        lastName: minor.lastName,
-        packageId: minor.packageId,
-        validationStatus: minor.validationStatus,
+        key: activity.key,
+        type: activity.type,
+        athleteId: activity.athleteId,
+        clientId: minor?.clientId ?? direct?.clientId ?? null,
+        firstName: minor?.firstName ?? direct?.firstName ?? '',
+        lastName: minor?.lastName ?? direct?.lastName ?? '',
+        packageId: activity.packageId,
+        validationStatus: minor?.validationStatus ?? direct?.validationStatus ?? 'not_validated',
         parentLabel: parent ? `${parent.parentFirstName} ${parent.parentLastName}` : '-',
-        createdAt: minor.createdAt,
-        selectedPaymentMethodCode: minor.selectedPaymentMethodCode ?? '',
+        createdAt: activity.createdAt,
+        selectedPaymentMethodCode:
+          activity.selectedPaymentMethodCode ||
+          minor?.selectedPaymentMethodCode ||
+          '',
       }
     })
-    const directItems: AthleteActivityItem[] = directAthletes.map((athlete) => ({
-      key: `direct-${athlete.id}`,
-      type: 'direct_user',
-      athleteId: athlete.id,
-      clientId: athlete.clientId,
-      firstName: athlete.firstName,
-      lastName: athlete.lastName,
-      packageId: athlete.packageId,
-      validationStatus: athlete.validationStatus,
-      parentLabel: '-',
-      createdAt: athlete.createdAt,
-      selectedPaymentMethodCode: '',
-    }))
-    return [...minorItems, ...directItems]
-  }, [clientsById, directAthletes, minors])
+      .filter((item): item is AthleteActivityItem => Boolean(item))
+  }, [clientsById, directAthletesById, minorsById, packagesById])
   const lockedAthlete = useMemo(
     () => (lockedAthleteId ? activityItems.find((item) => item.key === lockedAthleteId || item.athleteId === lockedAthleteId) ?? null : null),
     [activityItems, lockedAthleteId],
@@ -276,6 +388,121 @@ function ActivitiesPaymentsPage() {
 
     return Array.from(optionsMap.values())
   }, [activePlanPackage, additionalServicesById])
+
+  const exportContractPdf = async (item: AthleteActivityItem, packageItem: ReturnType<typeof getPackages>[number], plan: ActivityPaymentPlan) => {
+    const company = companiesById.get(packageItem.companyId)
+    if (!company) {
+      window.alert(t('activitiesPayments.contract.companyNotFound'))
+      return
+    }
+    const minor = item.type === 'minor' ? minorsById.get(item.athleteId) ?? null : null
+    const directAthlete = item.type === 'direct_user' ? directAthletesById.get(item.athleteId) ?? null : null
+    const guardian = minor && item.clientId !== null ? clientsById.get(item.clientId) ?? null : null
+    if (item.type === 'minor' && (!minor || !guardian)) {
+      window.alert(t('activitiesPayments.contract.subjectDataMissing'))
+      return
+    }
+    if (item.type === 'direct_user' && !directAthlete) {
+      window.alert(t('activitiesPayments.contract.subjectDataMissing'))
+      return
+    }
+
+    const payload: ContractPdfPayload = {
+      activity: {
+        key: item.key,
+        createdAt: item.createdAt,
+      },
+      package: {
+        id: packageItem.id,
+        name: packageItem.name,
+        description: packageItem.description,
+        durationType: packageItem.durationType,
+        eventDate: packageItem.eventDate,
+        eventTime: packageItem.eventTime,
+        periodStartDate: packageItem.periodStartDate,
+        periodEndDate: packageItem.periodEndDate,
+        trainingAddress: packageItem.trainingAddress,
+        contractHeaderImage: packageItem.contractHeaderImage,
+        contractHeaderText: packageItem.contractHeaderText,
+        contractRegulation: packageItem.contractRegulation,
+      },
+      company: {
+        title: company.title,
+        headquartersAddress: company.headquartersAddress,
+        vatNumber: company.vatNumber,
+        email: company.email,
+        iban: company.iban,
+        consentMinors: company.consentMinors,
+        consentAdults: company.consentAdults,
+        consentInformationNotice: company.consentInformationNotice,
+        consentDataProcessing: company.consentDataProcessing,
+      },
+      plan: {
+        createdAt: plan.createdAt,
+        enrollmentFee: plan.config.enrollmentFee,
+        recurringAmount: plan.config.recurringAmount,
+        selectedPaymentMethodCode: plan.config.selectedPaymentMethodCode ?? item.selectedPaymentMethodCode ?? '',
+        services: (plan.config.services ?? []).map((service) => ({
+          title: service.title,
+          kind: service.kind,
+          enabled: service.enabled,
+          amount: service.amount,
+        })),
+        installments: plan.installments.map((installment) => ({
+          id: installment.id,
+          dueDate: installment.dueDate,
+          amount: installment.amount,
+          label: installment.label,
+          paymentMethodCode: installment.paymentMethodCode,
+        })),
+      },
+      subject: item.type === 'minor'
+        ? {
+            kind: 'minor',
+            athlete: {
+              firstName: minor?.firstName ?? '',
+              lastName: minor?.lastName ?? '',
+              birthDate: minor?.birthDate ?? '',
+              birthPlace: minor?.birthPlace ?? '',
+              taxCode: minor?.taxCode ?? '',
+              residenceAddress: minor?.residenceAddress ?? '',
+            },
+            guardian: {
+              firstName: guardian?.parentFirstName ?? '',
+              lastName: guardian?.parentLastName ?? '',
+              birthDate: guardian?.parentBirthDate ?? '',
+              birthPlace: guardian?.parentBirthPlace ?? '',
+              taxCode: guardian?.parentTaxCode ?? '',
+              residenceAddress: guardian?.residenceAddress ?? '',
+              email: guardian?.parentEmail ?? '',
+              phone: guardian?.parentPhone ?? '',
+            },
+          }
+        : {
+            kind: 'adult',
+            athlete: {
+              firstName: directAthlete?.firstName ?? '',
+              lastName: directAthlete?.lastName ?? '',
+              birthDate: directAthlete?.birthDate ?? '',
+              birthPlace: directAthlete?.birthPlace ?? '',
+              taxCode: directAthlete?.taxCode ?? '',
+              residenceAddress: directAthlete?.residenceAddress ?? '',
+              email: directAthlete?.email ?? '',
+              phone: directAthlete?.phone ?? '',
+            },
+            guardian: null,
+          },
+    }
+
+    const result = await downloadContractPdf({
+      payload,
+      athleteFullName: `${item.firstName} ${item.lastName}`,
+      packageName: packageItem.name,
+    })
+    if (!result.ok) {
+      window.alert(t('activitiesPayments.contract.downloadError'))
+    }
+  }
   const addableServiceOptions = useMemo(() => {
     if (!planDraft) {
       return [] as PlanServiceOption[]
@@ -345,12 +572,17 @@ function ActivitiesPaymentsPage() {
   }
 
   const filteredActivities = useMemo(() => {
-    const periodStart = dateOnly(periodRange.start)
-    const periodEnd = dateOnly(periodRange.end)
     return activityItems.filter((item) => {
       const isLegacyMinorIdMatch = lockedAthleteId === item.athleteId
-      if (lockedAthleteId && lockedAthleteId !== item.key && !isLegacyMinorIdMatch) {
+      const isAthleteKeyMatch = lockedAthleteId === item.key.split('::')[0]
+      if (lockedAthleteId && lockedAthleteId !== item.key && !isLegacyMinorIdMatch && !isAthleteKeyMatch) {
         return false
+      }
+      if (lockedClientId) {
+        const targetClientId = Number(lockedClientId)
+        if (!Number.isFinite(targetClientId) || item.clientId !== targetClientId) {
+          return false
+        }
       }
       const packageItem = packagesById.get(item.packageId)
       const searchHaystack = [
@@ -368,9 +600,75 @@ function ActivitiesPaymentsPage() {
       if (packageFilter !== 'all' && item.packageId !== packageFilter) {
         return false
       }
-      if (statusFilter !== 'all' && item.validationStatus !== statusFilter) {
+      if (frequencyFilter !== 'all' && packageItem?.paymentFrequency !== frequencyFilter) {
         return false
       }
+      if (planFilter !== 'all') {
+        const hasPlan = plansByActivityKey.has(item.key)
+        if (planFilter === 'generated' && !hasPlan) {
+          return false
+        }
+        if (planFilter === 'not_generated' && hasPlan) {
+          return false
+        }
+      }
+      return true
+    })
+  }, [activityItems, frequencyFilter, globalSearch, lockedAthleteId, lockedClientId, packageFilter, packagesById, planFilter, plansByActivityKey])
+
+  const activityItemsByBaseFilters = useMemo(() => {
+    return activityItems.filter((item) => {
+      const isLegacyMinorIdMatch = lockedAthleteId === item.athleteId
+      const isAthleteKeyMatch = lockedAthleteId === item.key.split('::')[0]
+      if (lockedAthleteId && lockedAthleteId !== item.key && !isLegacyMinorIdMatch && !isAthleteKeyMatch) {
+        return false
+      }
+      if (lockedClientId) {
+        const targetClientId = Number(lockedClientId)
+        if (!Number.isFinite(targetClientId) || item.clientId !== targetClientId) {
+          return false
+        }
+      }
+      const packageItem = packagesById.get(item.packageId)
+      const searchHaystack = [
+        item.firstName,
+        item.lastName,
+        item.parentLabel,
+        item.packageId,
+        packageItem?.name ?? '',
+      ]
+        .join(' ')
+        .toLowerCase()
+      if (globalSearch.trim() && !searchHaystack.includes(globalSearch.trim().toLowerCase())) {
+        return false
+      }
+      if (packageFilter !== 'all' && item.packageId !== packageFilter) {
+        return false
+      }
+      if (frequencyFilter !== 'all' && packageItem?.paymentFrequency !== frequencyFilter) {
+        return false
+      }
+      return true
+    })
+  }, [activityItems, frequencyFilter, globalSearch, lockedAthleteId, lockedClientId, packageFilter, packagesById])
+
+  const resetFilters = () => {
+    setGlobalSearch('')
+    setPackageFilter('all')
+    setFrequencyFilter('all')
+    setPlanFilter('all')
+    setPeriodFromMonth(currentPeriodMonth)
+    setPeriodToMonth(currentPeriodMonth)
+    const next = new URLSearchParams(searchParams)
+    next.delete('athleteId')
+    next.delete('clientId')
+    setSearchParams(next, { replace: true })
+  }
+
+  const filteredActivitiesByPeriod = useMemo(() => {
+    const periodStart = dateOnly(periodRange.start)
+    const periodEnd = dateOnly(periodRange.end)
+    return filteredActivities.filter((item) => {
       const plan = plansByActivityKey.get(item.key)
       if (!plan) {
         return true
@@ -391,7 +689,7 @@ function ActivitiesPaymentsPage() {
       }
       return true
     })
-  }, [activityItems, globalSearch, lockedAthleteId, packageFilter, packagesById, periodRange.end, periodRange.start, plansByActivityKey, statusFilter])
+  }, [filteredActivities, periodRange.end, periodRange.start, plansByActivityKey])
 
   const installmentRows = useMemo(() => {
     const rows: Array<{
@@ -400,7 +698,7 @@ function ActivitiesPaymentsPage() {
       installmentIndex: number
       packageName: string
     }> = []
-    activityItems.forEach((activity) => {
+    activityItemsByBaseFilters.forEach((activity) => {
       const plan = plansByActivityKey.get(activity.key)
       if (!plan) {
         return
@@ -411,7 +709,7 @@ function ActivitiesPaymentsPage() {
       })
     })
     return rows
-  }, [activityItems, packagesById, plansByActivityKey])
+  }, [activityItemsByBaseFilters, packagesById, plansByActivityKey])
 
   const periodScadenzeRows = useMemo(() => {
     const start = dateOnly(periodRange.start)
@@ -448,6 +746,7 @@ function ActivitiesPaymentsPage() {
   }, [installmentRows, periodRange.end, periodRange.start])
 
   const periodIncassiRows = useMemo(() => {
+    const start = dateOnly(periodRange.start)
     const end = dateOnly(periodRange.end)
     return installmentRows.filter((row) => {
       if (row.installment.paymentStatus !== 'paid') {
@@ -456,9 +755,9 @@ function ActivitiesPaymentsPage() {
       const paidDate = parseIsoDate((row.installment.paidAt || '').slice(0, 10))
       const fallbackDate = parseIsoDate(row.installment.dueDate)
       const value = dateOnly(paidDate ?? fallbackDate ?? new Date(0))
-      return value <= end
+      return value >= start && value <= end
     })
-  }, [installmentRows, periodRange.end])
+  }, [installmentRows, periodRange.end, periodRange.start])
 
   const periodInsolutiRows = useMemo(() => {
     const periodStart = dateOnly(periodRange.start)
@@ -515,6 +814,14 @@ function ActivitiesPaymentsPage() {
       amount: Number.isFinite(service.price) ? Number(service.price) : 0,
     }))
     const defaultServicesDraft = [...fixedServicesDraft, ...variableServicesDraft]
+    const athleteKey = item.key.split('::')[0]
+    const selectedEnrollment = getEnrollmentById(packageItem.enrollmentId)
+    const isCoveredByActiveEnrollment = Boolean(
+      selectedEnrollment &&
+        hasActiveCoverageForEnrollment(athleteKey, selectedEnrollment, new Date(), {
+          excludeSourcePackageId: packageItem.id,
+        }),
+    )
 
     const servicesFromPlan = existingPlan?.config.services
     const servicesDraft = Array.isArray(servicesFromPlan) && servicesFromPlan.length > 0
@@ -536,7 +843,7 @@ function ActivitiesPaymentsPage() {
           endDate: existingPlan.config.endDate,
         }
       : {
-          enrollmentFee: packageItem.enrollmentPrice,
+          enrollmentFee: isCoveredByActiveEnrollment ? 0 : packageItem.enrollmentPrice,
           recurringAmount: packageItem.priceAmount,
           selectedPaymentMethodCode: item.selectedPaymentMethodCode || 'onsite_pos',
           services: servicesDraft,
@@ -549,6 +856,7 @@ function ActivitiesPaymentsPage() {
         ? existingPlan.installments
         : fallbackInstallments
     setPlanDraft({ ...baseDraft, installments })
+    setIsEnrollmentFeeCovered(isCoveredByActiveEnrollment && safeAmount(baseDraft.enrollmentFee) === 0)
     setNewServiceOptionKey('')
     setActivePlanItemKey(item.key)
   }
@@ -556,6 +864,7 @@ function ActivitiesPaymentsPage() {
   const closePlanModal = () => {
     setActivePlanItemKey(null)
     setPlanDraft(null)
+    setIsEnrollmentFeeCovered(false)
     setNewServiceOptionKey('')
   }
 
@@ -670,15 +979,29 @@ function ActivitiesPaymentsPage() {
       })),
     }
     saveActivityPaymentPlan(payload)
+    const selectedEnrollment = getEnrollmentById(activePlanPackage.enrollmentId)
+    if (selectedEnrollment && safeAmount(planDraft.enrollmentFee) > 0) {
+      const athleteKey = activePlanItem.key.split('::')[0]
+      upsertCoverageFromEnrollmentPurchase({
+        athleteKey,
+        packageItem: activePlanPackage,
+        enrollment: selectedEnrollment,
+      })
+    }
     setPlansVersion((prev) => prev + 1)
     closePlanModal()
   }
 
   return (
     <section className="space-y-4">
-      <div>
-        <h2 className="text-2xl font-semibold">{t('activitiesPayments.title')}</h2>
-        <p className="text-sm opacity-70">{t('activitiesPayments.description')}</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-2xl font-semibold">{t('activitiesPayments.title')}</h2>
+          <p className="text-sm opacity-70">{t('activitiesPayments.description')}</p>
+        </div>
+        <button type="button" className="btn btn-outline btn-sm" onClick={() => navigate('/app/storico-attivita')}>
+          {t('activitiesPayments.goToHistory')}
+        </button>
       </div>
 
       {lockedAthlete ? (
@@ -687,7 +1010,7 @@ function ActivitiesPaymentsPage() {
         </div>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-3 rounded-lg border border-base-300 bg-base-100 p-3 md:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 rounded-lg border border-base-300 bg-base-100 p-3 md:grid-cols-8 md:items-end">
         <label className="form-control">
           <span className="label-text mb-1 text-xs">{t('activitiesPayments.filters.search')}</span>
           <input
@@ -709,30 +1032,73 @@ function ActivitiesPaymentsPage() {
           </select>
         </label>
         <label className="form-control">
-          <span className="label-text mb-1 text-xs">{t('activitiesPayments.filters.validation')}</span>
+          <span className="label-text mb-1 text-xs">{t('activitiesPayments.table.frequency')}</span>
           <select
             className="select select-bordered w-full"
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value as 'all' | 'validated' | 'not_validated')}
+            value={frequencyFilter}
+            onChange={(event) => setFrequencyFilter(event.target.value as FrequencyFilter)}
           >
-            <option value="all">{t('activitiesPayments.filters.allStatuses')}</option>
-            <option value="validated">{t('athletes.validated')}</option>
-            <option value="not_validated">{t('athletes.notValidated')}</option>
+            <option value="all">{t('activitiesPayments.filters.allFrequencies')}</option>
+            <option value="daily">{t('utility.packages.paymentFrequencyDaily')}</option>
+            <option value="weekly">{t('utility.packages.paymentFrequencyWeekly')}</option>
+            <option value="monthly">{t('utility.packages.paymentFrequencyMonthly')}</option>
+            <option value="yearly">{t('utility.packages.paymentFrequencyYearly')}</option>
           </select>
         </label>
         <label className="form-control">
-          <span className="label-text mb-1 text-xs">{t('activitiesPayments.filters.periodMonth')}</span>
+          <span className="label-text mb-1 text-xs">{t('activitiesPayments.filters.plan')}</span>
+          <select
+            className="select select-bordered w-full"
+            value={planFilter}
+            onChange={(event) => setPlanFilter(event.target.value as 'all' | 'generated' | 'not_generated')}
+            disabled={tab !== 'activities'}
+          >
+            <option value="all">{t('activitiesPayments.filters.allPlans')}</option>
+            <option value="generated">{t('activitiesPayments.filters.generatedPlan')}</option>
+            <option value="not_generated">{t('activitiesPayments.filters.notGeneratedPlan')}</option>
+          </select>
+        </label>
+        <label className="form-control">
+          <span className="label-text mb-1 text-xs">{t('activitiesPayments.filters.periodFromMonth')}</span>
           <input
             type="month"
             className="input input-bordered w-full"
-            value={periodMonth}
+            value={periodFromMonth}
             max={currentPeriodMonth}
-            onChange={(event) => {
-              const next = event.target.value || currentPeriodMonth
-              setPeriodMonth(next > currentPeriodMonth ? currentPeriodMonth : next)
-            }}
+            onChange={(event) => onChangePeriodFrom(event.target.value)}
           />
         </label>
+        <label className="form-control">
+          <span className="label-text mb-1 text-xs">{t('activitiesPayments.filters.periodToMonth')}</span>
+          <input
+            type="month"
+            className="input input-bordered w-full"
+            value={periodToMonth}
+            max={currentPeriodMonth}
+            onChange={(event) => onChangePeriodTo(event.target.value)}
+          />
+        </label>
+        <div className="form-control">
+          <button type="button" className="btn btn-outline btn-sm" onClick={resetFilters}>
+            {t('common.resetFilters')}
+          </button>
+        </div>
+        <div className="form-control md:col-span-8">
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className="btn btn-xs btn-outline" onClick={() => applyPeriodPreset('current')}>
+              {t('activitiesPayments.filters.quickCurrentMonth')}
+            </button>
+            <button type="button" className="btn btn-xs btn-outline" onClick={() => applyPeriodPreset('last3')}>
+              {t('activitiesPayments.filters.quickLast3Months')}
+            </button>
+            <button type="button" className="btn btn-xs btn-outline" onClick={() => applyPeriodPreset('last6')}>
+              {t('activitiesPayments.filters.quickLast6Months')}
+            </button>
+            <button type="button" className="btn btn-xs btn-outline" onClick={() => applyPeriodPreset('year')}>
+              {t('activitiesPayments.filters.quickCurrentYear')}
+            </button>
+          </div>
+        </div>
       </div>
 
       <div role="tablist" className="tabs tabs-boxed bg-base-200">
@@ -751,9 +1117,6 @@ function ActivitiesPaymentsPage() {
         <button type="button" role="tab" className={`tab ${tab === 'overdue' ? 'tab-active' : ''}`} onClick={() => setTab('overdue')}>
           {t('activitiesPayments.tabs.overdue')}
         </button>
-        <button type="button" role="tab" className={`tab ${tab === 'history' ? 'tab-active' : ''}`} onClick={() => setTab('history')}>
-          {t('activitiesPayments.tabs.history')}
-        </button>
       </div>
 
       {tab === 'activities' ? (
@@ -765,20 +1128,21 @@ function ActivitiesPaymentsPage() {
                 <th>{t('activitiesPayments.table.athleteType')}</th>
                 <th>{t('activitiesPayments.table.parent')}</th>
                 <th>{t('activitiesPayments.table.package')}</th>
+                <th>{t('activitiesPayments.table.frequency')}</th>
                 <th>{t('activitiesPayments.table.period')}</th>
                 <th>{t('activitiesPayments.table.paymentStatus')}</th>
                 <th>{t('activitiesPayments.table.plan')}</th>
               </tr>
             </thead>
             <tbody>
-              {filteredActivities.length === 0 ? (
+              {filteredActivitiesByPeriod.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center text-sm opacity-70">
+                  <td colSpan={8} className="text-center text-sm opacity-70">
                     {t('activitiesPayments.empty')}
                   </td>
                 </tr>
               ) : (
-                filteredActivities.map((item) => {
+                filteredActivitiesByPeriod.map((item) => {
                   const packageItem = packagesById.get(item.packageId)
                   const plan = plansByActivityKey.get(item.key) ?? null
                   const periodLabel = packageItem?.durationType === 'period'
@@ -836,9 +1200,11 @@ function ActivitiesPaymentsPage() {
                           {packageItem?.name ?? item.packageId}
                         </button>
                       </td>
+                      <td>{packageItem ? t(getFrequencyLabelKey(packageItem.paymentFrequency)) : '-'}</td>
                       <td>
                         <div className="text-sm">
-                          <p><span className="font-medium">{t('activitiesPayments.period.current')}:</span> {periodMonth}</p>
+                          <p><span className="font-medium">{t('activitiesPayments.period.current')}:</span> {periodMonthLabel}</p>
+                          <p className="opacity-70"><span className="font-medium">{t('activitiesPayments.period.selected')}:</span> {periodFilterLabel}</p>
                           <p className="opacity-70"><span className="font-medium">{t('activitiesPayments.period.total')}:</span> {periodLabel}</p>
                         </div>
                       </td>
@@ -848,8 +1214,8 @@ function ActivitiesPaymentsPage() {
                           if (!plan) {
                             return <span className="badge badge-ghost">{t('activitiesPayments.status.noPlan')}</span>
                           }
-                          const periodStart = dateOnly(periodRange.start)
-                          const periodEnd = dateOnly(periodRange.end)
+                          const periodStart = dateOnly(currentMonthRange.start)
+                          const periodEnd = dateOnly(currentMonthRange.end)
                           const today = dateOnly(new Date())
                           const currentInstallments = plan.installments.filter((installment) => {
                             const due = parseIsoDate(installment.dueDate)
@@ -924,11 +1290,28 @@ function ActivitiesPaymentsPage() {
                         })()}
                       </td>
                       <td>
-                        <button type="button" className="btn btn-xs btn-outline" onClick={() => openPlanModal(item)}>
-                          {plan
-                            ? t('activitiesPayments.workflow.planGenerated', { count: plan.installments.length })
-                            : t('activitiesPayments.workflow.generatePlan')}
-                        </button>
+                        <div className="flex flex-wrap items-center gap-1">
+                          <button
+                            type="button"
+                            className={`btn btn-xs ${plan ? 'btn-success' : 'btn-error'}`}
+                            onClick={() => openPlanModal(item)}
+                          >
+                            {plan
+                              ? t('activitiesPayments.workflow.planGenerated', { count: plan.installments.length })
+                              : t('activitiesPayments.workflow.generatePlan')}
+                          </button>
+                          {plan && packageItem ? (
+                            <button
+                              type="button"
+                              className="btn btn-xs btn-outline"
+                              onClick={() => {
+                                void exportContractPdf(item, packageItem, plan)
+                              }}
+                            >
+                              {t('activitiesPayments.contract.download')}
+                            </button>
+                          ) : null}
+                        </div>
                       </td>
                     </tr>
                   )
@@ -1079,12 +1462,6 @@ function ActivitiesPaymentsPage() {
         </div>
       ) : null}
 
-      {tab === 'history' ? (
-        <div className="rounded-lg border border-base-300 bg-base-100 p-6 text-sm opacity-80">
-          {t('activitiesPayments.placeholder')}
-        </div>
-      ) : null}
-
       {activePlanItem && activePlanPackage && planDraft ? (
         <dialog className="modal modal-open">
           <div className="modal-box w-11/12 max-w-6xl">
@@ -1106,6 +1483,9 @@ function ActivitiesPaymentsPage() {
                   value={planDraft.enrollmentFee}
                   onChange={(event) => updatePlanDraftAndInstallments((prev) => ({ ...prev, enrollmentFee: Number(event.target.value) }))}
                 />
+                {isEnrollmentFeeCovered ? (
+                  <span className="mt-1 text-xs text-success">{t('activitiesPayments.plan.enrollmentFeeCoveredNote')}</span>
+                ) : null}
               </label>
               <label className="form-control">
                 <span className="label-text mb-1 text-xs">{t('activitiesPayments.plan.recurringAmount')}</span>

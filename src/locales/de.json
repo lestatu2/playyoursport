@@ -1,4 +1,4 @@
-{
+﻿{
   "common": {
     "save": "Speichern",
     "resetDefault": "Zurucksetzen",
@@ -38,6 +38,7 @@
     "clients": "Kunden",
     "athletes": "Athleten",
     "activitiesPayments": "Aktivitaeten & Zahlungen",
+    "activitiesHistory": "Aktivitaetenverlauf",
     "packages": "Pakete",
     "site": "Website",
     "configuration": "Konfiguration",
@@ -98,7 +99,7 @@
     "createNoPackages": "Nessun pacchetto ragazzi disponibile",
     "createRequired": "Compila tutti i campi obbligatori.",
     "createSelectPackage": "Seleziona un pacchetto valido.",
-    "minorAgeNotCompatible": "Età del minore non compatibile con il pacchetto selezionato ({{min}}-{{max}} anni).",
+    "minorAgeNotCompatible": "EtÃ  del minore non compatibile con il pacchetto selezionato ({{min}}-{{max}} anni).",
     "createAthleteNotImplemented": "Creazione cliente come atleta non ancora disponibile.",
     "addMinor": "Aggiungi minore",
     "addMinorTitle": "Aggiungi minore",
@@ -130,6 +131,12 @@
     "certificateExpired": "Abgelaufen",
     "expiryFrom": "Ablauf von",
     "expiryTo": "Ablauf bis",
+    "enrollmentStatusFilter": "Einschreibungsfilter",
+    "allEnrollmentsStatuses": "Alle Einschreibungen",
+    "enrollmentNotExpired": "Nicht abgelaufen",
+    "enrollmentExpired": "Abgelaufen",
+    "enrollmentExpiryFrom": "Einschreibungen Ablauf von",
+    "enrollmentExpiryTo": "Einschreibungen Ablauf bis",
     "athlete": "Athlet",
     "type": "Typ",
     "minorType": "Minderjaehrig",
@@ -151,6 +158,12 @@
     "openValidation": "Athletenvalidierung oeffnen",
     "openProfile": "Athletenprofil oeffnen",
     "openActivitiesPayments": "Athletenaktivitaeten und Zahlungen oeffnen",
+    "enrollmentsCoverageTitle": "Anmeldungen und Versicherungen",
+    "enrollmentsCoverageEmpty": "Keine Anmeldungsdeckung verfuegbar.",
+    "enrollmentsCoverageEnrollment": "Ursprungsanmeldung",
+    "enrollmentsCoverageInsurance": "Versicherung",
+    "enrollmentsCoverageValidFrom": "Gueltig ab",
+    "enrollmentsCoverageValidTo": "Gueltig bis",
     "status": "Validierungsstatus",
     "actions": "Aktionen",
     "validated": "Validiert",
@@ -163,6 +176,7 @@
   "activitiesPayments": {
     "title": "Aktivitaeten & Zahlungen",
     "description": "Verwaltung von Athletenaktivitaeten und zugeordneten Zahlungen.",
+    "goToHistory": "Zum Verlauf",
     "placeholder": "Bereich in Vorbereitung: in diesem Schritt ist nur die Aktivitaetenansicht verfuegbar.",
     "empty": "Keine Aktivitaeten mit den ausgewaehlten Filtern gefunden.",
     "selfPayer": "Selbst",
@@ -172,11 +186,19 @@
       "search": "Suche",
       "searchPlaceholder": "Suche nach Athlet, Elternteil, Paket",
       "lockedAthlete": "Athletenfilter gesperrt",
+      "periodFromMonth": "Von (Monat)",
+      "periodToMonth": "Bis (Monat)",
+      "quickCurrentMonth": "Aktueller Monat",
+      "quickLast3Months": "Letzte 3 Monate",
+      "quickLast6Months": "Letzte 6 Monate",
+      "quickCurrentYear": "Aktuelles Jahr",
       "package": "Paket",
       "allPackages": "Alle Pakete",
-      "validation": "Validierung",
-      "allStatuses": "Alle Status",
-      "periodMonth": "Periodo (mese)"
+      "plan": "Plan",
+      "allPlans": "Alle",
+      "generatedPlan": "Plan erstellt",
+      "notGeneratedPlan": "Kein Plan",
+      "allFrequencies": "Alle"
     },
     "tabs": {
       "activities": "Aktivitaeten",
@@ -191,6 +213,7 @@
       "athleteType": "Athletentyp",
       "parent": "Elternteil",
       "package": "Paket",
+      "frequency": "Frequenz",
       "period": "Zeitraum",
       "workflow": "Workflow",
       "plan": "Plan",
@@ -199,6 +222,11 @@
     "types": {
       "minor": "Minderjaehrig",
       "directUser": "Direktathlet"
+    },
+    "period": {
+      "current": "Aktuell",
+      "selected": "Ausgewaehlt",
+      "total": "Gesamt"
     },
     "workflow": {
       "validated": "Validiert",
@@ -210,6 +238,7 @@
     },
     "plan": {
       "enrollmentFee": "Anmeldegebuehr",
+      "enrollmentFeeCoveredNote": "Anmeldegebuehr auf null: aktive und kompatible Einschreibungsdeckung fuer diesen Athleten.",
       "recurringAmount": "Wiederkehrender Betrag",
       "fixedServices": "Summe feste Leistungen",
       "services": "Leistungen",
@@ -250,6 +279,12 @@
       "currentPaid": "Rata periodo pagata",
       "currentPendingCount": "Rate periodo da pagare: {{count}}",
       "noInstallmentInPeriod": "Nessuna rata nel periodo"
+    },
+    "contract": {
+      "download": "Contratto PDF",
+      "companyNotFound": "Azienda del pacchetto non trovata.",
+      "subjectDataMissing": "Dati soggetto mancanti per generare il contratto.",
+      "downloadError": "Errore durante la generazione del contratto PDF."
     },
     "period": {
       "current": "Corrente",
@@ -493,7 +528,7 @@
       "updated": "Paket erfolgreich aktualisiert.",
       "deleted": "Paket erfolgreich geloescht.",
       "confirmDelete": "Loeschen des Pakets \"{{title}}\" bestaetigen?",
-      "audienceLabel": "Tipologia età"
+      "audienceLabel": "Tipologia etÃ "
     },
     "companies": {
       "title": "Unternehmen",
@@ -568,15 +603,40 @@
     "enrollments": {
       "title": "Anmeldungen",
       "description": "Anmeldearten verwalten.",
+      "tabEnrollments": "Anmeldungen",
+      "tabInsurances": "Versicherungen",
       "create": "Anmeldung erstellen",
       "titleLabel": "Titel",
       "descriptionLabel": "Beschreibung",
+      "insuranceLabel": "Verknuepfte Versicherung",
+      "insuranceRequired": "Bitte eine gueltige Versicherung auswaehlen.",
+      "validityModeLabel": "Deckungsgueltigkeit",
+      "validityAnnual365": "Jaehrlich (365 Tage)",
+      "validityEditionPeriod": "Paket-Editionszeitraum",
+      "alwaysRequirePurchaseLabel": "Immer neuen Kauf verlangen",
+      "alwaysRequirePurchaseYes": "Immer neu",
+      "alwaysRequirePurchaseNo": "Wiederverwendbar",
+      "coveredEnrollmentsLabel": "Deckt auch ab",
       "empty": "Keine Anmeldungen verfuegbar.",
       "invalidData": "Alle Pflichtfelder ausfuellen.",
       "created": "Anmeldung erfolgreich erstellt.",
       "updated": "Anmeldung erfolgreich aktualisiert.",
       "deleted": "Anmeldung erfolgreich geloescht.",
       "confirmDelete": "Loeschen der Anmeldung \"{{title}}\" bestaetigen?"
+    },
+    "insurances": {
+      "title": "Versicherungen",
+      "description": "Verwaltung der mit Anmeldungen verknuepften Versicherungen.",
+      "create": "Versicherung erstellen",
+      "titleLabel": "Titel",
+      "descriptionLabel": "Beschreibung",
+      "activeLabel": "Aktiv",
+      "empty": "Keine Versicherung verfuegbar.",
+      "created": "Versicherung erfolgreich erstellt.",
+      "updated": "Versicherung erfolgreich aktualisiert.",
+      "deleted": "Versicherung erfolgreich geloescht.",
+      "inUse": "Versicherung wird von mindestens einer Anmeldung verwendet.",
+      "confirmDelete": "Loeschen der Versicherung \"{{title}}\" bestaetigen?"
     },
     "additionalServices": {
       "title": "Zusatzleistungen",
@@ -840,6 +900,36 @@
       }
     }
   },
+  "activitiesHistory": {
+    "title": "Aktivitaetenverlauf",
+    "description": "Archiv der Aktivitaeten fuer geschlossene Editionen mit finanzieller Nachverfolgung.",
+    "backToActivitiesPayments": "Zuruck zu Aktivitaeten & Zahlungen",
+    "empty": "Keine historischen Aktivitaeten mit den gewaehlten Filtern gefunden.",
+    "filters": {
+      "search": "Suche",
+      "searchPlaceholder": "Suche nach Athlet, Elternteil, Paket",
+      "package": "Paket",
+      "allPackages": "Alle Pakete",
+      "type": "Athletentyp",
+      "allTypes": "Alle Typen",
+      "closureFrom": "Abschluss von",
+      "closureTo": "Abschluss bis",
+      "balanceStatus": "Saldostatus",
+      "allBalanceStatuses": "Alle Saldostatus"
+    },
+    "table": {
+      "closureDate": "Abschlussdatum",
+      "totalDue": "Gesamt offen",
+      "totalPaid": "Gesamt bezahlt",
+      "residual": "Restbetrag",
+      "status": "Saldostatus"
+    },
+    "status": {
+      "balanceOk": "Saldo ok",
+      "partial": "Teilweise",
+      "withOverdue": "Mit Rueckstaenden"
+    }
+  },
   "users": {
     "title": "Utenti",
     "description": "Creazione e gestione utenti per ruolo.",
@@ -873,3 +963,6 @@
     }
   }
 }
+
+
+

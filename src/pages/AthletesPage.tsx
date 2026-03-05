@@ -15,7 +15,10 @@ import {
   updatePublicDirectAthleteValidationStatus,
   type PublicDirectAthleteRecord,
 } from '../lib/public-direct-athletes'
-import { getPackages } from '../lib/package-catalog'
+import { getEnrollmentInsurances, getEnrollments, getPackages } from '../lib/package-catalog'
+import { getAthleteEnrollmentCoverages } from '../lib/athlete-enrollment-coverages'
+import { createAthleteActivity, getAthleteActivitiesByAthleteKey } from '../lib/athlete-activities'
+import { getAthleteActivities } from '../lib/athlete-activities'
 
 type MinorDraft = Pick<
   PublicMinorRecord,
@@ -79,6 +82,38 @@ function isCertificateValid(expiryDate: string): boolean {
   return expiryDate >= new Date().toISOString().slice(0, 10)
 }
 
+function isEnrollmentCoverageValid(validTo: string): boolean {
+  if (!validTo) {
+    return false
+  }
+  return validTo >= new Date().toISOString().slice(0, 10)
+}
+
+function getAgeFromBirthDate(birthDate: string): number | null {
+  const value = new Date(birthDate)
+  if (Number.isNaN(value.getTime())) {
+    return null
+  }
+  const now = new Date()
+  let age = now.getFullYear() - value.getFullYear()
+  const monthDiff = now.getMonth() - value.getMonth()
+  if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < value.getDate())) {
+    age -= 1
+  }
+  return age
+}
+
+function isPackageEditionClosed(input: { durationType: string; periodEndDate?: string; eventDate?: string }): boolean {
+  const today = new Date()
+  const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+  if (input.durationType === 'period') {
+    const end = input.periodEndDate ? new Date(`${input.periodEndDate}T00:00:00`) : null
+    return Boolean(end && !Number.isNaN(end.getTime()) && end < todayDate)
+  }
+  const eventDate = input.eventDate ? new Date(`${input.eventDate}T00:00:00`) : null
+  return Boolean(eventDate && !Number.isNaN(eventDate.getTime()) && eventDate < todayDate)
+}
+
 function AthletesPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -86,10 +121,13 @@ function AthletesPage() {
   const [minors, setMinors] = useState<PublicMinorRecord[]>(() => getPublicMinors())
   const [directAthletes, setDirectAthletes] = useState<PublicDirectAthleteRecord[]>(() => getPublicDirectAthletes())
   const [message, setMessage] = useState('')
+  const [activitiesVersion, setActivitiesVersion] = useState(0)
   const [activeMinorId, setActiveMinorId] = useState<number | null>(null)
   const [minorDraft, setMinorDraft] = useState<MinorDraft | null>(null)
   const [activeDirectId, setActiveDirectId] = useState<string | null>(null)
   const [directDraft, setDirectDraft] = useState<DirectDraft | null>(null)
+  const [newMinorPackageId, setNewMinorPackageId] = useState('')
+  const [newDirectPackageId, setNewDirectPackageId] = useState('')
   const [globalSearch, setGlobalSearch] = useState('')
   const [packageFilter, setPackageFilter] = useState('all')
   const [typeFilter, setTypeFilter] = useState<'all' | 'minor' | 'adult'>('all')
@@ -97,11 +135,36 @@ function AthletesPage() {
   const [certificateFilter, setCertificateFilter] = useState<'all' | 'expired' | 'valid'>('all')
   const [expiryFrom, setExpiryFrom] = useState('')
   const [expiryTo, setExpiryTo] = useState('')
+  const [enrollmentStatusFilter, setEnrollmentStatusFilter] = useState<'all' | 'expired' | 'valid'>('all')
+  const [enrollmentExpiryFrom, setEnrollmentExpiryFrom] = useState('')
+  const [enrollmentExpiryTo, setEnrollmentExpiryTo] = useState('')
   const lockedAthleteId = searchParams.get('athleteId')
 
   const clientsById = useMemo(() => new Map(getPublicClients().map((client) => [client.id, client])), [minors])
   const packages = useMemo(() => getPackages(), [])
   const packagesById = useMemo(() => new Map(packages.map((item) => [item.id, item])), [packages])
+  const athleteActivitiesByAthleteKey = useMemo(() => {
+    const map = new Map<string, string[]>()
+    getAthleteActivities().forEach((activity) => {
+      const current = map.get(activity.athleteKey) ?? []
+      if (!current.includes(activity.packageId)) {
+        map.set(activity.athleteKey, [...current, activity.packageId])
+      }
+    })
+    return map
+  }, [activitiesVersion])
+  const enrollmentLabelById = useMemo(() => new Map(getEnrollments().map((item) => [item.id, item.title])), [])
+  const insuranceLabelById = useMemo(() => new Map(getEnrollmentInsurances().map((item) => [item.id, item.title])), [])
+  const enrollmentCoveragesByAthleteKey = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof getAthleteEnrollmentCoverages>>()
+    minors.forEach((minor) => {
+      map.set(`minor-${minor.id}`, getAthleteEnrollmentCoverages(`minor-${minor.id}`))
+    })
+    directAthletes.forEach((direct) => {
+      map.set(`direct-${direct.id}`, getAthleteEnrollmentCoverages(`direct-${direct.id}`))
+    })
+    return map
+  }, [directAthletes, minors])
   const filteredAthletes = useMemo(() => {
     const allRows: AthleteRow[] = [
       ...minors.map((minor) => ({ type: 'minor' as const, id: `minor-${minor.id}`, minor })),
@@ -128,6 +191,8 @@ function AthletesPage() {
       const residence = row.type === 'minor' ? row.minor.residenceAddress : row.direct.residenceAddress
       const directEmail = row.type === 'direct' ? row.direct.email : ''
       const directPhone = row.type === 'direct' ? row.direct.phone : ''
+      const athleteKey = row.type === 'minor' ? `minor-${row.minor.id}` : `direct-${row.direct.id}`
+      const enrollments = enrollmentCoveragesByAthleteKey.get(athleteKey) ?? []
       const searchHaystack = [
         firstName,
         lastName,
@@ -174,9 +239,36 @@ function AthletesPage() {
       if (expiryTo && (!expiresAt || expiresAt > expiryTo)) {
         return false
       }
+      if (enrollmentStatusFilter !== 'all') {
+        const hasActiveEnrollment = enrollments.some((item) => isEnrollmentCoverageValid(item.validTo))
+        const hasAnyEnrollment = enrollments.length > 0
+        if (enrollmentStatusFilter === 'valid' && !hasActiveEnrollment) {
+          return false
+        }
+        if (enrollmentStatusFilter === 'expired' && (!hasAnyEnrollment || hasActiveEnrollment)) {
+          return false
+        }
+      }
+      if (enrollmentExpiryFrom || enrollmentExpiryTo) {
+        const hasMatchingEnrollmentDate = enrollments.some((item) => {
+          if (!item.validTo) {
+            return false
+          }
+          if (enrollmentExpiryFrom && item.validTo < enrollmentExpiryFrom) {
+            return false
+          }
+          if (enrollmentExpiryTo && item.validTo > enrollmentExpiryTo) {
+            return false
+          }
+          return true
+        })
+        if (!hasMatchingEnrollmentDate) {
+          return false
+        }
+      }
       return true
     })
-  }, [certificateFilter, clientsById, directAthletes, expiryFrom, expiryTo, globalSearch, lockedAthleteId, minors, packageFilter, packagesById, typeFilter, validationFilter])
+  }, [certificateFilter, clientsById, directAthletes, enrollmentCoveragesByAthleteKey, enrollmentExpiryFrom, enrollmentExpiryTo, enrollmentStatusFilter, expiryFrom, expiryTo, globalSearch, lockedAthleteId, minors, packageFilter, packagesById, typeFilter, validationFilter])
   const activeMinor = useMemo(
     () => (activeMinorId === null ? null : minors.find((item) => item.id === activeMinorId) ?? null),
     [activeMinorId, minors],
@@ -185,6 +277,60 @@ function AthletesPage() {
     () => (activeDirectId === null ? null : directAthletes.find((item) => item.id === activeDirectId) ?? null),
     [activeDirectId, directAthletes],
   )
+  const activeMinorCoverages = useMemo(
+    () => (activeMinor ? getAthleteEnrollmentCoverages(`minor-${activeMinor.id}`) : []),
+    [activeMinor],
+  )
+  const activeDirectCoverages = useMemo(
+    () => (activeDirect ? getAthleteEnrollmentCoverages(`direct-${activeDirect.id}`) : []),
+    [activeDirect],
+  )
+  const activeMinorActivities = useMemo(
+    () => (activeMinor ? getAthleteActivitiesByAthleteKey(`minor-${activeMinor.id}`) : []),
+    [activeMinor, activitiesVersion],
+  )
+  const activeDirectActivities = useMemo(
+    () => (activeDirect ? getAthleteActivitiesByAthleteKey(`direct-${activeDirect.id}`) : []),
+    [activeDirect, activitiesVersion],
+  )
+  const availableMinorPackages = useMemo(() => {
+    if (!activeMinor) {
+      return []
+    }
+    const age = getAgeFromBirthDate(activeMinor.birthDate)
+    if (age === null) {
+      return []
+    }
+    const assignedPackageIds = new Set(activeMinorActivities.map((item) => item.packageId))
+    return packages.filter(
+      (item) =>
+        item.audience === 'youth' &&
+        !item.isDescriptive &&
+        !isPackageEditionClosed(item) &&
+        !assignedPackageIds.has(item.id) &&
+        age >= item.ageMin &&
+        age <= item.ageMax,
+    )
+  }, [activeMinor, activeMinorActivities, packages])
+  const availableDirectPackages = useMemo(() => {
+    if (!activeDirect) {
+      return []
+    }
+    const age = getAgeFromBirthDate(activeDirect.birthDate)
+    if (age === null) {
+      return []
+    }
+    const assignedPackageIds = new Set(activeDirectActivities.map((item) => item.packageId))
+    return packages.filter(
+      (item) =>
+        item.audience === 'adult' &&
+        !item.isDescriptive &&
+        !isPackageEditionClosed(item) &&
+        !assignedPackageIds.has(item.id) &&
+        age >= item.ageMin &&
+        age <= item.ageMax,
+    )
+  }, [activeDirect, activeDirectActivities, packages])
 
   const refresh = () => {
     setMinors(getPublicMinors())
@@ -203,6 +349,24 @@ function AthletesPage() {
       medicalCertificateImageDataUrl: minor.medicalCertificateImageDataUrl,
       medicalCertificateExpiryDate: minor.medicalCertificateExpiryDate,
     })
+    const firstAvailablePackageId = (() => {
+      const age = getAgeFromBirthDate(minor.birthDate)
+      if (age === null) {
+        return ''
+      }
+      const assigned = new Set(getAthleteActivitiesByAthleteKey(`minor-${minor.id}`).map((item) => item.packageId))
+      const next = packages.find(
+        (item) =>
+          item.audience === 'youth' &&
+          !item.isDescriptive &&
+          !isPackageEditionClosed(item) &&
+          !assigned.has(item.id) &&
+          age >= item.ageMin &&
+          age <= item.ageMax,
+      )
+      return next?.id ?? ''
+    })()
+    setNewMinorPackageId(firstAvailablePackageId)
   }
 
   const closeModal = () => {
@@ -210,6 +374,8 @@ function AthletesPage() {
     setMinorDraft(null)
     setActiveDirectId(null)
     setDirectDraft(null)
+    setNewMinorPackageId('')
+    setNewDirectPackageId('')
   }
 
   const openDirectAthleteModal = (direct: PublicDirectAthleteRecord) => {
@@ -226,6 +392,56 @@ function AthletesPage() {
       medicalCertificateImageDataUrl: direct.medicalCertificateImageDataUrl,
       medicalCertificateExpiryDate: direct.medicalCertificateExpiryDate,
     })
+    const firstAvailablePackageId = (() => {
+      const age = getAgeFromBirthDate(direct.birthDate)
+      if (age === null) {
+        return ''
+      }
+      const assigned = new Set(getAthleteActivitiesByAthleteKey(`direct-${direct.id}`).map((item) => item.packageId))
+      const next = packages.find(
+        (item) =>
+          item.audience === 'adult' &&
+          !item.isDescriptive &&
+          !isPackageEditionClosed(item) &&
+          !assigned.has(item.id) &&
+          age >= item.ageMin &&
+          age <= item.ageMax,
+      )
+      return next?.id ?? ''
+    })()
+    setNewDirectPackageId(firstAvailablePackageId)
+  }
+
+  const addPackageToActiveMinor = () => {
+    if (!activeMinor || !newMinorPackageId) {
+      return
+    }
+    const createdActivity = createAthleteActivity({
+      athleteKey: `minor-${activeMinor.id}`,
+      type: 'minor',
+      athleteId: String(activeMinor.id),
+      packageId: newMinorPackageId,
+      selectedPaymentMethodCode: '',
+    })
+    setActivitiesVersion((prev) => prev + 1)
+    closeModal()
+    navigate(`/app/attivita-pagamenti?athleteId=${encodeURIComponent(createdActivity.key)}`)
+  }
+
+  const addPackageToActiveDirect = () => {
+    if (!activeDirect || !newDirectPackageId) {
+      return
+    }
+    const createdActivity = createAthleteActivity({
+      athleteKey: `direct-${activeDirect.id}`,
+      type: 'direct_user',
+      athleteId: activeDirect.id,
+      packageId: newDirectPackageId,
+      selectedPaymentMethodCode: '',
+    })
+    setActivitiesVersion((prev) => prev + 1)
+    closeModal()
+    navigate(`/app/attivita-pagamenti?athleteId=${encodeURIComponent(createdActivity.key)}`)
   }
 
   const saveChanges = (silent = false) => {
@@ -278,6 +494,9 @@ function AthletesPage() {
     setCertificateFilter('all')
     setExpiryFrom('')
     setExpiryTo('')
+    setEnrollmentStatusFilter('all')
+    setEnrollmentExpiryFrom('')
+    setEnrollmentExpiryTo('')
     const next = new URLSearchParams(searchParams)
     next.delete('athleteId')
     setSearchParams(next, { replace: true })
@@ -355,6 +574,28 @@ function AthletesPage() {
             <input type="date" className="input input-bordered w-full" value={expiryTo} onChange={(event) => setExpiryTo(event.target.value)} />
           </label>
         </div>
+        <label className="form-control lg:col-span-2">
+          <span className="label-text mb-1 text-xs">{t('athletes.enrollmentStatusFilter')}</span>
+          <select
+            className="select select-bordered w-full"
+            value={enrollmentStatusFilter}
+            onChange={(event) => setEnrollmentStatusFilter(event.target.value as 'all' | 'expired' | 'valid')}
+          >
+            <option value="all">{t('athletes.allEnrollmentsStatuses')}</option>
+            <option value="valid">{t('athletes.enrollmentNotExpired')}</option>
+            <option value="expired">{t('athletes.enrollmentExpired')}</option>
+          </select>
+        </label>
+        <div className="grid grid-cols-2 gap-2 lg:col-span-2">
+          <label className="form-control">
+            <span className="label-text mb-1 text-xs">{t('athletes.enrollmentExpiryFrom')}</span>
+            <input type="date" className="input input-bordered w-full" value={enrollmentExpiryFrom} onChange={(event) => setEnrollmentExpiryFrom(event.target.value)} />
+          </label>
+          <label className="form-control">
+            <span className="label-text mb-1 text-xs">{t('athletes.enrollmentExpiryTo')}</span>
+            <input type="date" className="input input-bordered w-full" value={enrollmentExpiryTo} onChange={(event) => setEnrollmentExpiryTo(event.target.value)} />
+          </label>
+        </div>
         <div className="lg:col-span-1 flex items-end justify-end">
           <button type="button" className="btn btn-outline btn-sm" onClick={resetFilters}>
             {t('common.resetFilters')}
@@ -370,6 +611,7 @@ function AthletesPage() {
               <th>{t('athletes.birthDate')}</th>
               <th>{t('athletes.parent')}</th>
               <th>{t('athletes.package')}</th>
+              <th>{t('athletes.enrollmentsCoverageTitle')}</th>
               <th>{t('athletes.certificateExpiry')}</th>
               <th>{t('athletes.status')}</th>
               <th>{t('athletes.actions')}</th>
@@ -378,7 +620,7 @@ function AthletesPage() {
           <tbody>
             {filteredAthletes.length === 0 ? (
               <tr>
-                <td colSpan={8} className="text-center text-sm opacity-70">{t('athletes.empty')}</td>
+                <td colSpan={9} className="text-center text-sm opacity-70">{t('athletes.empty')}</td>
               </tr>
             ) : (
               filteredAthletes.map((row) => {
@@ -410,17 +652,53 @@ function AthletesPage() {
                       )}
                     </td>
                     <td>
-                      {minor?.packageId || direct?.packageId ? (
-                        <button
-                          type="button"
-                          className="link text-base-content text-left"
-                          onClick={() => navigate(`/app/pacchetti?packageId=${minor?.packageId ?? direct?.packageId}`)}
-                        >
-                          {packageItem?.name ?? (minor?.packageId ?? direct?.packageId ?? '-')}
-                        </button>
-                      ) : (
-                        '-'
-                      )}
+                      {(() => {
+                        const athleteKey = minor ? `minor-${minor.id}` : direct ? `direct-${direct.id}` : ''
+                        const packageIds =
+                          athleteActivitiesByAthleteKey.get(athleteKey) ??
+                          (minor?.packageId || direct?.packageId
+                            ? [minor?.packageId ?? direct?.packageId ?? '']
+                            : [])
+                        if (packageIds.length === 0) {
+                          return '-'
+                        }
+                        return (
+                          <div className="flex flex-wrap gap-1">
+                            {packageIds.map((pkgId) => (
+                              <button
+                                key={`${row.id}-${pkgId}`}
+                                type="button"
+                                className="badge badge-outline text-base-content"
+                                onClick={() => navigate(`/app/pacchetti?packageId=${pkgId}`)}
+                              >
+                                {packagesById.get(pkgId)?.name ?? pkgId}
+                              </button>
+                            ))}
+                          </div>
+                        )
+                      })()}
+                    </td>
+                    <td>
+                      {(() => {
+                        const athleteKey = minor ? `minor-${minor.id}` : direct ? `direct-${direct.id}` : ''
+                        const enrollments = enrollmentCoveragesByAthleteKey.get(athleteKey) ?? []
+                        if (enrollments.length === 0) {
+                          return <span className="text-sm opacity-70">-</span>
+                        }
+                        return (
+                          <div className="flex flex-wrap gap-1">
+                            {enrollments.map((enrollment) => {
+                              const title = enrollmentLabelById.get(enrollment.sourceEnrollmentId) ?? enrollment.sourceEnrollmentId
+                              const isValid = isEnrollmentCoverageValid(enrollment.validTo)
+                              return (
+                                <span key={enrollment.id} className={`badge ${isValid ? 'badge-success' : 'badge-error'}`}>
+                                  {title} {enrollment.validTo}
+                                </span>
+                              )
+                            })}
+                          </div>
+                        )
+                      })()}
                     </td>
                     <td>
                       {(minor?.medicalCertificateExpiryDate || direct?.medicalCertificateExpiryDate) ? (
@@ -541,6 +819,88 @@ function AthletesPage() {
               </div>
             ) : null}
 
+            <div className="mt-4 rounded border border-base-300 p-3">
+              <p className="text-sm font-semibold">Pacchetti attivi atleta</p>
+              {activeMinorActivities.length === 0 ? (
+                <p className="mt-2 text-sm opacity-70">Nessun pacchetto attivo.</p>
+              ) : (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {activeMinorActivities.map((activity) => (
+                    <button
+                      key={activity.key}
+                      type="button"
+                      className="badge badge-outline text-base-content"
+                      onClick={() => navigate(`/app/pacchetti?packageId=${activity.packageId}`)}
+                    >
+                      {(() => {
+                        const packageItem = packagesById.get(activity.packageId)
+                        if (!packageItem) {
+                          return activity.packageId
+                        }
+                        const frequencyKey = `utility.packages.paymentFrequency${packageItem.paymentFrequency[0].toUpperCase()}${packageItem.paymentFrequency.slice(1)}`
+                        return `${packageItem.name} - ${t(frequencyKey)}`
+                      })()}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="mt-3 flex flex-col gap-2 md:flex-row">
+                <select
+                  className="select select-bordered w-full"
+                  value={newMinorPackageId || availableMinorPackages[0]?.id || ''}
+                  onChange={(event) => setNewMinorPackageId(event.target.value)}
+                >
+                  {availableMinorPackages.length === 0 ? (
+                    <option value="">Nessun pacchetto compatibile disponibile</option>
+                  ) : (
+                    availableMinorPackages.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
+                      </option>
+                    ))
+                  )}
+                </select>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={addPackageToActiveMinor}
+                  disabled={availableMinorPackages.length === 0}
+                >
+                  Aggiungi pacchetto
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded border border-base-300 p-3">
+              <p className="text-sm font-semibold">{t('athletes.enrollmentsCoverageTitle')}</p>
+              {activeMinorCoverages.length === 0 ? (
+                <p className="mt-2 text-sm opacity-70">{t('athletes.enrollmentsCoverageEmpty')}</p>
+              ) : (
+                <div className="mt-2 overflow-x-auto">
+                  <table className="table table-xs">
+                    <thead>
+                      <tr>
+                        <th>{t('athletes.enrollmentsCoverageEnrollment')}</th>
+                        <th>{t('athletes.enrollmentsCoverageInsurance')}</th>
+                        <th>{t('athletes.enrollmentsCoverageValidFrom')}</th>
+                        <th>{t('athletes.enrollmentsCoverageValidTo')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {activeMinorCoverages.map((itemCoverage) => (
+                        <tr key={itemCoverage.id}>
+                          <td>{enrollmentLabelById.get(itemCoverage.sourceEnrollmentId) ?? itemCoverage.sourceEnrollmentId}</td>
+                              <td>{insuranceLabelById.get(itemCoverage.insuranceId) ?? itemCoverage.insuranceId}</td>
+                          <td>{itemCoverage.validFrom}</td>
+                          <td>{itemCoverage.validTo}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
             <div className="modal-action">
               <button type="button" className="btn btn-ghost" onClick={closeModal}>{t('public.common.close')}</button>
               <button type="button" className="btn btn-outline" onClick={() => saveChanges()}>{t('common.save')}</button>
@@ -635,6 +995,86 @@ function AthletesPage() {
                 </div>
               </div>
             ) : null}
+            <div className="mt-4 rounded border border-base-300 p-3">
+              <p className="text-sm font-semibold">Pacchetti attivi atleta</p>
+              {activeDirectActivities.length === 0 ? (
+                <p className="mt-2 text-sm opacity-70">Nessun pacchetto attivo.</p>
+              ) : (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {activeDirectActivities.map((activity) => (
+                    <button
+                      key={activity.key}
+                      type="button"
+                      className="badge badge-outline text-base-content"
+                      onClick={() => navigate(`/app/pacchetti?packageId=${activity.packageId}`)}
+                    >
+                      {(() => {
+                        const packageItem = packagesById.get(activity.packageId)
+                        if (!packageItem) {
+                          return activity.packageId
+                        }
+                        const frequencyKey = `utility.packages.paymentFrequency${packageItem.paymentFrequency[0].toUpperCase()}${packageItem.paymentFrequency.slice(1)}`
+                        return `${packageItem.name} - ${t(frequencyKey)}`
+                      })()}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="mt-3 flex flex-col gap-2 md:flex-row">
+                <select
+                  className="select select-bordered w-full"
+                  value={newDirectPackageId || availableDirectPackages[0]?.id || ''}
+                  onChange={(event) => setNewDirectPackageId(event.target.value)}
+                >
+                  {availableDirectPackages.length === 0 ? (
+                    <option value="">Nessun pacchetto compatibile disponibile</option>
+                  ) : (
+                    availableDirectPackages.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
+                      </option>
+                    ))
+                  )}
+                </select>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={addPackageToActiveDirect}
+                  disabled={availableDirectPackages.length === 0}
+                >
+                  Aggiungi pacchetto
+                </button>
+              </div>
+            </div>
+            <div className="mt-4 rounded border border-base-300 p-3">
+              <p className="text-sm font-semibold">{t('athletes.enrollmentsCoverageTitle')}</p>
+              {activeDirectCoverages.length === 0 ? (
+                <p className="mt-2 text-sm opacity-70">{t('athletes.enrollmentsCoverageEmpty')}</p>
+              ) : (
+                <div className="mt-2 overflow-x-auto">
+                  <table className="table table-xs">
+                    <thead>
+                      <tr>
+                        <th>{t('athletes.enrollmentsCoverageEnrollment')}</th>
+                        <th>{t('athletes.enrollmentsCoverageInsurance')}</th>
+                        <th>{t('athletes.enrollmentsCoverageValidFrom')}</th>
+                        <th>{t('athletes.enrollmentsCoverageValidTo')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {activeDirectCoverages.map((itemCoverage) => (
+                        <tr key={itemCoverage.id}>
+                          <td>{enrollmentLabelById.get(itemCoverage.sourceEnrollmentId) ?? itemCoverage.sourceEnrollmentId}</td>
+                              <td>{insuranceLabelById.get(itemCoverage.insuranceId) ?? itemCoverage.insuranceId}</td>
+                          <td>{itemCoverage.validFrom}</td>
+                          <td>{itemCoverage.validTo}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
             <div className="modal-action">
               <button type="button" className="btn btn-ghost" onClick={closeModal}>{t('public.common.close')}</button>
               <button type="button" className="btn btn-outline" onClick={() => saveDirectChanges()}>{t('common.save')}</button>

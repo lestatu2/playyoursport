@@ -18,6 +18,7 @@ import UsersPage from './pages/UsersPage'
 import ClientsPage from './pages/ClientsPage'
 import AthletesPage from './pages/AthletesPage'
 import ActivitiesPaymentsPage from './pages/ActivitiesPaymentsPage'
+import ActivitiesHistoryPage from './pages/ActivitiesHistoryPage'
 import PublicPortalPage from './pages/PublicPortalPage'
 import SitePage from './pages/SitePage'
 import PublicPackagesPage from './pages/PublicPackagesPage'
@@ -234,6 +235,14 @@ function App() {
           element={
             <UsersRoute session={session}>
               <ActivitiesPaymentsPage />
+            </UsersRoute>
+          }
+        />
+        <Route
+          path="storico-attivita"
+          element={
+            <UsersRoute session={session}>
+              <ActivitiesHistoryPage />
             </UsersRoute>
           }
         />

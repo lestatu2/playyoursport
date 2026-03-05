@@ -1,4 +1,4 @@
-{
+﻿{
   "common": {
     "save": "Save",
     "resetDefault": "Reset default",
@@ -38,6 +38,7 @@
     "clients": "Clients",
     "athletes": "Athletes",
     "activitiesPayments": "Activities & Payments",
+    "activitiesHistory": "Activities History",
     "packages": "Packages",
     "site": "Site",
     "configuration": "Configuration",
@@ -130,7 +131,7 @@
     "createNoPackages": "Nessun pacchetto ragazzi disponibile",
     "createRequired": "Compila tutti i campi obbligatori.",
     "createSelectPackage": "Seleziona un pacchetto valido.",
-    "minorAgeNotCompatible": "Età del minore non compatibile con il pacchetto selezionato ({{min}}-{{max}} anni).",
+    "minorAgeNotCompatible": "EtÃ  del minore non compatibile con il pacchetto selezionato ({{min}}-{{max}} anni).",
     "createAthleteNotImplemented": "Creazione cliente come atleta non ancora disponibile.",
     "addMinor": "Aggiungi minore",
     "addMinorTitle": "Aggiungi minore",
@@ -162,6 +163,12 @@
     "certificateExpired": "Expired",
     "expiryFrom": "Expiry from",
     "expiryTo": "Expiry to",
+    "enrollmentStatusFilter": "Enrollment filter",
+    "allEnrollmentsStatuses": "All enrollments",
+    "enrollmentNotExpired": "Not expired",
+    "enrollmentExpired": "Expired",
+    "enrollmentExpiryFrom": "Enrollment expiry from",
+    "enrollmentExpiryTo": "Enrollment expiry to",
     "athlete": "Athlete",
     "type": "Type",
     "minorType": "Minor",
@@ -183,6 +190,12 @@
     "openValidation": "Open athlete validation",
     "openProfile": "Open athlete profile",
     "openActivitiesPayments": "Open athlete activities and payments",
+    "enrollmentsCoverageTitle": "Enrollments and insurances",
+    "enrollmentsCoverageEmpty": "No enrollment coverage available.",
+    "enrollmentsCoverageEnrollment": "Source enrollment",
+    "enrollmentsCoverageInsurance": "Insurance",
+    "enrollmentsCoverageValidFrom": "Valid from",
+    "enrollmentsCoverageValidTo": "Valid to",
     "status": "Validation status",
     "actions": "Actions",
     "validated": "Validated",
@@ -195,6 +208,7 @@
   "activitiesPayments": {
     "title": "Activities & Payments",
     "description": "Manage athlete activities and related payments.",
+    "goToHistory": "Go to history",
     "placeholder": "Section in progress: in this step only activities view is available.",
     "empty": "No activities found for selected filters.",
     "selfPayer": "Self",
@@ -204,11 +218,19 @@
       "search": "Search",
       "searchPlaceholder": "Search by athlete, parent, package",
       "lockedAthlete": "Locked athlete filter",
+      "periodFromMonth": "From (month)",
+      "periodToMonth": "To (month)",
+      "quickCurrentMonth": "Current month",
+      "quickLast3Months": "Last 3 months",
+      "quickLast6Months": "Last 6 months",
+      "quickCurrentYear": "Current year",
       "package": "Package",
       "allPackages": "All packages",
-      "validation": "Validation",
-      "allStatuses": "All statuses",
-      "periodMonth": "Periodo (mese)"
+      "plan": "Plan",
+      "allPlans": "All",
+      "generatedPlan": "Plan generated",
+      "notGeneratedPlan": "No plan",
+      "allFrequencies": "All"
     },
     "tabs": {
       "activities": "Activities",
@@ -223,6 +245,7 @@
       "athleteType": "Athlete type",
       "parent": "Parent",
       "package": "Package",
+      "frequency": "Frequency",
       "period": "Period",
       "workflow": "Workflow",
       "plan": "Plan",
@@ -231,6 +254,11 @@
     "types": {
       "minor": "Minor",
       "directUser": "Direct athlete"
+    },
+    "period": {
+      "current": "Current",
+      "selected": "Selected",
+      "total": "Total"
     },
     "workflow": {
       "validated": "Validated",
@@ -242,6 +270,7 @@
     },
     "plan": {
       "enrollmentFee": "Enrollment fee",
+      "enrollmentFeeCoveredNote": "Enrollment fee set to zero: active and compatible enrollment coverage for this athlete.",
       "recurringAmount": "Recurring amount",
       "fixedServices": "Fixed services total",
       "services": "Services",
@@ -283,9 +312,45 @@
       "currentPendingCount": "Rate periodo da pagare: {{count}}",
       "noInstallmentInPeriod": "Nessuna rata nel periodo"
     },
+    "contract": {
+      "download": "Contratto PDF",
+      "companyNotFound": "Azienda del pacchetto non trovata.",
+      "subjectDataMissing": "Dati soggetto mancanti per generare il contratto.",
+      "downloadError": "Errore durante la generazione del contratto PDF."
+    },
     "period": {
       "current": "Corrente",
       "total": "Totale"
+    }
+  },
+  "activitiesHistory": {
+    "title": "Activities history",
+    "description": "Archive of activities for closed editions with fiscal follow-up.",
+    "backToActivitiesPayments": "Back to activities & payments",
+    "empty": "No historical activities found for selected filters.",
+    "filters": {
+      "search": "Search",
+      "searchPlaceholder": "Search by athlete, parent, package",
+      "package": "Package",
+      "allPackages": "All packages",
+      "type": "Athlete type",
+      "allTypes": "All types",
+      "closureFrom": "Closure from",
+      "closureTo": "Closure to",
+      "balanceStatus": "Balance status",
+      "allBalanceStatuses": "All balance statuses"
+    },
+    "table": {
+      "closureDate": "Closure date",
+      "totalDue": "Total due",
+      "totalPaid": "Total paid",
+      "residual": "Residual",
+      "status": "Balance status"
+    },
+    "status": {
+      "balanceOk": "Balance ok",
+      "partial": "Partial",
+      "withOverdue": "With overdue"
     }
   },
   "layout": {
@@ -525,7 +590,7 @@
       "updated": "Package updated successfully.",
       "deleted": "Package deleted successfully.",
       "confirmDelete": "Confirm deletion of package \"{{title}}\"?",
-      "audienceLabel": "Tipologia età"
+      "audienceLabel": "Tipologia etÃ "
     },
     "companies": {
       "title": "Companies",
@@ -600,15 +665,40 @@
     "enrollments": {
       "title": "Enrollments",
       "description": "Manage enrollment types.",
+      "tabEnrollments": "Enrollments",
+      "tabInsurances": "Insurances",
       "create": "Create enrollment",
       "titleLabel": "Title",
       "descriptionLabel": "Description",
+      "insuranceLabel": "Linked insurance",
+      "insuranceRequired": "Select a valid insurance.",
+      "validityModeLabel": "Coverage validity",
+      "validityAnnual365": "Yearly (365 days)",
+      "validityEditionPeriod": "Package edition period",
+      "alwaysRequirePurchaseLabel": "Always require new purchase",
+      "alwaysRequirePurchaseYes": "Always new",
+      "alwaysRequirePurchaseNo": "Reusable",
+      "coveredEnrollmentsLabel": "Also covers",
       "empty": "No enrollments available.",
       "invalidData": "Fill all required fields.",
       "created": "Enrollment created successfully.",
       "updated": "Enrollment updated successfully.",
       "deleted": "Enrollment deleted successfully.",
       "confirmDelete": "Confirm deletion of enrollment \"{{title}}\"?"
+    },
+    "insurances": {
+      "title": "Insurances",
+      "description": "Manage insurances linked to enrollments.",
+      "create": "Create insurance",
+      "titleLabel": "Title",
+      "descriptionLabel": "Description",
+      "activeLabel": "Active",
+      "empty": "No insurance available.",
+      "created": "Insurance created successfully.",
+      "updated": "Insurance updated successfully.",
+      "deleted": "Insurance deleted successfully.",
+      "inUse": "Insurance is used by at least one enrollment.",
+      "confirmDelete": "Confirm deletion of insurance \"{{title}}\"?"
     },
     "additionalServices": {
       "title": "Additional services",
@@ -873,3 +963,6 @@
     }
   }
 }
+
+
+

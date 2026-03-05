@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { AlertTriangle, FileText } from 'lucide-react'
+import { AlertTriangle, FileText, Wallet } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   createPublicClientRecord,
@@ -16,10 +16,11 @@ import {
   type PublicClientRecord,
   type PublicMinorRecord,
 } from '../lib/public-customer-records'
-import { getPackages, type SportPackage } from '../lib/package-catalog'
+import { getEnrollmentById, getPackages, type SportPackage } from '../lib/package-catalog'
 import { getProjectSettings, getProjectSettingsChangedEventName } from '../lib/project-settings'
 import { computeItalianTaxCode, findBirthPlaceCodeByName } from '../lib/tax-code'
 import { getAvailablePaymentMethodsForCompany } from '../lib/payment-methods'
+import { upsertCoverageFromEnrollmentPurchase } from '../lib/athlete-enrollment-coverages'
 
 const GOOGLE_PLACES_SCRIPT_ID = 'pys-google-places-script'
 
@@ -253,17 +254,11 @@ function ClientsPage() {
     if (!selectedCreatePackage) {
       return []
     }
-    if (selectedCreatePackage.firstPaymentOnSite) {
-      return [{ code: 'onsite_pos', details: '' }]
-    }
     return getAvailablePaymentMethodsForCompany(selectedCreatePackage.companyId)
   }, [selectedCreatePackage])
   const addMinorPaymentMethods = useMemo(() => {
     if (!selectedAddMinorPackage) {
       return []
-    }
-    if (selectedAddMinorPackage.firstPaymentOnSite) {
-      return [{ code: 'onsite_pos', details: '' }]
     }
     return getAvailablePaymentMethodsForCompany(selectedAddMinorPackage.companyId)
   }, [selectedAddMinorPackage])
@@ -550,10 +545,7 @@ function ClientsPage() {
     setCreateDraft({
       ...emptyCreateParentMinorDraft,
       packageId: youthPackages[0]?.id ?? '',
-      paymentMethodCode:
-        youthPackages[0]?.firstPaymentOnSite
-          ? 'onsite_pos'
-          : getAvailablePaymentMethodsForCompany(youthPackages[0]?.companyId ?? '')[0]?.code ?? '',
+      paymentMethodCode: getAvailablePaymentMethodsForCompany(youthPackages[0]?.companyId ?? '')[0]?.code ?? '',
     })
     setIsCreateModalOpen(true)
   }
@@ -574,10 +566,7 @@ function ClientsPage() {
     setAddMinorDraft({
       ...emptyAddMinorDraft,
       packageId: youthPackages[0]?.id ?? '',
-      paymentMethodCode:
-        youthPackages[0]?.firstPaymentOnSite
-          ? 'onsite_pos'
-          : getAvailablePaymentMethodsForCompany(youthPackages[0]?.companyId ?? '')[0]?.code ?? '',
+      paymentMethodCode: getAvailablePaymentMethodsForCompany(youthPackages[0]?.companyId ?? '')[0]?.code ?? '',
     })
     setIsAddMinorModalOpen(true)
   }
@@ -681,6 +670,14 @@ function ClientsPage() {
       taxCodeImageDataUrl: '',
       selectedPaymentMethodCode: createDraft.paymentMethodCode,
     })
+    const selectedEnrollment = getEnrollmentById(selectedPackage.enrollmentId)
+    if (selectedEnrollment) {
+      upsertCoverageFromEnrollmentPurchase({
+        athleteKey: `minor-${createdMinor.id}`,
+        packageItem: selectedPackage,
+        enrollment: selectedEnrollment,
+      })
+    }
 
     updatePublicClientValidationStatus(createdClient.id, 'validated')
     updatePublicMinorValidationStatus(createdMinor.id, 'validated')
@@ -746,6 +743,14 @@ function ClientsPage() {
       taxCodeImageDataUrl: '',
       selectedPaymentMethodCode: addMinorDraft.paymentMethodCode,
     })
+    const selectedEnrollment = getEnrollmentById(selectedPackage.enrollmentId)
+    if (selectedEnrollment) {
+      upsertCoverageFromEnrollmentPurchase({
+        athleteKey: `minor-${createdMinor.id}`,
+        packageItem: selectedPackage,
+        enrollment: selectedEnrollment,
+      })
+    }
     updatePublicMinorValidationStatus(createdMinor.id, 'validated')
     refresh()
     setMessage(t('clients.minorCreated'))
@@ -927,16 +932,26 @@ function ClientsPage() {
                       </span>
                     </td>
                     <td>
-                      <button
-                        type="button"
-                        className="btn btn-ghost btn-sm btn-square"
-                        onClick={() => openClientModal(client)}
-                        title={client.validationStatus === 'validated' ? t('clients.openProfile') : t('clients.openValidation')}
-                      >
-                        {client.validationStatus === 'validated'
-                          ? <FileText className="h-4 w-4" />
-                          : <AlertTriangle className="h-4 w-4 text-warning" />}
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm btn-square"
+                          onClick={() => openClientModal(client)}
+                          title={client.validationStatus === 'validated' ? t('clients.openProfile') : t('clients.openValidation')}
+                        >
+                          {client.validationStatus === 'validated'
+                            ? <FileText className="h-4 w-4" />
+                            : <AlertTriangle className="h-4 w-4 text-warning" />}
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm btn-square"
+                          title={t('athletes.openActivitiesPayments')}
+                          onClick={() => navigate(`/app/attivita-pagamenti?clientId=${client.id}`)}
+                        >
+                          <Wallet className="h-4 w-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 )

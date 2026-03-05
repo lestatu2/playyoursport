@@ -38,6 +38,7 @@
     "clients": "Clienti",
     "athletes": "Atleti",
     "activitiesPayments": "Attività & Pagamenti",
+    "activitiesHistory": "Storico attività",
     "packages": "Pacchetti",
     "site": "Sito",
     "configuration": "Configurazione",
@@ -162,6 +163,12 @@
     "certificateExpired": "Scaduto",
     "expiryFrom": "Scadenza da",
     "expiryTo": "Scadenza a",
+    "enrollmentStatusFilter": "Filtro iscrizioni",
+    "allEnrollmentsStatuses": "Tutte le iscrizioni",
+    "enrollmentNotExpired": "Non scaduta",
+    "enrollmentExpired": "Scaduta",
+    "enrollmentExpiryFrom": "Iscrizioni scadenza da",
+    "enrollmentExpiryTo": "Iscrizioni scadenza a",
     "athlete": "Atleta",
     "type": "Tipo",
     "minorType": "Minore",
@@ -183,6 +190,12 @@
     "openValidation": "Apri validazione atleta",
     "openProfile": "Apri scheda atleta",
     "openActivitiesPayments": "Apri attività e pagamenti atleta",
+    "enrollmentsCoverageTitle": "Iscrizioni e assicurazioni",
+    "enrollmentsCoverageEmpty": "Nessuna copertura iscrizione presente.",
+    "enrollmentsCoverageEnrollment": "Iscrizione origine",
+    "enrollmentsCoverageInsurance": "Assicurazione",
+    "enrollmentsCoverageValidFrom": "Valida da",
+    "enrollmentsCoverageValidTo": "Valida fino a",
     "status": "Stato validazione",
     "actions": "Azioni",
     "validated": "Validato",
@@ -195,6 +208,7 @@
   "activitiesPayments": {
     "title": "Attività & Pagamenti",
     "description": "Gestione attività atleta e pagamenti collegati.",
+    "goToHistory": "Vai allo storico",
     "placeholder": "Sezione in preparazione: in questo step è disponibile la vista attività.",
     "empty": "Nessuna attività trovata con i filtri selezionati.",
     "selfPayer": "Se stesso",
@@ -204,11 +218,19 @@
       "search": "Cerca",
       "searchPlaceholder": "Cerca per atleta, genitore, pacchetto",
       "lockedAthlete": "Filtro atleta bloccato",
-      "periodMonth": "Periodo (mese)",
+      "periodFromMonth": "Da (mese)",
+      "periodToMonth": "A (mese)",
+      "quickCurrentMonth": "Mese corrente",
+      "quickLast3Months": "Ultimi 3 mesi",
+      "quickLast6Months": "Ultimi 6 mesi",
+      "quickCurrentYear": "Anno corrente",
       "package": "Pacchetto",
       "allPackages": "Tutti i pacchetti",
-      "validation": "Validazione",
-      "allStatuses": "Tutti gli stati"
+      "plan": "Piano",
+      "allPlans": "Tutti",
+      "generatedPlan": "Piano generato",
+      "notGeneratedPlan": "Piano non generato",
+      "allFrequencies": "Tutte"
     },
     "tabs": {
       "activities": "Attività",
@@ -223,6 +245,7 @@
       "athleteType": "Tipo atleta",
       "parent": "Genitore",
       "package": "Pacchetto",
+      "frequency": "Frequenza",
       "period": "Periodo",
       "workflow": "Workflow",
       "paymentStatus": "Stato pagamenti",
@@ -234,6 +257,7 @@
     },
     "period": {
       "current": "Corrente",
+      "selected": "Selezionato",
       "total": "Totale"
     },
     "workflow": {
@@ -255,8 +279,15 @@
       "currentPendingCount": "Rate periodo da pagare: {{count}}",
       "noInstallmentInPeriod": "Nessuna rata nel periodo"
     },
+    "contract": {
+      "download": "Contratto PDF",
+      "companyNotFound": "Azienda del pacchetto non trovata.",
+      "subjectDataMissing": "Dati soggetto mancanti per generare il contratto.",
+      "downloadError": "Errore durante la generazione del contratto PDF."
+    },
     "plan": {
       "enrollmentFee": "Costo iscrizione",
+      "enrollmentFeeCoveredNote": "Costo iscrizione azzerato: copertura iscrizione attiva e compatibile per questo atleta.",
       "recurringAmount": "Costo ricorrente",
       "fixedServices": "Totale servizi fissi",
       "services": "Servizi",
@@ -286,6 +317,36 @@
       "markPaid": "Segna pagata",
       "unlockInstallment": "Sblocca rata",
       "lockInstallment": "Blocca rata"
+    }
+  },
+  "activitiesHistory": {
+    "title": "Storico attività",
+    "description": "Archivio attività per edizioni chiuse con controllo fiscale.",
+    "backToActivitiesPayments": "Torna ad attività e pagamenti",
+    "empty": "Nessuna attività storica trovata con i filtri selezionati.",
+    "filters": {
+      "search": "Cerca",
+      "searchPlaceholder": "Cerca per atleta, genitore, pacchetto",
+      "package": "Pacchetto",
+      "allPackages": "Tutti i pacchetti",
+      "type": "Tipo atleta",
+      "allTypes": "Tutti i tipi",
+      "closureFrom": "Chiusura da",
+      "closureTo": "Chiusura a",
+      "balanceStatus": "Stato saldo",
+      "allBalanceStatuses": "Tutti gli stati saldo"
+    },
+    "table": {
+      "closureDate": "Data chiusura",
+      "totalDue": "Totale dovuto",
+      "totalPaid": "Totale pagato",
+      "residual": "Residuo",
+      "status": "Stato saldo"
+    },
+    "status": {
+      "balanceOk": "Saldo ok",
+      "partial": "Parziale",
+      "withOverdue": "Con insoluti"
     }
   },
   "layout": {
@@ -599,15 +660,40 @@
     "enrollments": {
       "title": "Iscrizioni",
       "description": "Gestione tipologie iscrizione.",
+      "tabEnrollments": "Iscrizioni",
+      "tabInsurances": "Assicurazioni",
       "create": "Crea iscrizione",
       "titleLabel": "Titolo",
       "descriptionLabel": "Descrizione",
+      "insuranceLabel": "Assicurazione collegata",
+      "insuranceRequired": "Seleziona una assicurazione valida.",
+      "validityModeLabel": "Validità copertura",
+      "validityAnnual365": "Annuale (365 giorni)",
+      "validityEditionPeriod": "Periodo edizione pacchetto",
+      "alwaysRequirePurchaseLabel": "Richiede sempre nuovo acquisto",
+      "alwaysRequirePurchaseYes": "Sempre nuova",
+      "alwaysRequirePurchaseNo": "Riutilizzabile",
+      "coveredEnrollmentsLabel": "Copre anche",
       "empty": "Nessuna iscrizione presente.",
       "invalidData": "Compila tutti i campi obbligatori.",
       "created": "Iscrizione creata con successo.",
       "updated": "Iscrizione aggiornata con successo.",
       "deleted": "Iscrizione eliminata con successo.",
       "confirmDelete": "Confermi eliminazione dell'iscrizione \"{{title}}\"?"
+    },
+    "insurances": {
+      "title": "Assicurazioni",
+      "description": "Gestione assicurazioni collegate alle iscrizioni.",
+      "create": "Crea assicurazione",
+      "titleLabel": "Titolo",
+      "descriptionLabel": "Descrizione",
+      "activeLabel": "Attiva",
+      "empty": "Nessuna assicurazione presente.",
+      "created": "Assicurazione creata con successo.",
+      "updated": "Assicurazione aggiornata con successo.",
+      "deleted": "Assicurazione eliminata con successo.",
+      "inUse": "Assicurazione in uso da almeno una iscrizione.",
+      "confirmDelete": "Confermi eliminazione dell'assicurazione \"{{title}}\"?"
     },
     "additionalServices": {
       "title": "Servizi aggiuntivi",
@@ -872,6 +958,9 @@
     }
   }
 }
+
+
+
 
 
 

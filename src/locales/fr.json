@@ -1,4 +1,4 @@
-{
+﻿{
   "common": {
     "save": "Enregistrer",
     "resetDefault": "Reinitialiser",
@@ -38,6 +38,7 @@
     "clients": "Clients",
     "athletes": "Athletes",
     "activitiesPayments": "Activites et Paiements",
+    "activitiesHistory": "Historique activites",
     "packages": "Packages",
     "site": "Site",
     "configuration": "Configuration",
@@ -98,7 +99,7 @@
     "createNoPackages": "Nessun pacchetto ragazzi disponibile",
     "createRequired": "Compila tutti i campi obbligatori.",
     "createSelectPackage": "Seleziona un pacchetto valido.",
-    "minorAgeNotCompatible": "Età del minore non compatibile con il pacchetto selezionato ({{min}}-{{max}} anni).",
+    "minorAgeNotCompatible": "EtÃ  del minore non compatibile con il pacchetto selezionato ({{min}}-{{max}} anni).",
     "createAthleteNotImplemented": "Creazione cliente come atleta non ancora disponibile.",
     "addMinor": "Aggiungi minore",
     "addMinorTitle": "Aggiungi minore",
@@ -130,6 +131,12 @@
     "certificateExpired": "Expire",
     "expiryFrom": "Expiration de",
     "expiryTo": "Expiration a",
+    "enrollmentStatusFilter": "Filtre inscriptions",
+    "allEnrollmentsStatuses": "Toutes les inscriptions",
+    "enrollmentNotExpired": "Non expiree",
+    "enrollmentExpired": "Expiree",
+    "enrollmentExpiryFrom": "Inscriptions expiration de",
+    "enrollmentExpiryTo": "Inscriptions expiration a",
     "athlete": "Athlete",
     "type": "Type",
     "minorType": "Mineur",
@@ -151,6 +158,12 @@
     "openValidation": "Ouvrir validation athlete",
     "openProfile": "Ouvrir fiche athlete",
     "openActivitiesPayments": "Ouvrir activites et paiements de l'athlete",
+    "enrollmentsCoverageTitle": "Inscriptions et assurances",
+    "enrollmentsCoverageEmpty": "Aucune couverture d'inscription disponible.",
+    "enrollmentsCoverageEnrollment": "Inscription origine",
+    "enrollmentsCoverageInsurance": "Assurance",
+    "enrollmentsCoverageValidFrom": "Valide du",
+    "enrollmentsCoverageValidTo": "Valide jusqu'au",
     "status": "Statut validation",
     "actions": "Actions",
     "validated": "Valide",
@@ -163,6 +176,7 @@
   "activitiesPayments": {
     "title": "Activites et Paiements",
     "description": "Gestion des activites de l'athlete et des paiements associes.",
+    "goToHistory": "Aller a l'historique",
     "placeholder": "Section en preparation : a cette etape seule la vue activites est disponible.",
     "empty": "Aucune activite trouvee avec les filtres selectionnes.",
     "selfPayer": "Lui-meme",
@@ -172,11 +186,19 @@
       "search": "Rechercher",
       "searchPlaceholder": "Rechercher par athlete, parent, package",
       "lockedAthlete": "Filtre athlete verrouille",
+      "periodFromMonth": "De (mois)",
+      "periodToMonth": "A (mois)",
+      "quickCurrentMonth": "Mois courant",
+      "quickLast3Months": "3 derniers mois",
+      "quickLast6Months": "6 derniers mois",
+      "quickCurrentYear": "Annee courante",
       "package": "Package",
       "allPackages": "Tous les packages",
-      "validation": "Validation",
-      "allStatuses": "Tous les statuts",
-      "periodMonth": "Periodo (mese)"
+      "plan": "Plan",
+      "allPlans": "Tous",
+      "generatedPlan": "Plan genere",
+      "notGeneratedPlan": "Sans plan",
+      "allFrequencies": "Tous"
     },
     "tabs": {
       "activities": "Activites",
@@ -191,6 +213,7 @@
       "athleteType": "Type athlete",
       "parent": "Parent",
       "package": "Package",
+      "frequency": "Frequence",
       "period": "Periode",
       "workflow": "Workflow",
       "plan": "Plan",
@@ -199,6 +222,11 @@
     "types": {
       "minor": "Mineur",
       "directUser": "Athlete direct"
+    },
+    "period": {
+      "current": "Courant",
+      "selected": "Selectionne",
+      "total": "Total"
     },
     "workflow": {
       "validated": "Valide",
@@ -210,6 +238,7 @@
     },
     "plan": {
       "enrollmentFee": "Cout inscription",
+      "enrollmentFeeCoveredNote": "Cout d'inscription a zero : couverture d'inscription active et compatible pour cet athlete.",
       "recurringAmount": "Cout recurrent",
       "fixedServices": "Total services fixes",
       "services": "Services",
@@ -250,6 +279,12 @@
       "currentPaid": "Rata periodo pagata",
       "currentPendingCount": "Rate periodo da pagare: {{count}}",
       "noInstallmentInPeriod": "Nessuna rata nel periodo"
+    },
+    "contract": {
+      "download": "Contratto PDF",
+      "companyNotFound": "Azienda del pacchetto non trovata.",
+      "subjectDataMissing": "Dati soggetto mancanti per generare il contratto.",
+      "downloadError": "Errore durante la generazione del contratto PDF."
     },
     "period": {
       "current": "Corrente",
@@ -486,7 +521,7 @@
       "deleted": "Package supprime avec succes.",
       "confirmDelete": "Confirmer la suppression du package \"{{title}}\"?",
       "contractTab": "Contratto",
-      "audienceLabel": "Tipologia età",
+      "audienceLabel": "Tipologia etÃ ",
       "contractHeaderImageLabel": "Immagine intestazione",
       "contractHeaderImageRemove": "Rimuovi immagine",
       "contractHeaderImageUploadError": "Errore durante il caricamento immagine intestazione.",
@@ -568,15 +603,40 @@
     "enrollments": {
       "title": "Inscriptions",
       "description": "Gestion des types d'inscription.",
+      "tabEnrollments": "Inscriptions",
+      "tabInsurances": "Assurances",
       "create": "Creer inscription",
       "titleLabel": "Titre",
       "descriptionLabel": "Description",
+      "insuranceLabel": "Assurance liee",
+      "insuranceRequired": "Selectionner une assurance valide.",
+      "validityModeLabel": "Validite de couverture",
+      "validityAnnual365": "Annuelle (365 jours)",
+      "validityEditionPeriod": "Periode edition du package",
+      "alwaysRequirePurchaseLabel": "Toujours exiger un nouvel achat",
+      "alwaysRequirePurchaseYes": "Toujours nouvelle",
+      "alwaysRequirePurchaseNo": "Reutilisable",
+      "coveredEnrollmentsLabel": "Couvre aussi",
       "empty": "Aucune inscription disponible.",
       "invalidData": "Renseigner tous les champs obligatoires.",
       "created": "Inscription creee avec succes.",
       "updated": "Inscription mise a jour avec succes.",
       "deleted": "Inscription supprimee avec succes.",
       "confirmDelete": "Confirmer la suppression de l'inscription \"{{title}}\"?"
+    },
+    "insurances": {
+      "title": "Assurances",
+      "description": "Gestion des assurances liees aux inscriptions.",
+      "create": "Creer assurance",
+      "titleLabel": "Titre",
+      "descriptionLabel": "Description",
+      "activeLabel": "Active",
+      "empty": "Aucune assurance disponible.",
+      "created": "Assurance creee avec succes.",
+      "updated": "Assurance mise a jour avec succes.",
+      "deleted": "Assurance supprimee avec succes.",
+      "inUse": "Assurance utilisee par au moins une inscription.",
+      "confirmDelete": "Confirmer la suppression de l'assurance \"{{title}}\"?"
     },
     "additionalServices": {
       "title": "Services supplementaires",
@@ -840,6 +900,36 @@
       }
     }
   },
+  "activitiesHistory": {
+    "title": "Historique des activites",
+    "description": "Archive des activites pour editions fermees avec suivi fiscal.",
+    "backToActivitiesPayments": "Retour aux activites et paiements",
+    "empty": "Aucune activite historique trouvee avec les filtres selectionnes.",
+    "filters": {
+      "search": "Rechercher",
+      "searchPlaceholder": "Rechercher par athlete, parent, package",
+      "package": "Package",
+      "allPackages": "Tous les packages",
+      "type": "Type athlete",
+      "allTypes": "Tous les types",
+      "closureFrom": "Cloture du",
+      "closureTo": "Cloture au",
+      "balanceStatus": "Etat solde",
+      "allBalanceStatuses": "Tous les etats de solde"
+    },
+    "table": {
+      "closureDate": "Date cloture",
+      "totalDue": "Total du",
+      "totalPaid": "Total paye",
+      "residual": "Residuel",
+      "status": "Etat solde"
+    },
+    "status": {
+      "balanceOk": "Solde ok",
+      "partial": "Partiel",
+      "withOverdue": "Avec impayes"
+    }
+  },
   "users": {
     "title": "Utenti",
     "description": "Creazione e gestione utenti per ruolo.",
@@ -873,3 +963,6 @@
     }
   }
 }
+
+
+

@@ -6,8 +6,9 @@ import {
   getUsers,
   type PublicSession,
 } from '../lib/auth'
-import { getAdditionalServices, getCompanies, getGroups, getPackages, type AdditionalService, type PackageGroup, type SportPackage } from '../lib/package-catalog'
+import { getAdditionalServices, getCompanies, getEnrollmentById, getGroups, getPackages, type AdditionalService, type PackageGroup, type SportPackage } from '../lib/package-catalog'
 import { createPublicEnrollment } from '../lib/public-enrollments'
+import { upsertCoverageFromEnrollmentPurchase } from '../lib/athlete-enrollment-coverages'
 import {
   createPublicClientRecord,
   createPublicMinorRecord,
@@ -921,7 +922,7 @@ function PublicEnrollmentForm({
         parentIdentityDocumentImageDataUrl,
       })
 
-      createPublicMinorRecord({
+      const createdMinor = createPublicMinorRecord({
         clientId: clientRecord.id,
         packageId: packageItem.id,
         firstName: draft.minorFirstName,
@@ -932,6 +933,14 @@ function PublicEnrollmentForm({
         taxCode: draft.minorTaxCode,
         taxCodeImageDataUrl: minorTaxCodeImageDataUrl,
       })
+      const packageEnrollment = getEnrollmentById(packageItem.enrollmentId)
+      if (packageEnrollment) {
+        upsertCoverageFromEnrollmentPurchase({
+          athleteKey: `minor-${createdMinor.id}`,
+          packageItem,
+          enrollment: packageEnrollment,
+        })
+      }
 
       const minorBirthYear = Number.parseInt(draft.minorBirthDate.slice(0, 4), 10)
 

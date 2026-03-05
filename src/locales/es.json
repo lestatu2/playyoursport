@@ -1,4 +1,4 @@
-{
+﻿{
   "common": {
     "save": "Guardar",
     "resetDefault": "Restablecer",
@@ -38,6 +38,7 @@
     "clients": "Clientes",
     "athletes": "Atletas",
     "activitiesPayments": "Actividades y Pagos",
+    "activitiesHistory": "Historico actividades",
     "packages": "Paquetes",
     "site": "Sitio",
     "configuration": "Configuracion",
@@ -98,7 +99,7 @@
     "createNoPackages": "Nessun pacchetto ragazzi disponibile",
     "createRequired": "Compila tutti i campi obbligatori.",
     "createSelectPackage": "Seleziona un pacchetto valido.",
-    "minorAgeNotCompatible": "Età del minore non compatibile con il pacchetto selezionato ({{min}}-{{max}} anni).",
+    "minorAgeNotCompatible": "EtÃ  del minore non compatibile con il pacchetto selezionato ({{min}}-{{max}} anni).",
     "createAthleteNotImplemented": "Creazione cliente come atleta non ancora disponibile.",
     "addMinor": "Aggiungi minore",
     "addMinorTitle": "Aggiungi minore",
@@ -130,6 +131,12 @@
     "certificateExpired": "Vencido",
     "expiryFrom": "Caducidad desde",
     "expiryTo": "Caducidad hasta",
+    "enrollmentStatusFilter": "Filtro inscripciones",
+    "allEnrollmentsStatuses": "Todas las inscripciones",
+    "enrollmentNotExpired": "No caducada",
+    "enrollmentExpired": "Caducada",
+    "enrollmentExpiryFrom": "Inscripciones caducidad desde",
+    "enrollmentExpiryTo": "Inscripciones caducidad hasta",
     "athlete": "Atleta",
     "type": "Tipo",
     "minorType": "Menor",
@@ -151,6 +158,12 @@
     "openValidation": "Abrir validacion atleta",
     "openProfile": "Abrir ficha atleta",
     "openActivitiesPayments": "Abrir actividades y pagos del atleta",
+    "enrollmentsCoverageTitle": "Inscripciones y seguros",
+    "enrollmentsCoverageEmpty": "Ninguna cobertura de inscripcion disponible.",
+    "enrollmentsCoverageEnrollment": "Inscripcion origen",
+    "enrollmentsCoverageInsurance": "Seguro",
+    "enrollmentsCoverageValidFrom": "Valida desde",
+    "enrollmentsCoverageValidTo": "Valida hasta",
     "status": "Estado validacion",
     "actions": "Acciones",
     "validated": "Validado",
@@ -163,6 +176,7 @@
   "activitiesPayments": {
     "title": "Actividades y Pagos",
     "description": "Gestion de actividades del atleta y pagos relacionados.",
+    "goToHistory": "Ir al historico",
     "placeholder": "Seccion en preparacion: en este paso solo esta disponible la vista de actividades.",
     "empty": "No se encontraron actividades con los filtros seleccionados.",
     "selfPayer": "Si mismo",
@@ -172,11 +186,19 @@
       "search": "Buscar",
       "searchPlaceholder": "Buscar por atleta, tutor, paquete",
       "lockedAthlete": "Filtro atleta bloqueado",
+      "periodFromMonth": "Desde (mes)",
+      "periodToMonth": "Hasta (mes)",
+      "quickCurrentMonth": "Mes actual",
+      "quickLast3Months": "Ultimos 3 meses",
+      "quickLast6Months": "Ultimos 6 meses",
+      "quickCurrentYear": "Ano actual",
       "package": "Paquete",
       "allPackages": "Todos los paquetes",
-      "validation": "Validacion",
-      "allStatuses": "Todos los estados",
-      "periodMonth": "Periodo (mese)"
+      "plan": "Plan",
+      "allPlans": "Todos",
+      "generatedPlan": "Plan generado",
+      "notGeneratedPlan": "Sin plan",
+      "allFrequencies": "Todas"
     },
     "tabs": {
       "activities": "Actividades",
@@ -191,6 +213,7 @@
       "athleteType": "Tipo atleta",
       "parent": "Tutor",
       "package": "Paquete",
+      "frequency": "Frecuencia",
       "period": "Periodo",
       "workflow": "Workflow",
       "plan": "Plan",
@@ -199,6 +222,11 @@
     "types": {
       "minor": "Menor",
       "directUser": "Atleta directo"
+    },
+    "period": {
+      "current": "Actual",
+      "selected": "Seleccionado",
+      "total": "Total"
     },
     "workflow": {
       "validated": "Validado",
@@ -210,6 +238,7 @@
     },
     "plan": {
       "enrollmentFee": "Costo inscripcion",
+      "enrollmentFeeCoveredNote": "Costo de inscripcion en cero: cobertura de inscripcion activa y compatible para este atleta.",
       "recurringAmount": "Costo recurrente",
       "fixedServices": "Total servicios fijos",
       "services": "Servicios",
@@ -250,6 +279,12 @@
       "currentPaid": "Rata periodo pagata",
       "currentPendingCount": "Rate periodo da pagare: {{count}}",
       "noInstallmentInPeriod": "Nessuna rata nel periodo"
+    },
+    "contract": {
+      "download": "Contratto PDF",
+      "companyNotFound": "Azienda del pacchetto non trovata.",
+      "subjectDataMissing": "Dati soggetto mancanti per generare il contratto.",
+      "downloadError": "Errore durante la generazione del contratto PDF."
     },
     "period": {
       "current": "Corrente",
@@ -493,7 +528,7 @@
       "updated": "Paquete actualizado correctamente.",
       "deleted": "Paquete eliminado correctamente.",
       "confirmDelete": "Confirmar eliminacion del paquete \"{{title}}\"?",
-      "audienceLabel": "Tipologia età"
+      "audienceLabel": "Tipologia etÃ "
     },
     "companies": {
       "title": "Empresas",
@@ -568,15 +603,40 @@
     "enrollments": {
       "title": "Inscripciones",
       "description": "Gestiona tipos de inscripcion.",
+      "tabEnrollments": "Inscripciones",
+      "tabInsurances": "Seguros",
       "create": "Crear inscripcion",
       "titleLabel": "Titulo",
       "descriptionLabel": "Descripcion",
+      "insuranceLabel": "Seguro vinculado",
+      "insuranceRequired": "Selecciona un seguro valido.",
+      "validityModeLabel": "Validez de cobertura",
+      "validityAnnual365": "Anual (365 dias)",
+      "validityEditionPeriod": "Periodo de edicion del paquete",
+      "alwaysRequirePurchaseLabel": "Requiere siempre nueva compra",
+      "alwaysRequirePurchaseYes": "Siempre nueva",
+      "alwaysRequirePurchaseNo": "Reutilizable",
+      "coveredEnrollmentsLabel": "Cubre tambien",
       "empty": "No hay inscripciones disponibles.",
       "invalidData": "Completa todos los campos obligatorios.",
       "created": "Inscripcion creada correctamente.",
       "updated": "Inscripcion actualizada correctamente.",
       "deleted": "Inscripcion eliminada correctamente.",
       "confirmDelete": "Confirmar eliminacion de la inscripcion \"{{title}}\"?"
+    },
+    "insurances": {
+      "title": "Seguros",
+      "description": "Gestion de seguros vinculados a inscripciones.",
+      "create": "Crear seguro",
+      "titleLabel": "Titulo",
+      "descriptionLabel": "Descripcion",
+      "activeLabel": "Activo",
+      "empty": "Ningun seguro presente.",
+      "created": "Seguro creado correctamente.",
+      "updated": "Seguro actualizado correctamente.",
+      "deleted": "Seguro eliminado correctamente.",
+      "inUse": "Seguro usado por al menos una inscripcion.",
+      "confirmDelete": "Confirmar eliminacion del seguro \"{{title}}\"?"
     },
     "additionalServices": {
       "title": "Servicios adicionales",
@@ -840,6 +900,36 @@
       }
     }
   },
+  "activitiesHistory": {
+    "title": "Historico de actividades",
+    "description": "Archivo de actividades para ediciones cerradas con control fiscal.",
+    "backToActivitiesPayments": "Volver a actividades y pagos",
+    "empty": "No se encontraron actividades historicas con los filtros seleccionados.",
+    "filters": {
+      "search": "Buscar",
+      "searchPlaceholder": "Buscar por atleta, tutor, paquete",
+      "package": "Paquete",
+      "allPackages": "Todos los paquetes",
+      "type": "Tipo atleta",
+      "allTypes": "Todos los tipos",
+      "closureFrom": "Cierre desde",
+      "closureTo": "Cierre hasta",
+      "balanceStatus": "Estado saldo",
+      "allBalanceStatuses": "Todos los estados de saldo"
+    },
+    "table": {
+      "closureDate": "Fecha cierre",
+      "totalDue": "Total adeudado",
+      "totalPaid": "Total pagado",
+      "residual": "Residual",
+      "status": "Estado saldo"
+    },
+    "status": {
+      "balanceOk": "Saldo ok",
+      "partial": "Parcial",
+      "withOverdue": "Con impagos"
+    }
+  },
   "users": {
     "title": "Utenti",
     "description": "Creazione e gestione utenti per ruolo.",
@@ -873,3 +963,6 @@
     }
   }
 }
+
+
+

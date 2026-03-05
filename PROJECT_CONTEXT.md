@@ -512,3 +512,13 @@ Obiettivo: mantenere separazione netta tra prodotto base e edizione annuale.
   - febbraio e marzo non pagati
 - Nota operativa mock:
   - in presenza di dati su localStorage, i seed possono non riflettersi finche non si puliscono le chiavi coinvolte.
+
+### Decisione definitiva storico vs operativo (edizioni)
+- Il sistema deve lavorare per **edizione pacchetto**.
+- Una edizione chiusa resta chiusa per logica operativa.
+- `Attivita & Pagamenti` (operativo) deve mostrare solo attivita legate a **edizioni aperte**.
+- `Storico attivita` deve essere sezione separata (non tab operativa) e mostrare solo attivita legate a **edizioni chiuse**.
+- In `Storico attivita` resta consentita la manutenzione fiscale (incassi/insoluti/residui) anche dopo chiusura edizione.
+- Determinazione chiusura edizione:
+  - `durationType=period` -> edizione chiusa se `periodEndDate < oggi`
+  - `durationType=single-event` -> edizione chiusa se `eventDate < oggi`

@@ -1,6 +1,26 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { NavLink, Outlet } from 'react-router-dom'
-import { Boxes, ChevronLeft, ChevronRight, CircleUser, Globe, LayoutDashboard, Menu, Package, Settings, UserCheck, Users, Wallet } from 'lucide-react'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import {
+  Boxes,
+  Building2,
+  ChevronLeft,
+  CircleUser,
+  CreditCard,
+  Globe,
+  HandCoins,
+  LayoutDashboard,
+  Map,
+  Menu,
+  MessageCircle,
+  Package,
+  Settings,
+  ShieldCheck,
+  Tag,
+  UserCheck,
+  Users,
+  Users2,
+  Wallet,
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import FlagIcon from '../components/FlagIcon'
 import {
@@ -27,9 +47,12 @@ type MenuItemProps = {
   label: string
   collapsed: boolean
   exact?: boolean
+  activeOnStartsWith?: string[]
 }
 
-function MenuItem({ to, icon, label, collapsed, exact = false }: MenuItemProps) {
+function MenuItem({ to, icon, label, collapsed, exact = false, activeOnStartsWith = [] }: MenuItemProps) {
+  const location = useLocation()
+  const isForcedActive = activeOnStartsWith.some((prefix) => location.pathname.startsWith(prefix))
   return (
     <li>
       <NavLink
@@ -37,7 +60,7 @@ function MenuItem({ to, icon, label, collapsed, exact = false }: MenuItemProps) 
         end={exact}
         className={({ isActive }) =>
           `flex w-full items-center gap-3 rounded-lg px-3 py-2 transition ${
-            isActive ? 'bg-primary text-primary-content' : 'hover:bg-base-300'
+            isActive || isForcedActive ? 'bg-primary text-primary-content' : 'hover:bg-base-300'
           }`
         }
       >
@@ -137,7 +160,23 @@ function ManagementLayout({ session, onLogout }: ManagementLayoutProps) {
           }`}
         >
           <div className="flex h-16 items-center justify-between border-b border-base-300 px-4">
-            <div className="flex min-w-0 items-center gap-2 leading-tight">
+            <div
+              className={`flex min-w-0 items-center gap-2 leading-tight ${collapsed ? 'cursor-pointer' : ''}`}
+              onClick={collapsed ? () => setCollapsed(false) : undefined}
+              onKeyDown={
+                collapsed
+                  ? (event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault()
+                        setCollapsed(false)
+                      }
+                    }
+                  : undefined
+              }
+              role={collapsed ? 'button' : undefined}
+              tabIndex={collapsed ? 0 : undefined}
+              aria-label={collapsed ? t('layout.expandMenu') : undefined}
+            >
               {projectSettings.logoUrl ? (
                 <img src={projectSettings.logoUrl} alt={projectSettings.projectName} className="h-8 w-8 shrink-0 object-contain" />
               ) : (
@@ -149,14 +188,16 @@ function ManagementLayout({ session, onLogout }: ManagementLayoutProps) {
                 <p className="truncate text-xs uppercase tracking-wide opacity-60">{projectSettings.projectName}</p>
               )}
             </div>
-            <button
-              type="button"
-              className="btn btn-ghost btn-square hidden lg:inline-flex"
-              onClick={() => setCollapsed((value) => !value)}
-              aria-label={collapsed ? t('layout.expandMenu') : t('layout.collapseMenu')}
-            >
-              {collapsed ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
-            </button>
+            {!collapsed && (
+              <button
+                type="button"
+                className="btn btn-ghost btn-square hidden lg:inline-flex"
+                onClick={() => setCollapsed(true)}
+                aria-label={t('layout.collapseMenu')}
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+            )}
           </div>
 
           <ul className="menu w-full gap-1 p-3">
@@ -193,6 +234,7 @@ function ManagementLayout({ session, onLogout }: ManagementLayoutProps) {
                   icon={<Wallet className="h-5 w-5 shrink-0" />}
                   label={t('nav.activitiesPayments')}
                   collapsed={collapsed}
+                  activeOnStartsWith={['/app/storico-attivita']}
                 />
               </>
             )}
@@ -220,49 +262,49 @@ function ManagementLayout({ session, onLogout }: ManagementLayoutProps) {
                   <>
                     <MenuItem
                       to="/app/utility/categorie"
-                      icon={<Boxes className="h-5 w-5 shrink-0" />}
+                      icon={<Tag className="h-5 w-5 shrink-0" />}
                       label={t('nav.utilityCategories')}
                       collapsed={collapsed}
                     />
                     <MenuItem
                       to="/app/utility/aziende"
-                      icon={<Boxes className="h-5 w-5 shrink-0" />}
+                      icon={<Building2 className="h-5 w-5 shrink-0" />}
                       label={t('nav.utilityCompanies')}
                       collapsed={collapsed}
                     />
                     <MenuItem
                       to="/app/utility/campi"
-                      icon={<Boxes className="h-5 w-5 shrink-0" />}
+                      icon={<Map className="h-5 w-5 shrink-0" />}
                       label={t('nav.utilityFields')}
                       collapsed={collapsed}
                     />
                     <MenuItem
                       to="/app/utility/gruppi"
-                      icon={<Boxes className="h-5 w-5 shrink-0" />}
+                      icon={<Users2 className="h-5 w-5 shrink-0" />}
                       label={t('nav.utilityGroups')}
                       collapsed={collapsed}
                     />
                     <MenuItem
                       to="/app/utility/iscrizioni"
-                      icon={<Boxes className="h-5 w-5 shrink-0" />}
+                      icon={<ShieldCheck className="h-5 w-5 shrink-0" />}
                       label={t('nav.utilityEnrollments')}
                       collapsed={collapsed}
                     />
                     <MenuItem
                       to="/app/utility/servizi-aggiuntivi"
-                      icon={<Boxes className="h-5 w-5 shrink-0" />}
+                      icon={<HandCoins className="h-5 w-5 shrink-0" />}
                       label={t('nav.utilityAdditionalServices')}
                       collapsed={collapsed}
                     />
                     <MenuItem
                       to="/app/utility/metodi-pagamento"
-                      icon={<Boxes className="h-5 w-5 shrink-0" />}
+                      icon={<CreditCard className="h-5 w-5 shrink-0" />}
                       label={t('nav.utilityPaymentMethods')}
                       collapsed={collapsed}
                     />
                     <MenuItem
                       to="/app/utility/whatsapp-accounts"
-                      icon={<Boxes className="h-5 w-5 shrink-0" />}
+                      icon={<MessageCircle className="h-5 w-5 shrink-0" />}
                       label={t('nav.utilityWhatsAppAccounts')}
                       collapsed={collapsed}
                     />
@@ -279,11 +321,12 @@ function ManagementLayout({ session, onLogout }: ManagementLayoutProps) {
                           <NavLink
                             to="/app/utility/categorie"
                             className={({ isActive }) =>
-                              `rounded-lg px-3 py-2 text-sm transition ${
+                              `flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition ${
                                 isActive ? 'bg-primary text-primary-content' : 'hover:bg-base-300'
                               }`
                             }
                           >
+                            <Tag className="h-4 w-4 shrink-0" />
                             {t('nav.utilityCategories')}
                           </NavLink>
                         </li>
@@ -291,11 +334,12 @@ function ManagementLayout({ session, onLogout }: ManagementLayoutProps) {
                           <NavLink
                             to="/app/utility/aziende"
                             className={({ isActive }) =>
-                              `rounded-lg px-3 py-2 text-sm transition ${
+                              `flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition ${
                                 isActive ? 'bg-primary text-primary-content' : 'hover:bg-base-300'
                               }`
                             }
                           >
+                            <Building2 className="h-4 w-4 shrink-0" />
                             {t('nav.utilityCompanies')}
                           </NavLink>
                         </li>
@@ -303,11 +347,12 @@ function ManagementLayout({ session, onLogout }: ManagementLayoutProps) {
                           <NavLink
                             to="/app/utility/campi"
                             className={({ isActive }) =>
-                              `rounded-lg px-3 py-2 text-sm transition ${
+                              `flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition ${
                                 isActive ? 'bg-primary text-primary-content' : 'hover:bg-base-300'
                               }`
                             }
                           >
+                            <Map className="h-4 w-4 shrink-0" />
                             {t('nav.utilityFields')}
                           </NavLink>
                         </li>
@@ -315,11 +360,12 @@ function ManagementLayout({ session, onLogout }: ManagementLayoutProps) {
                           <NavLink
                             to="/app/utility/gruppi"
                             className={({ isActive }) =>
-                              `rounded-lg px-3 py-2 text-sm transition ${
+                              `flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition ${
                                 isActive ? 'bg-primary text-primary-content' : 'hover:bg-base-300'
                               }`
                             }
                           >
+                            <Users2 className="h-4 w-4 shrink-0" />
                             {t('nav.utilityGroups')}
                           </NavLink>
                         </li>
@@ -327,11 +373,12 @@ function ManagementLayout({ session, onLogout }: ManagementLayoutProps) {
                           <NavLink
                             to="/app/utility/iscrizioni"
                             className={({ isActive }) =>
-                              `rounded-lg px-3 py-2 text-sm transition ${
+                              `flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition ${
                                 isActive ? 'bg-primary text-primary-content' : 'hover:bg-base-300'
                               }`
                             }
                           >
+                            <ShieldCheck className="h-4 w-4 shrink-0" />
                             {t('nav.utilityEnrollments')}
                           </NavLink>
                         </li>
@@ -339,11 +386,12 @@ function ManagementLayout({ session, onLogout }: ManagementLayoutProps) {
                           <NavLink
                             to="/app/utility/servizi-aggiuntivi"
                             className={({ isActive }) =>
-                              `rounded-lg px-3 py-2 text-sm transition ${
+                              `flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition ${
                                 isActive ? 'bg-primary text-primary-content' : 'hover:bg-base-300'
                               }`
                             }
                           >
+                            <HandCoins className="h-4 w-4 shrink-0" />
                             {t('nav.utilityAdditionalServices')}
                           </NavLink>
                         </li>
@@ -351,11 +399,12 @@ function ManagementLayout({ session, onLogout }: ManagementLayoutProps) {
                           <NavLink
                             to="/app/utility/metodi-pagamento"
                             className={({ isActive }) =>
-                              `rounded-lg px-3 py-2 text-sm transition ${
+                              `flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition ${
                                 isActive ? 'bg-primary text-primary-content' : 'hover:bg-base-300'
                               }`
                             }
                           >
+                            <CreditCard className="h-4 w-4 shrink-0" />
                             {t('nav.utilityPaymentMethods')}
                           </NavLink>
                         </li>
@@ -363,11 +412,12 @@ function ManagementLayout({ session, onLogout }: ManagementLayoutProps) {
                           <NavLink
                             to="/app/utility/whatsapp-accounts"
                             className={({ isActive }) =>
-                              `rounded-lg px-3 py-2 text-sm transition ${
+                              `flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition ${
                                 isActive ? 'bg-primary text-primary-content' : 'hover:bg-base-300'
                               }`
                             }
                           >
+                            <MessageCircle className="h-4 w-4 shrink-0" />
                             {t('nav.utilityWhatsAppAccounts')}
                           </NavLink>
                         </li>

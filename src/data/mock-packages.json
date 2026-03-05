@@ -17,10 +17,38 @@
     { "id": "group-youth-male-main", "title": "Gruppo Ragazzi Maschi", "audience": "youth", "gender": "male", "birthYearMin": 2008, "birthYearMax": 2016 },
     { "id": "group-youth-female-main", "title": "Gruppo Ragazze", "audience": "youth", "gender": "female", "birthYearMin": 2008, "birthYearMax": 2016 }
   ],
+  "insurances": [
+    { "id": "insurance-federale-base", "title": "Assicurazione Federale Base", "description": "Copertura federale base.", "isActive": true },
+    { "id": "insurance-campo-scuola", "title": "Assicurazione Campo Scuola", "description": "Copertura specifica campo scuola.", "isActive": true }
+  ],
   "enrollments": [
-    { "id": "enrollment-agonista", "title": "Agonista", "description": "Iscrizione agonista federale." },
-    { "id": "enrollment-non-agonista", "title": "Non agonista", "description": "Iscrizione non agonista annuale." },
-    { "id": "enrollment-campo-scuola", "title": "Campo scuola", "description": "Iscrizione programmi campo scuola." }
+    {
+      "id": "enrollment-agonista",
+      "title": "Agonista",
+      "description": "Iscrizione agonista federale.",
+      "insuranceId": "insurance-federale-base",
+      "coveredEnrollmentIds": ["enrollment-agonista", "enrollment-non-agonista"],
+      "alwaysRequirePurchase": false,
+      "validityMode": "annual_365"
+    },
+    {
+      "id": "enrollment-non-agonista",
+      "title": "Non agonista",
+      "description": "Iscrizione non agonista annuale.",
+      "insuranceId": "insurance-federale-base",
+      "coveredEnrollmentIds": ["enrollment-non-agonista", "enrollment-agonista"],
+      "alwaysRequirePurchase": false,
+      "validityMode": "annual_365"
+    },
+    {
+      "id": "enrollment-campo-scuola",
+      "title": "Campo scuola",
+      "description": "Iscrizione programmi campo scuola.",
+      "insuranceId": "insurance-campo-scuola",
+      "coveredEnrollmentIds": ["enrollment-campo-scuola"],
+      "alwaysRequirePurchase": true,
+      "validityMode": "edition_period"
+    }
   ],
   "whatsappAccounts": [
     {

@@ -67,10 +67,23 @@ export type SportField = {
   description: string
 }
 
+export type EnrollmentValidityMode = 'annual_365' | 'edition_period'
+
+export type EnrollmentInsurance = {
+  id: string
+  title: string
+  description: string
+  isActive: boolean
+}
+
 export type EnrollmentType = {
   id: string
   title: string
   description: string
+  insuranceId: string
+  coveredEnrollmentIds: string[]
+  alwaysRequirePurchase: boolean
+  validityMode: EnrollmentValidityMode
 }
 
 export type WhatsAppAvailabilitySlot = {
@@ -163,6 +176,7 @@ type MockPackageCatalog = {
   sportCategories: PackageCategory[]
   fields: SportField[]
   groups: UtilityGroup[]
+  insurances?: EnrollmentInsurance[]
   enrollments: EnrollmentType[]
   whatsappAccounts: WhatsAppAccount[]
   additionalServices: AdditionalService[]
@@ -174,6 +188,7 @@ type StoredPackageCatalog = Partial<{
   sportCategories: PackageCategory[]
   fields: SportField[]
   groups: UtilityGroup[]
+  insurances: EnrollmentInsurance[]
   enrollments: EnrollmentType[]
   whatsappAccounts: WhatsAppAccount[]
   additionalServices: AdditionalService[]
@@ -217,11 +232,25 @@ export type SaveGroupResult =
 export type SaveEnrollmentPayload = {
   title: string
   description: string
+  insuranceId: string
+  coveredEnrollmentIds: string[]
+  alwaysRequirePurchase: boolean
+  validityMode: EnrollmentValidityMode
 }
 
 export type SaveEnrollmentResult =
   | { ok: true; enrollment: EnrollmentType }
-  | { ok: false; error: 'invalid' | 'notFound' }
+  | { ok: false; error: 'invalid' | 'notFound' | 'insuranceNotFound' }
+
+export type SaveInsurancePayload = {
+  title: string
+  description: string
+  isActive: boolean
+}
+
+export type SaveInsuranceResult =
+  | { ok: true; insurance: EnrollmentInsurance }
+  | { ok: false; error: 'invalid' | 'notFound' | 'insuranceInUse' }
 
 export type SaveWhatsAppAccountPayload = {
   title: string
@@ -394,6 +423,7 @@ function writeStoredCatalog(value: {
   sportCategories: PackageCategory[]
   fields: SportField[]
   groups: UtilityGroup[]
+  insurances: EnrollmentInsurance[]
   enrollments: EnrollmentType[]
   whatsappAccounts: WhatsAppAccount[]
   additionalServices: AdditionalService[]
@@ -404,10 +434,37 @@ function writeStoredCatalog(value: {
   emitPackageCatalogChanged()
 }
 
+function toTitleCaseWords(input: string): string {
+  return input
+    .split(/\s+/)
+    .filter((item) => item.length > 0)
+    .map((item) => item[0].toUpperCase() + item.slice(1).toLowerCase())
+    .join(' ')
+}
+
+function normalizeInsuranceTitle(title: string | undefined, id: string): string {
+  const raw = typeof title === 'string' ? title.trim() : ''
+  const isTechnical =
+    raw.length === 0 ||
+    raw === id ||
+    (/^[a-z0-9_-]+$/i.test(raw) && (raw.includes('insurance') || raw.includes('enrollment')))
+  if (!isTechnical) {
+    return raw
+  }
+  const source = (raw || id)
+    .replace(/^insurance[-_]?/i, '')
+    .replace(/^enrollment[-_]?/i, '')
+    .replace(/[-_]+/g, ' ')
+    .trim()
+  const pretty = toTitleCaseWords(source)
+  return pretty ? `Assicurazione ${pretty}` : 'Assicurazione'
+}
+
 function getStoredCatalog(): {
   sportCategories: PackageCategory[]
   fields: SportField[]
   groups: UtilityGroup[]
+  insurances: EnrollmentInsurance[]
   enrollments: EnrollmentType[]
   whatsappAccounts: WhatsAppAccount[]
   additionalServices: AdditionalService[]
@@ -418,7 +475,15 @@ function getStoredCatalog(): {
   const baseCategories = stored.sportCategories ?? packageDefaults.sportCategories
   const baseFields = stored.fields ?? packageDefaults.fields ?? []
   const baseGroups = stored.groups ?? packageDefaults.groups ?? []
-  const baseEnrollments = stored.enrollments ?? packageDefaults.enrollments ?? []
+  const fallbackEnrollments = packageDefaults.enrollments ?? []
+  const baseEnrollments = stored.enrollments ?? fallbackEnrollments
+  const defaultInsurancesFromEnrollments: EnrollmentInsurance[] = baseEnrollments.map((enrollment) => ({
+    id: `insurance-${enrollment.id}`,
+    title: `Assicurazione ${enrollment.title}`,
+    description: `Copertura associata a ${enrollment.title}`,
+    isActive: true,
+  }))
+  const baseInsurances = stored.insurances ?? packageDefaults.insurances ?? defaultInsurancesFromEnrollments
   const baseWhatsAppAccounts = stored.whatsappAccounts ?? packageDefaults.whatsappAccounts ?? []
   const baseAdditionalServices = stored.additionalServices ?? packageDefaults.additionalServices ?? []
   const baseCompanies = stored.companies ?? packageDefaults.companies ?? []
@@ -444,10 +509,29 @@ function getStoredCatalog(): {
       birthYearMin: Number.isFinite(group.birthYearMin) ? Math.trunc(group.birthYearMin) : 2014,
       birthYearMax: Number.isFinite(group.birthYearMax) ? Math.trunc(group.birthYearMax) : 2014,
     })),
+    insurances: baseInsurances.map((insurance) => ({
+      id: insurance.id,
+      title: normalizeInsuranceTitle(insurance.title, insurance.id),
+      description: insurance.description ?? '',
+      isActive: insurance.isActive ?? true,
+    })),
     enrollments: baseEnrollments.map((enrollment) => ({
       ...enrollment,
       title: enrollment.title ?? '',
       description: enrollment.description ?? '',
+      insuranceId:
+        enrollment.insuranceId ??
+        `insurance-${enrollment.id}`,
+      coveredEnrollmentIds: Array.from(
+        new Set(
+          [
+            enrollment.id,
+            ...(Array.isArray(enrollment.coveredEnrollmentIds) ? enrollment.coveredEnrollmentIds : []),
+          ].filter((item): item is string => typeof item === 'string' && item.trim().length > 0),
+        ),
+      ),
+      alwaysRequirePurchase: Boolean(enrollment.alwaysRequirePurchase),
+      validityMode: enrollment.validityMode === 'edition_period' ? 'edition_period' : 'annual_365',
     })),
     whatsappAccounts: baseWhatsAppAccounts.map((account) => ({
       id: account.id,
@@ -779,6 +863,13 @@ function nextEnrollmentId(): string {
     return `enrollment-${crypto.randomUUID()}`
   }
   return `enrollment-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+}
+
+function nextInsuranceId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return `insurance-${crypto.randomUUID()}`
+  }
+  return `insurance-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 }
 
 function nextWhatsAppAccountId(): string {
@@ -1241,8 +1332,16 @@ export function getCompanies(): Company[] {
   return getStoredCatalog().companies
 }
 
+export function getEnrollmentInsurances(): EnrollmentInsurance[] {
+  return getStoredCatalog().insurances
+}
+
 export function getEnrollments(): EnrollmentType[] {
   return getStoredCatalog().enrollments
+}
+
+export function getEnrollmentById(id: string): EnrollmentType | null {
+  return getStoredCatalog().enrollments.find((item) => item.id === id) ?? null
 }
 
 export function getWhatsAppAccounts(): WhatsAppAccount[] {
@@ -1526,23 +1625,127 @@ export function removeGroup(id: string): SaveGroupResult {
   return { ok: true, group: current }
 }
 
-export function createEnrollment(payload: SaveEnrollmentPayload): SaveEnrollmentResult {
+export function createEnrollmentInsurance(payload: SaveInsurancePayload): SaveInsuranceResult {
   const title = payload.title.trim()
   const description = payload.description.trim()
   if (!title || !description) {
     return { ok: false, error: 'invalid' }
   }
-
   const catalog = getStoredCatalog()
-  const enrollment: EnrollmentType = {
-    id: nextEnrollmentId(),
+  const insurance: EnrollmentInsurance = {
+    id: nextInsuranceId(),
     title,
     description,
+    isActive: Boolean(payload.isActive),
+  }
+  writeStoredCatalog({
+    ...catalog,
+    insurances: [...catalog.insurances, insurance],
+  })
+  return { ok: true, insurance }
+}
+
+export function updateEnrollmentInsurance(id: string, payload: SaveInsurancePayload): SaveInsuranceResult {
+  const title = payload.title.trim()
+  const description = payload.description.trim()
+  if (!title || !description) {
+    return { ok: false, error: 'invalid' }
+  }
+  const catalog = getStoredCatalog()
+  const current = catalog.insurances.find((item) => item.id === id)
+  if (!current) {
+    return { ok: false, error: 'notFound' }
+  }
+  const insurance: EnrollmentInsurance = {
+    ...current,
+    title,
+    description,
+    isActive: Boolean(payload.isActive),
+  }
+  writeStoredCatalog({
+    ...catalog,
+    insurances: catalog.insurances.map((item) => (item.id === id ? insurance : item)),
+  })
+  return { ok: true, insurance }
+}
+
+export function removeEnrollmentInsurance(id: string): SaveInsuranceResult {
+  const catalog = getStoredCatalog()
+  const current = catalog.insurances.find((item) => item.id === id)
+  if (!current) {
+    return { ok: false, error: 'notFound' }
+  }
+  const inUse = catalog.enrollments.some((item) => item.insuranceId === id)
+  if (inUse) {
+    return { ok: false, error: 'insuranceInUse' }
+  }
+  writeStoredCatalog({
+    ...catalog,
+    insurances: catalog.insurances.filter((item) => item.id !== id),
+  })
+  return { ok: true, insurance: current }
+}
+
+function normalizeEnrollmentCoverageIds(input: string[], selfId: string): string[] {
+  const filtered = input
+    .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+    .map((item) => item.trim())
+  return Array.from(new Set([selfId, ...filtered]))
+}
+
+function enforceBidirectionalEnrollmentCoverage(enrollments: EnrollmentType[]): EnrollmentType[] {
+  const byId = new Map(enrollments.map((item) => [item.id, item]))
+  const nextCoveredById = new Map<string, Set<string>>()
+
+  for (const item of enrollments) {
+    nextCoveredById.set(item.id, new Set(normalizeEnrollmentCoverageIds(item.coveredEnrollmentIds, item.id)))
+  }
+
+  for (const [sourceId, coveredSet] of nextCoveredById.entries()) {
+    for (const targetId of coveredSet) {
+      if (targetId === sourceId || !byId.has(targetId)) {
+        continue
+      }
+      const targetSet = nextCoveredById.get(targetId)
+      if (!targetSet) {
+        continue
+      }
+      targetSet.add(sourceId)
+    }
+  }
+
+  return enrollments.map((item) => ({
+    ...item,
+    coveredEnrollmentIds: Array.from(nextCoveredById.get(item.id) ?? new Set([item.id])),
+  }))
+}
+
+export function createEnrollment(payload: SaveEnrollmentPayload): SaveEnrollmentResult {
+  const title = payload.title.trim()
+  const description = payload.description.trim()
+  if (!title || !description || !payload.insuranceId.trim()) {
+    return { ok: false, error: 'invalid' }
+  }
+
+  const catalog = getStoredCatalog()
+  const insurance = catalog.insurances.find((item) => item.id === payload.insuranceId.trim())
+  if (!insurance) {
+    return { ok: false, error: 'insuranceNotFound' }
+  }
+  const id = nextEnrollmentId()
+  const enrollment: EnrollmentType = {
+    id,
+    title,
+    description,
+    insuranceId: insurance.id,
+    coveredEnrollmentIds: normalizeEnrollmentCoverageIds(payload.coveredEnrollmentIds, id),
+    alwaysRequirePurchase: Boolean(payload.alwaysRequirePurchase),
+    validityMode: payload.validityMode === 'edition_period' ? 'edition_period' : 'annual_365',
   }
 
   writeStoredCatalog({
     ...catalog,
-    enrollments: [...catalog.enrollments, enrollment],
+    enrollments: enforceBidirectionalEnrollmentCoverage([...catalog.enrollments, enrollment]),
   })
 
   return { ok: true, enrollment }
@@ -1551,7 +1754,7 @@ export function createEnrollment(payload: SaveEnrollmentPayload): SaveEnrollment
 export function updateEnrollment(id: string, payload: SaveEnrollmentPayload): SaveEnrollmentResult {
   const title = payload.title.trim()
   const description = payload.description.trim()
-  if (!title || !description) {
+  if (!title || !description || !payload.insuranceId.trim()) {
     return { ok: false, error: 'invalid' }
   }
 
@@ -1560,16 +1763,26 @@ export function updateEnrollment(id: string, payload: SaveEnrollmentPayload): Sa
   if (!current) {
     return { ok: false, error: 'notFound' }
   }
+  const insurance = catalog.insurances.find((item) => item.id === payload.insuranceId.trim())
+  if (!insurance) {
+    return { ok: false, error: 'insuranceNotFound' }
+  }
 
   const enrollment: EnrollmentType = {
     ...current,
     title,
     description,
+    insuranceId: insurance.id,
+    coveredEnrollmentIds: normalizeEnrollmentCoverageIds(payload.coveredEnrollmentIds, id),
+    alwaysRequirePurchase: Boolean(payload.alwaysRequirePurchase),
+    validityMode: payload.validityMode === 'edition_period' ? 'edition_period' : 'annual_365',
   }
 
   writeStoredCatalog({
     ...catalog,
-    enrollments: catalog.enrollments.map((item) => (item.id === id ? enrollment : item)),
+    enrollments: enforceBidirectionalEnrollmentCoverage(
+      catalog.enrollments.map((item) => (item.id === id ? enrollment : item)),
+    ),
   })
 
   return { ok: true, enrollment }
@@ -1582,9 +1795,18 @@ export function removeEnrollment(id: string): SaveEnrollmentResult {
     return { ok: false, error: 'notFound' }
   }
 
+  const fallbackInsuranceId = catalog.insurances[0]?.id ?? ''
   writeStoredCatalog({
     ...catalog,
-    enrollments: catalog.enrollments.filter((item) => item.id !== id),
+    enrollments: enforceBidirectionalEnrollmentCoverage(
+      catalog.enrollments
+        .filter((item) => item.id !== id)
+        .map((item) => ({
+          ...item,
+          insuranceId: item.insuranceId || fallbackInsuranceId,
+          coveredEnrollmentIds: item.coveredEnrollmentIds.filter((coveredId) => coveredId !== id),
+        })),
+    ),
   })
 
   return { ok: true, enrollment: current }
