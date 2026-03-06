@@ -8,6 +8,16 @@ type MockProject = {
   defaultLogo: string
   defaultGoogleMapsApiKey?: string
   defaultPaymentCurrency?: string
+  defaultContractSubjectTemplate?: string
+  defaultContractEconomicClausesTemplate?: string
+  defaultContractServicesAdjustmentTemplate?: string
+  defaultContractSpecialClausesFormula?: string
+  defaultContractSpecialClauses?: Array<{
+    id: string
+    title: string
+    text: string
+    isActive?: boolean
+  }>
 }
 
 export type ProjectSettings = {
@@ -15,8 +25,20 @@ export type ProjectSettings = {
   logoUrl: string
   googleMapsApiKey: string
   paymentCurrency: string
+  contractSubjectTemplate: string
+  contractEconomicClausesTemplate: string
+  contractServicesAdjustmentTemplate: string
+  contractSpecialClausesFormula: string
+  contractSpecialClauses: ContractSpecialClause[]
   homepageSliderEnabledContentTypes: SliderContentType[]
   homepageSliderItems: HomepageSliderItem[]
+}
+
+export type ContractSpecialClause = {
+  id: string
+  title: string
+  text: string
+  isActive: boolean
 }
 
 export type SliderContentType = 'packages'
@@ -28,6 +50,22 @@ export type HomepageSliderItem = {
   isActive: boolean
   sortOrder: number
 }
+
+export type ContractTemplateVariable = {
+  token: string
+  descriptionKey: string
+}
+
+export const CONTRACT_SUBJECT_TEMPLATE_VARIABLES: ContractTemplateVariable[] = [
+  { token: '{{package_name}}', descriptionKey: 'configuration.contract.variables.packageName' },
+  { token: '{{package_edition_year}}', descriptionKey: 'configuration.contract.variables.packageEditionYear' },
+  { token: '{{package_period}}', descriptionKey: 'configuration.contract.variables.packagePeriod' },
+  { token: '{{training_address}}', descriptionKey: 'configuration.contract.variables.trainingAddress' },
+  { token: '{{company_title}}', descriptionKey: 'configuration.contract.variables.companyTitle' },
+  { token: '{{athlete_full_name}}', descriptionKey: 'configuration.contract.variables.athleteFullName' },
+  { token: '{{athlete_birth_date}}', descriptionKey: 'configuration.contract.variables.athleteBirthDate' },
+  { token: '{{guardian_full_name}}', descriptionKey: 'configuration.contract.variables.guardianFullName' },
+]
 
 const projectDefaults = mockProject as MockProject
 
@@ -55,6 +93,25 @@ export function getDefaultProjectSettings(): ProjectSettings {
     logoUrl: projectDefaults.defaultLogo,
     googleMapsApiKey: projectDefaults.defaultGoogleMapsApiKey ?? '',
     paymentCurrency: projectDefaults.defaultPaymentCurrency ?? 'EUR',
+    contractSubjectTemplate:
+      projectDefaults.defaultContractSubjectTemplate ??
+      '<p>Con il presente contratto {{company_title}} eroga il servizio sportivo relativo al pacchetto {{package_name}} (edizione {{package_edition_year}}), periodo {{package_period}}, presso {{training_address}}.</p>',
+    contractEconomicClausesTemplate:
+      projectDefaults.defaultContractEconomicClausesTemplate ??
+      '<p>Inserisci qui le clausole economiche ufficiali (rate, ritardi, sospensioni, rimborsi, recesso).</p>',
+    contractServicesAdjustmentTemplate:
+      projectDefaults.defaultContractServicesAdjustmentTemplate ??
+      '<p>Inserisci qui le clausole su servizi fissi/variabili e conguagli post-validazione.</p>',
+    contractSpecialClausesFormula:
+      projectDefaults.defaultContractSpecialClausesFormula ??
+      '<p>Ai sensi e per gli effetti degli articoli 1341 e 1342 c.c., il contraente dichiara di aver letto, compreso e approvato specificamente le clausole sotto richiamate.</p>',
+    contractSpecialClauses:
+      (projectDefaults.defaultContractSpecialClauses ?? []).map((item) => ({
+        id: item.id,
+        title: item.title,
+        text: item.text,
+        isActive: item.isActive ?? true,
+      })),
     homepageSliderEnabledContentTypes: ['packages'],
     homepageSliderItems: [],
   }
@@ -70,6 +127,48 @@ export function getProjectSettings(): ProjectSettings {
     paymentCurrency: typeof stored.paymentCurrency === 'string' && stored.paymentCurrency.trim()
       ? stored.paymentCurrency.trim().toUpperCase()
       : defaults.paymentCurrency,
+    contractSubjectTemplate:
+      typeof stored.contractSubjectTemplate === 'string' && stored.contractSubjectTemplate.trim()
+        ? stored.contractSubjectTemplate
+        : defaults.contractSubjectTemplate,
+    contractEconomicClausesTemplate:
+      typeof stored.contractEconomicClausesTemplate === 'string' && stored.contractEconomicClausesTemplate.trim()
+        ? stored.contractEconomicClausesTemplate
+        : defaults.contractEconomicClausesTemplate,
+    contractServicesAdjustmentTemplate:
+      typeof stored.contractServicesAdjustmentTemplate === 'string' && stored.contractServicesAdjustmentTemplate.trim()
+        ? stored.contractServicesAdjustmentTemplate
+        : defaults.contractServicesAdjustmentTemplate,
+    contractSpecialClausesFormula:
+      typeof stored.contractSpecialClausesFormula === 'string' && stored.contractSpecialClausesFormula.trim()
+        ? stored.contractSpecialClausesFormula
+        : defaults.contractSpecialClausesFormula,
+    contractSpecialClauses: Array.isArray(stored.contractSpecialClauses)
+      ? stored.contractSpecialClauses
+          .map((item): ContractSpecialClause | null => {
+            if (!item || typeof item !== 'object') {
+              return null
+            }
+            const typed = item as Partial<ContractSpecialClause>
+            if (
+              typeof typed.id !== 'string' ||
+              typed.id.trim().length === 0 ||
+              typeof typed.title !== 'string' ||
+              typed.title.trim().length === 0 ||
+              typeof typed.text !== 'string' ||
+              typed.text.trim().length === 0
+            ) {
+              return null
+            }
+            return {
+              id: typed.id,
+              title: typed.title.trim(),
+              text: typed.text,
+              isActive: typed.isActive ?? true,
+            }
+          })
+          .filter((item): item is ContractSpecialClause => Boolean(item))
+      : defaults.contractSpecialClauses,
     homepageSliderEnabledContentTypes:
       Array.isArray(stored.homepageSliderEnabledContentTypes) &&
       stored.homepageSliderEnabledContentTypes.includes('packages')
@@ -154,6 +253,53 @@ export function setPaymentCurrency(currency: string): void {
   const normalized = currency.trim().toUpperCase() || 'EUR'
   const settings = getProjectSettings()
   writeSettings({ ...settings, paymentCurrency: normalized })
+}
+
+export function setContractSubjectTemplate(template: string): void {
+  const settings = getProjectSettings()
+  writeSettings({
+    ...settings,
+    contractSubjectTemplate: template.trim(),
+  })
+}
+
+export function setContractEconomicClausesTemplate(template: string): void {
+  const settings = getProjectSettings()
+  writeSettings({
+    ...settings,
+    contractEconomicClausesTemplate: template.trim(),
+  })
+}
+
+export function setContractServicesAdjustmentTemplate(template: string): void {
+  const settings = getProjectSettings()
+  writeSettings({
+    ...settings,
+    contractServicesAdjustmentTemplate: template.trim(),
+  })
+}
+
+export function setContractSpecialClausesFormula(template: string): void {
+  const settings = getProjectSettings()
+  writeSettings({
+    ...settings,
+    contractSpecialClausesFormula: template.trim(),
+  })
+}
+
+export function setContractSpecialClauses(items: ContractSpecialClause[]): void {
+  const settings = getProjectSettings()
+  writeSettings({
+    ...settings,
+    contractSpecialClauses: items
+      .map((item) => ({
+        id: item.id.trim(),
+        title: item.title.trim(),
+        text: item.text.trim(),
+        isActive: item.isActive ?? true,
+      }))
+      .filter((item) => item.id.length > 0 && item.title.length > 0 && item.text.length > 0),
+  })
 }
 
 export function getProjectSettingsChangedEventName(): string {

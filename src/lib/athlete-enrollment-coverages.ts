@@ -13,6 +13,15 @@ export type AthleteEnrollmentCoverage = {
   purchasedAt: string
 }
 
+export type EnrollmentFeeDecision = {
+  enrollmentFee: number
+  isCovered: boolean
+  reason:
+    | 'always_require_purchase'
+    | 'active_compatible_coverage_found'
+    | 'no_active_compatible_coverage'
+}
+
 function toIsoDate(value: Date): string {
   return value.toISOString().slice(0, 10)
 }
@@ -108,6 +117,40 @@ export function hasActiveCoverageForEnrollment(
     }
     return sourceEnrollment.coveredEnrollmentIds.includes(targetEnrollment.id)
   })
+}
+
+export function resolveEnrollmentFeeForAthlete(input: {
+  athleteKey: string
+  targetEnrollment: EnrollmentType
+  defaultEnrollmentFee: number
+  nowDate?: Date
+  excludeSourcePackageId?: string
+}): EnrollmentFeeDecision {
+  if (input.targetEnrollment.alwaysRequirePurchase) {
+    return {
+      enrollmentFee: input.defaultEnrollmentFee,
+      isCovered: false,
+      reason: 'always_require_purchase',
+    }
+  }
+  const isCovered = hasActiveCoverageForEnrollment(
+    input.athleteKey,
+    input.targetEnrollment,
+    input.nowDate ?? new Date(),
+    { excludeSourcePackageId: input.excludeSourcePackageId },
+  )
+  if (isCovered) {
+    return {
+      enrollmentFee: 0,
+      isCovered: true,
+      reason: 'active_compatible_coverage_found',
+    }
+  }
+  return {
+    enrollmentFee: input.defaultEnrollmentFee,
+    isCovered: false,
+    reason: 'no_active_compatible_coverage',
+  }
 }
 
 function computeCoverageRange(packageItem: SportPackage, enrollment: EnrollmentType, nowDate = new Date()): { validFrom: string; validTo: string } {

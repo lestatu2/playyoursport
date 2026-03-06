@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { AlertTriangle, FileText, Wallet } from 'lucide-react'
+import { AlertTriangle, FileSignature, FileText, ShieldCheck, ShieldX, Wallet } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   createPublicClientRecord,
@@ -10,17 +10,21 @@ import {
   getPublicClients,
   getPublicMinors,
   updatePublicClientRecord,
+  updatePublicClientPrivacyPolicyStatus,
   updatePublicClientValidationStatus,
   updatePublicMinorRecord,
   updatePublicMinorValidationStatus,
+  type ParentRole,
   type PublicClientRecord,
   type PublicMinorRecord,
 } from '../lib/public-customer-records'
-import { getEnrollmentById, getPackages, type SportPackage } from '../lib/package-catalog'
+import { getCompanies, getEnrollmentById, getPackages, type SportPackage } from '../lib/package-catalog'
 import { getProjectSettings, getProjectSettingsChangedEventName } from '../lib/project-settings'
 import { computeItalianTaxCode, findBirthPlaceCodeByName } from '../lib/tax-code'
 import { getAvailablePaymentMethodsForCompany } from '../lib/payment-methods'
 import { upsertCoverageFromEnrollmentPurchase } from '../lib/athlete-enrollment-coverages'
+import { downloadConsentsPdf, type ConsentPdfPayload } from '../lib/contract-pdf'
+import { getPublicDirectAthletes, type PublicDirectAthleteRecord } from '../lib/public-direct-athletes'
 
 const GOOGLE_PLACES_SCRIPT_ID = 'pys-google-places-script'
 
@@ -110,6 +114,7 @@ type ClientDraft = Pick<
   | 'parentSecondaryPhone'
   | 'parentBirthDate'
   | 'parentBirthPlace'
+  | 'parentRole'
   | 'parentTaxCode'
   | 'residenceAddress'
 >
@@ -129,6 +134,7 @@ type CreateParentMinorDraft = {
   parentPhone: string
   parentSecondaryPhone: string
   parentBirthDate: string
+  parentRole: ParentRole
   parentGender: 'M' | 'F'
   parentBirthPlace: string
   parentTaxCode: string
@@ -162,6 +168,7 @@ const emptyCreateParentMinorDraft: CreateParentMinorDraft = {
   parentPhone: '',
   parentSecondaryPhone: '',
   parentBirthDate: '',
+  parentRole: 'genitore',
   parentGender: 'F',
   parentBirthPlace: '',
   parentTaxCode: '',
@@ -186,6 +193,12 @@ const emptyAddMinorDraft: AddMinorDraft = {
   residenceAddress: '',
 }
 
+const PARENT_ROLE_OPTIONS: Array<{ value: ParentRole; label: string }> = [
+  { value: 'genitore', label: 'Genitore' },
+  { value: 'tutore', label: 'Tutore' },
+  { value: 'esercente_responsabilita', label: 'Esercente responsabilita' },
+]
+
 function ClientDocumentPreview({ dataUrl }: { dataUrl: string }) {
   if (!dataUrl) {
     return <p className="text-sm opacity-70">-</p>
@@ -200,6 +213,10 @@ function ClientDocumentPreview({ dataUrl }: { dataUrl: string }) {
   )
 }
 
+function isClientPrivacyPolicySigned(client: PublicClientRecord): boolean {
+  return Boolean(client.privacyPolicySigned)
+}
+
 function ClientsPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -210,6 +227,7 @@ function ClientsPage() {
     : null
   const [clients, setClients] = useState<PublicClientRecord[]>(() => getPublicClients())
   const [minors, setMinors] = useState<PublicMinorRecord[]>(() => getPublicMinors())
+  const [directAthletes, setDirectAthletes] = useState<PublicDirectAthleteRecord[]>(() => getPublicDirectAthletes())
   const [message, setMessage] = useState('')
   const [activeClientId, setActiveClientId] = useState<number | null>(null)
   const [clientDraft, setClientDraft] = useState<ClientDraft | null>(null)
@@ -494,6 +512,19 @@ function ClientsPage() {
     })
     return map
   }, [minors])
+  const directAthletesByClientId = useMemo(() => {
+    const map = new Map<number, PublicDirectAthleteRecord[]>()
+    directAthletes.forEach((athlete) => {
+      if (athlete.clientId === null) {
+        return
+      }
+      const current = map.get(athlete.clientId) ?? []
+      map.set(athlete.clientId, [...current, athlete])
+    })
+    return map
+  }, [directAthletes])
+  const packagesById = useMemo(() => new Map(getPackages().map((item) => [item.id, item])), [])
+  const companiesById = useMemo(() => new Map(getCompanies().map((item) => [item.id, item])), [])
   const visibleClients = useMemo(
     () => (lockedClientId === null ? clients : clients.filter((item) => item.id === lockedClientId)),
     [clients, lockedClientId],
@@ -537,7 +568,106 @@ function ClientsPage() {
   const refresh = () => {
     setClients(getPublicClients())
     setMinors(getPublicMinors())
+    setDirectAthletes(getPublicDirectAthletes())
   }
+
+  const buildConsentPayload = useCallback(
+    (
+      client: PublicClientRecord,
+      company: ReturnType<typeof getCompanies>[number],
+      subject: { kind: 'minor'; minor: PublicMinorRecord } | { kind: 'adult'; athlete: PublicDirectAthleteRecord },
+    ): ConsentPdfPayload => ({
+      activity: {
+        key: subject.kind === 'minor' ? `minor-${subject.minor.id}` : subject.athlete.id,
+        createdAt:
+          subject.kind === 'minor'
+            ? subject.minor.createdAt || client.createdAt
+            : subject.athlete.createdAt || client.createdAt,
+      },
+      company: {
+        title: company.title,
+        portalName: getProjectSettings().projectName || 'Play Your Sport',
+        headquartersAddress: company.headquartersAddress,
+        headquartersCity: company.headquartersCity,
+        email: company.email,
+        pecEmail: company.pecEmail,
+        legalRepresentativeFullName: `${company.legalRepresentativeFirstName} ${company.legalRepresentativeLastName}`.trim(),
+        contractSignaturePlace: company.contractSignaturePlace,
+        delegateSignatureDataUrl: company.delegateSignatureDataUrl,
+        consentMinors: company.consentMinors,
+        consentAdults: company.consentAdults,
+        consentInformationNotice: company.consentInformationNotice,
+        consentDataProcessing: company.consentDataProcessing,
+      },
+      subject: {
+        kind: 'adult',
+        athlete: {
+          firstName: client.parentFirstName,
+          lastName: client.parentLastName,
+          birthDate: client.parentBirthDate,
+          birthPlace: client.parentBirthPlace,
+          taxCode: client.parentTaxCode,
+          residenceAddress: client.residenceAddress,
+          email: client.parentEmail,
+          phone: client.parentPhone,
+        },
+        guardian: null,
+      },
+      consentStatus: {
+        enrollmentAccepted: null,
+        informationAccepted: null,
+        dataProcessingAccepted: null,
+      },
+      signatures: {
+        enrollmentConfirmationSignatureDataUrl: client.enrollmentConfirmationSignatureDataUrl,
+        dataProcessingSignatureDataUrl: client.consentDataProcessingSignatureDataUrl,
+      },
+    }),
+    [],
+  )
+
+  const downloadClientConsents = useCallback(
+    async (client: PublicClientRecord, preferredMinor?: PublicMinorRecord | null): Promise<boolean> => {
+      const clientMinors = minorsByClientId.get(client.id) ?? []
+      const clientDirectAthletes = directAthletesByClientId.get(client.id) ?? []
+      const fallbackDirectAthlete =
+        directAthletes.find((athlete) => athlete.taxCode.trim().toUpperCase() === client.parentTaxCode.trim().toUpperCase()) ??
+        null
+      const minor = preferredMinor ?? clientMinors[0] ?? null
+      const directAthlete = clientDirectAthletes[0] ?? fallbackDirectAthlete
+      const selectedPackageId = minor ? minor.packageId : directAthlete?.packageId ?? ''
+      if (!selectedPackageId) {
+        window.alert(t('clients.consentsNoLinkedMinor'))
+        return false
+      }
+      const packageItem = packagesById.get(selectedPackageId)
+      if (!packageItem) {
+        window.alert(t('clients.consentsNoLinkedMinor'))
+        return false
+      }
+      const company = companiesById.get(packageItem.companyId)
+      if (!company) {
+        window.alert(t('activitiesPayments.contract.companyNotFound'))
+        return false
+      }
+      const payload = buildConsentPayload(
+        client,
+        company,
+        minor ? { kind: 'minor', minor } : { kind: 'adult', athlete: directAthlete as PublicDirectAthleteRecord },
+      )
+      const fullName = `${client.parentFirstName} ${client.parentLastName}`
+      const result = await downloadConsentsPdf({
+        payload,
+        clientFullName: fullName,
+      })
+      if (!result.ok) {
+        window.alert(`${t('clients.consentsDownloadError')} (${result.error})`)
+        return false
+      }
+      return true
+    },
+    [buildConsentPayload, companiesById, directAthletes, directAthletesByClientId, minorsByClientId, packagesById, t],
+  )
 
   const openCreateModal = () => {
     setCreateMode('parent')
@@ -614,6 +744,7 @@ function ClientsPage() {
       createDraft.parentPhone,
       createDraft.parentBirthDate,
       createDraft.parentBirthPlace,
+      createDraft.parentRole,
       createDraft.parentTaxCode,
       createDraft.parentResidenceAddress,
       createDraft.minorFirstName,
@@ -648,15 +779,17 @@ function ClientsPage() {
       parentSecondaryPhone: createDraft.parentSecondaryPhone,
       parentBirthDate: createDraft.parentBirthDate,
       parentBirthPlace: createDraft.parentBirthPlace,
+      parentRole: createDraft.parentRole,
       parentTaxCode: createDraft.parentTaxCode,
       residenceAddress: createDraft.parentResidenceAddress,
-      consentEnrollmentAccepted: false,
-      consentInformationAccepted: false,
+      consentEnrollmentAccepted: true,
+      consentInformationAccepted: true,
       consentDataProcessingAccepted: false,
       consentDataProcessingSignatureDataUrl: '',
       enrollmentConfirmationSignatureDataUrl: '',
       parentTaxCodeImageDataUrl: '',
       parentIdentityDocumentImageDataUrl: '',
+      privacyPolicySigned: false,
     })
     const createdMinor = createPublicMinorRecord({
       clientId: createdClient.id,
@@ -681,6 +814,7 @@ function ClientsPage() {
 
     updatePublicClientValidationStatus(createdClient.id, 'validated')
     updatePublicMinorValidationStatus(createdMinor.id, 'validated')
+    void downloadClientConsents(createdClient, createdMinor)
     refresh()
     setMessage(t('clients.created'))
     closeCreateModal()
@@ -769,6 +903,7 @@ function ClientsPage() {
       parentSecondaryPhone: client.parentSecondaryPhone,
       parentBirthDate: client.parentBirthDate,
       parentBirthPlace: client.parentBirthPlace,
+      parentRole: client.parentRole,
       parentTaxCode: client.parentTaxCode,
       residenceAddress: client.residenceAddress,
     })
@@ -815,6 +950,8 @@ function ClientsPage() {
     if (!activeClient) {
       return
     }
+    const clientForDownload = activeClient
+    const firstLinkedMinor = activeClientMinors[0] ?? null
     if (status === 'validated') {
       const hasNotValidatedMinors = activeClientMinors.some((minor) => minor.validationStatus !== 'validated')
       if (hasNotValidatedMinors) {
@@ -828,6 +965,9 @@ function ClientsPage() {
     updatePublicClientValidationStatus(activeClient.id, status)
     refresh()
     setMessage(t('clients.updated'))
+    if (status === 'validated') {
+      void downloadClientConsents(clientForDownload, firstLinkedMinor)
+    }
   }
 
   const saveMinorChanges = (minorId: number, silent = false) => {
@@ -914,6 +1054,7 @@ function ClientsPage() {
             ) : (
               filteredClients.map((client) => {
                 const linkedMinors = minorsByClientId.get(client.id) ?? []
+                const isPrivacySigned = isClientPrivacyPolicySigned(client)
                 return (
                   <tr key={client.id}>
                     <td>{client.parentFirstName} {client.parentLastName}</td>
@@ -933,6 +1074,16 @@ function ClientsPage() {
                     </td>
                     <td>
                       <div className="flex items-center gap-1">
+                        <span
+                          className="inline-flex items-center"
+                          title={isPrivacySigned ? 'Privacy firmata' : 'Privacy non firmata'}
+                        >
+                          {isPrivacySigned ? (
+                            <ShieldCheck className="h-4 w-4 text-success" />
+                          ) : (
+                            <ShieldX className="h-4 w-4 text-error" />
+                          )}
+                        </span>
                         <button
                           type="button"
                           className="btn btn-ghost btn-sm btn-square"
@@ -942,6 +1093,16 @@ function ClientsPage() {
                           {client.validationStatus === 'validated'
                             ? <FileText className="h-4 w-4" />
                             : <AlertTriangle className="h-4 w-4 text-warning" />}
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm btn-square"
+                          title={t('clients.downloadConsents')}
+                          onClick={() => {
+                            void downloadClientConsents(client)
+                          }}
+                        >
+                          <FileSignature className="h-4 w-4" />
                         </button>
                         <button
                           type="button"
@@ -965,6 +1126,21 @@ function ClientsPage() {
         <dialog className="modal modal-open">
           <div className="modal-box w-11/12 max-w-5xl">
             <h3 className="text-lg font-semibold">{t('clients.detailTitle')}</h3>
+            <div className="mt-2">
+              <label className="label cursor-default justify-start gap-2">
+                <input
+                  type="checkbox"
+                  className="checkbox checkbox-sm checkbox-primary"
+                  checked={isClientPrivacyPolicySigned(activeClient)}
+                  onChange={(event) => {
+                    updatePublicClientPrivacyPolicyStatus(activeClient.id, event.target.checked)
+                    refresh()
+                    setMessage(t('clients.updated'))
+                  }}
+                />
+                <span className="label-text">Privacy policy firmata</span>
+              </label>
+            </div>
             <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
               <label className="form-control">
                 <span className="label-text mb-1 text-xs">{t('clients.parentFirstName')}</span>
@@ -989,6 +1165,22 @@ function ClientsPage() {
               <label className="form-control">
                 <span className="label-text mb-1 text-xs">{t('clients.birthDate')}</span>
                 <input type="date" className="input input-bordered w-full" value={clientDraft.parentBirthDate} onChange={(event) => setClientDraft((prev) => (prev ? { ...prev, parentBirthDate: event.target.value } : prev))} />
+              </label>
+              <label className="form-control">
+                <span className="label-text mb-1 text-xs">Ruolo firmatario</span>
+                <select
+                  className="select select-bordered w-full"
+                  value={clientDraft.parentRole}
+                  onChange={(event) =>
+                    setClientDraft((prev) =>
+                      prev ? { ...prev, parentRole: event.target.value as ParentRole } : prev,
+                    )
+                  }
+                >
+                  {PARENT_ROLE_OPTIONS.map((item) => (
+                    <option key={item.value} value={item.value}>{item.label}</option>
+                  ))}
+                </select>
               </label>
               <label className="form-control">
                 <span className="label-text mb-1 text-xs">{t('clients.birthPlace')}</span>
@@ -1337,6 +1529,20 @@ function ClientsPage() {
                       >
                         <option value="M">{t('clients.genderMale')}</option>
                         <option value="F">{t('clients.genderFemale')}</option>
+                      </select>
+                    </label>
+                    <label className="form-control">
+                      <span className="label-text mb-1 text-xs">Ruolo firmatario</span>
+                      <select
+                        className="select select-bordered w-full"
+                        value={createDraft.parentRole}
+                        onChange={(event) =>
+                          setCreateDraft((prev) => ({ ...prev, parentRole: event.target.value as ParentRole }))
+                        }
+                      >
+                        {PARENT_ROLE_OPTIONS.map((item) => (
+                          <option key={item.value} value={item.value}>{item.label}</option>
+                        ))}
                       </select>
                     </label>
                     <label className="form-control">

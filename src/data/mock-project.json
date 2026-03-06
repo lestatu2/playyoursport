@@ -2,5 +2,23 @@
   "defaultName": "Play your sport",
   "defaultLogo": "/vite.svg",
   "defaultGoogleMapsApiKey": "",
-  "defaultPaymentCurrency": "EUR"
+  "defaultPaymentCurrency": "EUR",
+  "defaultContractSubjectTemplate": "<p>Con il presente contratto {{company_title}} eroga il servizio sportivo relativo al pacchetto {{package_name}} (edizione {{package_edition_year}}), periodo {{package_period}}, presso {{training_address}}, in favore di {{athlete_full_name}}.</p>",
+  "defaultContractEconomicClausesTemplate": "<h3>Condizioni economiche e pagamenti</h3><p>Il corrispettivo complessivo del servizio e determinato dal prezzo del pacchetto selezionato, dagli eventuali costi di iscrizione/assicurazione e dai servizi accessori attivati. Il pagamento puo avvenire in unica soluzione o in rate periodiche secondo il piano approvato in fase di validazione amministrativa.</p><p>Le rate devono essere corrisposte entro le rispettive scadenze indicate nel piano pagamenti. In caso di ritardo, la Societa potra sospendere temporaneamente l'erogazione del servizio fino alla regolarizzazione, fermo restando il diritto al recupero degli importi maturati. Eventuali piani di rientro o deroghe alle scadenze sono validi solo se approvati per iscritto dalla Societa.</p><p>In caso di mancato pagamento protratto, la Societa potra risolvere il rapporto contrattuale per inadempimento, trattenendo le somme gia maturate per prestazioni erogate e costi amministrativi sostenuti.</p><h3>Sospensioni, rimborsi e recesso</h3><p>Le sospensioni richieste dal cliente sono ammesse solo nei casi e nei limiti previsti dal regolamento del pacchetto e devono essere autorizzate dalla Societa. Salvo diversa previsione scritta, i periodi di sospensione non danno diritto a rimborso automatico.</p><p>Eventuali rimborsi sono riconosciuti esclusivamente nei casi previsti da legge o da specifica clausola contrattuale approvata dalla Societa. Il recesso del cliente non comporta la restituzione delle quote gia maturate per periodi fruiti o prenotati, salvo diversa disposizione normativa inderogabile.</p>",
+  "defaultContractServicesAdjustmentTemplate": "<h3>Servizi fissi, servizi variabili e conguaglio</h3><p>I servizi fissi hanno prezzo determinato al momento della conferma del piano e concorrono alla formazione delle rate secondo le regole economiche del pacchetto. I servizi variabili, per loro natura, sono valorizzati in fase di validazione amministrativa o in corso di rapporto, sulla base delle condizioni operative effettive.</p><p>Il cliente prende atto che il totale iniziale visualizzato in fase di richiesta puo subire variazioni a seguito della validazione. In particolare, in presenza di servizi variabili, il prezzo finale sara aggiornato con i relativi importi definitivi. Le differenze economiche (in aumento o in diminuzione) confluiranno come conguaglio nel piano pagamenti e saranno comunicate in modo trasparente nel dettaglio rate.</p><p>Le modifiche ai servizi richieste dal cliente o disposte dalla Societa per esigenze organizzative producono effetti economici secondo i periodi di competenza applicabili e non incidono retroattivamente su rate gia saldate, salvo errore materiale o diversa previsione di legge.</p>",
+  "defaultContractSpecialClausesFormula": "<p>Ai sensi e per gli effetti degli articoli 1341 e 1342 c.c., il contraente dichiara di aver letto, compreso e approvato specificamente le clausole indicate nel presente articolo.</p>",
+  "defaultContractSpecialClauses": [
+    {
+      "id": "special-clause-termination",
+      "title": "Risoluzione per inadempimento",
+      "text": "<p>In caso di inadempimento grave o reiterato degli obblighi di pagamento o delle disposizioni regolamentari, la Societa puo risolvere il contratto ai sensi dell'art. 1456 c.c., previa comunicazione scritta.</p>",
+      "isActive": true
+    },
+    {
+      "id": "special-clause-liability",
+      "title": "Limitazione di responsabilita",
+      "text": "<p>Fermo quanto previsto da norme inderogabili, la Societa non risponde di eventi non imputabili alla propria organizzazione, ne di sospensioni dovute a causa di forza maggiore o provvedimenti delle autorita competenti.</p>",
+      "isActive": true
+    }
+  ]
 }

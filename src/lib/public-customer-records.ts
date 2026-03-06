@@ -4,6 +4,7 @@ const PUBLIC_CLIENTS_KEY = 'pys_public_clients'
 const PUBLIC_MINORS_KEY = 'pys_public_minors'
 
 export type PublicValidationStatus = 'not_validated' | 'validated'
+export type ParentRole = 'genitore' | 'tutore' | 'esercente_responsabilita'
 
 export type PublicClientRecord = {
   id: number
@@ -15,6 +16,7 @@ export type PublicClientRecord = {
   parentSecondaryPhone: string
   parentBirthDate: string
   parentBirthPlace: string
+  parentRole: ParentRole
   parentTaxCode: string
   residenceAddress: string
   consentEnrollmentAccepted: boolean
@@ -24,6 +26,7 @@ export type PublicClientRecord = {
   enrollmentConfirmationSignatureDataUrl: string
   parentTaxCodeImageDataUrl: string
   parentIdentityDocumentImageDataUrl: string
+  privacyPolicySigned: boolean
   validationStatus: PublicValidationStatus
   createdAt: string
 }
@@ -74,10 +77,20 @@ function nextId(items: Array<{ id: number }>): number {
 export function getPublicClients(): PublicClientRecord[] {
   const stored = readJson<PublicClientRecord>(PUBLIC_CLIENTS_KEY).map((item) => ({
     ...item,
+    parentRole:
+      item.parentRole === 'tutore' || item.parentRole === 'esercente_responsabilita'
+        ? item.parentRole
+        : 'genitore',
+    privacyPolicySigned: Boolean(item.privacyPolicySigned),
     validationStatus: item.validationStatus === 'validated' ? 'validated' : 'not_validated',
   }))
   const seeds = (mockPublicClients as PublicClientRecord[]).map((item) => ({
     ...item,
+    parentRole:
+      item.parentRole === 'tutore' || item.parentRole === 'esercente_responsabilita'
+        ? item.parentRole
+        : 'genitore',
+    privacyPolicySigned: Boolean(item.privacyPolicySigned),
     validationStatus: item.validationStatus === 'validated' ? 'validated' : 'not_validated',
   }))
   if (stored.length === 0) {
@@ -129,6 +142,7 @@ export function createPublicClientRecord(payload: {
   parentSecondaryPhone: string
   parentBirthDate: string
   parentBirthPlace: string
+  parentRole: ParentRole
   parentTaxCode: string
   residenceAddress: string
   consentEnrollmentAccepted: boolean
@@ -138,6 +152,7 @@ export function createPublicClientRecord(payload: {
   enrollmentConfirmationSignatureDataUrl: string
   parentTaxCodeImageDataUrl: string
   parentIdentityDocumentImageDataUrl: string
+  privacyPolicySigned?: boolean
 }): PublicClientRecord {
   const all = getPublicClients()
   const next: PublicClientRecord = {
@@ -150,6 +165,10 @@ export function createPublicClientRecord(payload: {
     parentSecondaryPhone: payload.parentSecondaryPhone.trim(),
     parentBirthDate: payload.parentBirthDate.trim(),
     parentBirthPlace: payload.parentBirthPlace.trim(),
+    parentRole:
+      payload.parentRole === 'tutore' || payload.parentRole === 'esercente_responsabilita'
+        ? payload.parentRole
+        : 'genitore',
     parentTaxCode: normalizeTaxCode(payload.parentTaxCode),
     residenceAddress: payload.residenceAddress.trim(),
     consentEnrollmentAccepted: payload.consentEnrollmentAccepted,
@@ -159,6 +178,7 @@ export function createPublicClientRecord(payload: {
     enrollmentConfirmationSignatureDataUrl: payload.enrollmentConfirmationSignatureDataUrl,
     parentTaxCodeImageDataUrl: payload.parentTaxCodeImageDataUrl,
     parentIdentityDocumentImageDataUrl: payload.parentIdentityDocumentImageDataUrl,
+    privacyPolicySigned: Boolean(payload.privacyPolicySigned),
     validationStatus: 'not_validated',
     createdAt: new Date().toISOString(),
   }
@@ -230,6 +250,7 @@ export function updatePublicClientRecord(
     | 'parentSecondaryPhone'
     | 'parentBirthDate'
     | 'parentBirthPlace'
+    | 'parentRole'
     | 'parentTaxCode'
     | 'residenceAddress'
   >,
@@ -248,8 +269,32 @@ export function updatePublicClientRecord(
     parentSecondaryPhone: payload.parentSecondaryPhone.trim(),
     parentBirthDate: payload.parentBirthDate.trim(),
     parentBirthPlace: payload.parentBirthPlace.trim(),
+    parentRole:
+      payload.parentRole === 'tutore' || payload.parentRole === 'esercente_responsabilita'
+        ? payload.parentRole
+        : 'genitore',
     parentTaxCode: normalizeTaxCode(payload.parentTaxCode),
     residenceAddress: payload.residenceAddress.trim(),
+  }
+  writeJson(
+    PUBLIC_CLIENTS_KEY,
+    all.map((item) => (item.id === clientId ? updated : item)),
+  )
+  return updated
+}
+
+export function updatePublicClientPrivacyPolicyStatus(
+  clientId: number,
+  privacyPolicySigned: boolean,
+): PublicClientRecord | null {
+  const all = getPublicClients()
+  const current = all.find((item) => item.id === clientId) ?? null
+  if (!current) {
+    return null
+  }
+  const updated: PublicClientRecord = {
+    ...current,
+    privacyPolicySigned,
   }
   writeJson(
     PUBLIC_CLIENTS_KEY,

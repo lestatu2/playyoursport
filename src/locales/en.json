@@ -50,7 +50,8 @@
     "utilityEnrollments": "Enrollments",
     "utilityAdditionalServices": "Additional services",
     "utilityWhatsAppAccounts": "WhatsApp accounts",
-    "utilityPaymentMethods": "Payment methods"
+    "utilityPaymentMethods": "Payment methods",
+    "utilityContracts": "Contracts"
   },
   "users": {
     "title": "Users",
@@ -115,6 +116,9 @@
     "validationFilter": "Validation filter",
     "allStatuses": "All statuses",
     "actions": "Actions",
+    "downloadConsents": "Download consents",
+    "consentsNoLinkedMinor": "No linked minor available to generate consents.",
+    "consentsDownloadError": "Error while downloading consents.",
     "validated": "Validated",
     "notValidated": "Not validated",
     "markValidated": "Mark validated",
@@ -318,6 +322,10 @@
       "subjectDataMissing": "Dati soggetto mancanti per generare il contratto.",
       "downloadError": "Errore durante la generazione del contratto PDF."
     },
+    "consents": {
+      "download": "Consents PDF",
+      "downloadError": "Error while generating the consents PDF."
+    },
     "period": {
       "current": "Corrente",
       "total": "Totale"
@@ -383,7 +391,8 @@
       "users": "Users",
       "styling": "Styling",
       "language": "Language",
-      "payments": "Payments"
+      "payments": "Payments",
+      "contract": "Contract"
     },
     "users": {
       "title": "Role labels",
@@ -426,9 +435,60 @@
       "currencyLabel": "Currency",
       "saved": "Payment settings saved.",
       "invalidCurrency": "Invalid currency."
+    },
+    "contract": {
+      "title": "Contract subject",
+      "description": "Define the base legal contract text and use dynamic variables.",
+      "baseTemplateLabel": "Base legal template",
+      "economicClausesLabel": "Economic clauses (installments, delays, suspensions, refunds, withdrawal)",
+      "servicesClausesLabel": "Services and post-validation adjustment clauses",
+      "variablesLabel": "Available variables",
+      "insertVariable": "Insert variable",
+      "invalidTemplate": "Enter a valid contract template.",
+      "invalidEconomicClauses": "Enter valid economic clauses.",
+      "invalidServicesClauses": "Enter valid services and adjustment clauses.",
+      "saved": "Contract configuration saved.",
+      "variables": {
+        "packageName": "Package name",
+        "packageEditionYear": "Package edition year",
+        "packagePeriod": "Package period",
+        "trainingAddress": "Training address",
+        "companyTitle": "Company name",
+        "athleteFullName": "Athlete full name",
+        "athleteBirthDate": "Athlete birth date",
+        "guardianFullName": "Parent/guardian full name"
+      }
     }
   },
   "utility": {
+    "contracts": {
+      "title": "Contracts",
+      "description": "Contract configuration with separated sections.",
+      "tabs": {
+        "subject": "Subject",
+        "economic": "Economic rules",
+        "services": "Services and adjustments",
+        "special": "Special clauses",
+        "variables": "Variables"
+      },
+      "specialFormula": "Special clauses approval formula",
+      "specialList": "Available special clauses",
+      "targetLabel": "Insert variable into",
+      "targetHint": "Variables can be used across all sections.",
+      "targets": {
+        "subject": "Contract subject",
+        "economic": "Economic rules",
+        "services": "Services and adjustments",
+        "specialFormula": "Special clauses formula",
+        "specialClause": "Special clause text"
+      },
+      "addSpecial": "Add clause",
+      "emptySpecial": "No special clause configured.",
+      "specialTitle": "Clause title",
+      "specialText": "Clause text",
+      "removeSpecial": "Remove clause",
+      "active": "Active"
+    },
     "packages": {
       "title": "Packages",
       "description": "Basic package configuration.",
@@ -598,9 +658,27 @@
       "create": "Create company",
       "titleLabel": "Title",
       "addressLabel": "Headquarters address",
+      "cityLabel": "City",
+      "postalCodeLabel": "Postal code",
+      "provinceLabel": "Province",
+      "countryLabel": "Country",
       "googleIdentifierLabel": "Google identifier",
+      "phoneLabel": "Phone",
       "vatLabel": "VAT number",
       "ibanLabel": "IBAN",
+      "pecEmailLabel": "PEC email",
+      "sdiCodeLabel": "SDI code",
+      "legalFormLabel": "Legal form",
+      "registrationNumberLabel": "Registry number",
+      "federationAffiliationLabel": "Federation affiliation",
+      "legalRepresentativeFirstNameLabel": "Legal representative first name",
+      "legalRepresentativeLastNameLabel": "Legal representative last name",
+      "legalRepresentativeTaxCodeLabel": "Legal representative tax code",
+      "legalRepresentativeRoleLabel": "Legal representative role",
+      "contractSignaturePlaceLabel": "Contract signature place",
+      "contractSignerDisplayNameLabel": "Contract signer display name",
+      "delegateSignatureLabel": "Delegate signature (image)",
+      "delegateSignaturePreviewAlt": "Delegate signature preview",
       "paypalLabel": "PayPal",
       "paypalClientIdLabel": "PayPal Client ID",
       "emailLabel": "Email",
@@ -692,6 +770,9 @@
       "create": "Create insurance",
       "titleLabel": "Title",
       "descriptionLabel": "Description",
+      "coverageTextLabel": "Insurance coverage",
+      "exclusionsTextLabel": "Insurance exclusions",
+      "durationTextLabel": "Duration and validity",
       "activeLabel": "Active",
       "empty": "No insurance available.",
       "created": "Insurance created successfully.",

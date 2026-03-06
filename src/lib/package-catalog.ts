@@ -48,9 +48,26 @@ export type Company = {
   id: string
   title: string
   headquartersAddress: string
+  headquartersCity: string
+  headquartersPostalCode: string
+  headquartersProvince: string
+  headquartersCountry: string
   googlePlaceId: string
+  phone: string
   vatNumber: string
   iban: string
+  pecEmail: string
+  sdiCode: string
+  legalForm: string
+  registrationNumber: string
+  federationAffiliation: string
+  legalRepresentativeFirstName: string
+  legalRepresentativeLastName: string
+  legalRepresentativeTaxCode: string
+  legalRepresentativeRole: string
+  contractSignaturePlace: string
+  contractSignerDisplayName: string
+  delegateSignatureDataUrl: string
   paypalEnabled: boolean
   paypalClientId: string
   email: string
@@ -73,6 +90,9 @@ export type EnrollmentInsurance = {
   id: string
   title: string
   description: string
+  coverageText: string
+  exclusionsText: string
+  durationText: string
   isActive: boolean
 }
 
@@ -165,6 +185,7 @@ export type SportPackage = {
   userSelectableSchedule: boolean
   contractHeaderImage: string
   contractHeaderText: string
+  contractSpecialClauseIds: string[]
   contractRegulation: string
   featuredImage: string
   isFeatured: boolean
@@ -245,6 +266,9 @@ export type SaveEnrollmentResult =
 export type SaveInsurancePayload = {
   title: string
   description: string
+  coverageText: string
+  exclusionsText: string
+  durationText: string
   isActive: boolean
 }
 
@@ -282,9 +306,26 @@ export type SaveAdditionalServiceResult =
 export type SaveCompanyPayload = {
   title: string
   headquartersAddress: string
+  headquartersCity: string
+  headquartersPostalCode: string
+  headquartersProvince: string
+  headquartersCountry: string
   googlePlaceId: string
+  phone: string
   vatNumber: string
   iban: string
+  pecEmail: string
+  sdiCode: string
+  legalForm: string
+  registrationNumber: string
+  federationAffiliation: string
+  legalRepresentativeFirstName: string
+  legalRepresentativeLastName: string
+  legalRepresentativeTaxCode: string
+  legalRepresentativeRole: string
+  contractSignaturePlace: string
+  contractSignerDisplayName: string
+  delegateSignatureDataUrl: string
   paypalEnabled: boolean
   paypalClientId: string
   email: string
@@ -346,6 +387,7 @@ export type SavePackagePayload = {
   userSelectableSchedule: boolean
   contractHeaderImage: string
   contractHeaderText: string
+  contractSpecialClauseIds: string[]
   contractRegulation: string
   featuredImage: string
   isFeatured: boolean
@@ -481,9 +523,15 @@ function getStoredCatalog(): {
     id: `insurance-${enrollment.id}`,
     title: `Assicurazione ${enrollment.title}`,
     description: `Copertura associata a ${enrollment.title}`,
+    coverageText: `Copertura base collegata all'iscrizione ${enrollment.title}.`,
+    exclusionsText: 'Sono escluse le prestazioni non previste dal regolamento federale e assicurativo.',
+    durationText: 'Validità secondo regolamento dell\'iscrizione associata.',
     isActive: true,
   }))
   const baseInsurances = stored.insurances ?? packageDefaults.insurances ?? defaultInsurancesFromEnrollments
+  const defaultInsuranceById = new Map(
+    (packageDefaults.insurances ?? defaultInsurancesFromEnrollments).map((item) => [item.id, item]),
+  )
   const baseWhatsAppAccounts = stored.whatsappAccounts ?? packageDefaults.whatsappAccounts ?? []
   const baseAdditionalServices = stored.additionalServices ?? packageDefaults.additionalServices ?? []
   const baseCompanies = stored.companies ?? packageDefaults.companies ?? []
@@ -510,9 +558,28 @@ function getStoredCatalog(): {
       birthYearMax: Number.isFinite(group.birthYearMax) ? Math.trunc(group.birthYearMax) : 2014,
     })),
     insurances: baseInsurances.map((insurance) => ({
+      ...(defaultInsuranceById.get(insurance.id) ?? {}),
       id: insurance.id,
       title: normalizeInsuranceTitle(insurance.title, insurance.id),
       description: insurance.description ?? '',
+      coverageText:
+        (typeof (insurance as { coverageText?: string }).coverageText === 'string' &&
+        (insurance as { coverageText?: string }).coverageText?.trim())
+          ? ((insurance as { coverageText?: string }).coverageText as string)
+          : (defaultInsuranceById.get(insurance.id)?.coverageText ??
+            `<p>Copertura assicurativa prevista dalla polizza associata a ${normalizeInsuranceTitle(insurance.title, insurance.id)}.</p>`),
+      exclusionsText:
+        (typeof (insurance as { exclusionsText?: string }).exclusionsText === 'string' &&
+        (insurance as { exclusionsText?: string }).exclusionsText?.trim())
+          ? ((insurance as { exclusionsText?: string }).exclusionsText as string)
+          : (defaultInsuranceById.get(insurance.id)?.exclusionsText ??
+            '<p>Sono escluse le fattispecie non previste dalla polizza e dal regolamento assicurativo vigente.</p>'),
+      durationText:
+        (typeof (insurance as { durationText?: string }).durationText === 'string' &&
+        (insurance as { durationText?: string }).durationText?.trim())
+          ? ((insurance as { durationText?: string }).durationText as string)
+          : (defaultInsuranceById.get(insurance.id)?.durationText ??
+            "<p>Validità secondo condizioni della polizza e dell'iscrizione associata.</p>"),
       isActive: insurance.isActive ?? true,
     })),
     enrollments: baseEnrollments.map((enrollment) => ({
@@ -560,9 +627,29 @@ function getStoredCatalog(): {
     companies: baseCompanies.map((company) => ({
       ...company,
       headquartersAddress: company.headquartersAddress ?? '',
+      headquartersCity: (company as { headquartersCity?: string }).headquartersCity ?? '',
+      headquartersPostalCode: (company as { headquartersPostalCode?: string }).headquartersPostalCode ?? '',
+      headquartersProvince: (company as { headquartersProvince?: string }).headquartersProvince ?? '',
+      headquartersCountry: (company as { headquartersCountry?: string }).headquartersCountry ?? 'Italia',
       googlePlaceId: company.googlePlaceId ?? '',
+      phone: (company as { phone?: string }).phone ?? '',
       vatNumber: company.vatNumber ?? '',
       iban: company.iban ?? '',
+      pecEmail: (company as { pecEmail?: string }).pecEmail ?? '',
+      sdiCode: (company as { sdiCode?: string }).sdiCode ?? '',
+      legalForm: (company as { legalForm?: string }).legalForm ?? '',
+      registrationNumber: (company as { registrationNumber?: string }).registrationNumber ?? '',
+      federationAffiliation: (company as { federationAffiliation?: string }).federationAffiliation ?? '',
+      legalRepresentativeFirstName: (company as { legalRepresentativeFirstName?: string }).legalRepresentativeFirstName ?? '',
+      legalRepresentativeLastName: (company as { legalRepresentativeLastName?: string }).legalRepresentativeLastName ?? '',
+      legalRepresentativeTaxCode: (company as { legalRepresentativeTaxCode?: string }).legalRepresentativeTaxCode ?? '',
+      legalRepresentativeRole: (company as { legalRepresentativeRole?: string }).legalRepresentativeRole ?? '',
+      contractSignaturePlace:
+        (company as { contractSignaturePlace?: string }).contractSignaturePlace ??
+        (company as { headquartersCity?: string }).headquartersCity ??
+        '',
+      contractSignerDisplayName: (company as { contractSignerDisplayName?: string }).contractSignerDisplayName ?? '',
+      delegateSignatureDataUrl: (company as { delegateSignatureDataUrl?: string }).delegateSignatureDataUrl ?? '',
       paypalEnabled: company.paypalEnabled ?? false,
       paypalClientId: company.paypalClientId ?? '',
       email: company.email ?? '',
@@ -634,6 +721,13 @@ function getStoredCatalog(): {
         userSelectableSchedule: item.userSelectableSchedule ?? false,
         contractHeaderImage: item.contractHeaderImage ?? '',
         contractHeaderText: item.contractHeaderText ?? '',
+        contractSpecialClauseIds: Array.from(
+          new Set(
+            (((item as { contractSpecialClauseIds?: string[] }).contractSpecialClauseIds ?? []) as string[])
+              .map((value) => (typeof value === 'string' ? value.trim() : ''))
+              .filter((value) => value.length > 0),
+          ),
+        ),
         contractRegulation: item.contractRegulation ?? '',
       }),
     ),
@@ -1628,7 +1722,10 @@ export function removeGroup(id: string): SaveGroupResult {
 export function createEnrollmentInsurance(payload: SaveInsurancePayload): SaveInsuranceResult {
   const title = payload.title.trim()
   const description = payload.description.trim()
-  if (!title || !description) {
+  const coverageText = payload.coverageText.trim()
+  const exclusionsText = payload.exclusionsText.trim()
+  const durationText = payload.durationText.trim()
+  if (!title || !description || !coverageText || !exclusionsText || !durationText) {
     return { ok: false, error: 'invalid' }
   }
   const catalog = getStoredCatalog()
@@ -1636,6 +1733,9 @@ export function createEnrollmentInsurance(payload: SaveInsurancePayload): SaveIn
     id: nextInsuranceId(),
     title,
     description,
+    coverageText,
+    exclusionsText,
+    durationText,
     isActive: Boolean(payload.isActive),
   }
   writeStoredCatalog({
@@ -1648,7 +1748,10 @@ export function createEnrollmentInsurance(payload: SaveInsurancePayload): SaveIn
 export function updateEnrollmentInsurance(id: string, payload: SaveInsurancePayload): SaveInsuranceResult {
   const title = payload.title.trim()
   const description = payload.description.trim()
-  if (!title || !description) {
+  const coverageText = payload.coverageText.trim()
+  const exclusionsText = payload.exclusionsText.trim()
+  const durationText = payload.durationText.trim()
+  if (!title || !description || !coverageText || !exclusionsText || !durationText) {
     return { ok: false, error: 'invalid' }
   }
   const catalog = getStoredCatalog()
@@ -1660,6 +1763,9 @@ export function updateEnrollmentInsurance(id: string, payload: SaveInsurancePayl
     ...current,
     title,
     description,
+    coverageText,
+    exclusionsText,
+    durationText,
     isActive: Boolean(payload.isActive),
   }
   writeStoredCatalog({
@@ -2020,9 +2126,26 @@ export function removeAdditionalService(id: string): SaveAdditionalServiceResult
 type NormalizedCompanyPayload = {
   title: string
   headquartersAddress: string
+  headquartersCity: string
+  headquartersPostalCode: string
+  headquartersProvince: string
+  headquartersCountry: string
   googlePlaceId: string
+  phone: string
   vatNumber: string
   iban: string
+  pecEmail: string
+  sdiCode: string
+  legalForm: string
+  registrationNumber: string
+  federationAffiliation: string
+  legalRepresentativeFirstName: string
+  legalRepresentativeLastName: string
+  legalRepresentativeTaxCode: string
+  legalRepresentativeRole: string
+  contractSignaturePlace: string
+  contractSignerDisplayName: string
+  delegateSignatureDataUrl: string
   paypalEnabled: boolean
   paypalClientId: string
   email: string
@@ -2056,7 +2179,10 @@ type PreparedPackagePayload = {
   whatsappGroupLink: string
   additionalFixedServices: PackageAdditionalServiceSelection[]
   additionalVariableServices: PackageAdditionalServiceSelection[]
-  contract: Pick<SavePackagePayload, 'contractHeaderImage' | 'contractHeaderText' | 'contractRegulation'>
+  contract: Pick<
+    SavePackagePayload,
+    'contractHeaderImage' | 'contractHeaderText' | 'contractSpecialClauseIds' | 'contractRegulation'
+  >
 }
 
 function normalizeAndValidateCompanyPayload(
@@ -2065,9 +2191,26 @@ function normalizeAndValidateCompanyPayload(
   const normalized: NormalizedCompanyPayload = {
     title: payload.title.trim(),
     headquartersAddress: payload.headquartersAddress.trim(),
+    headquartersCity: payload.headquartersCity.trim(),
+    headquartersPostalCode: payload.headquartersPostalCode.trim(),
+    headquartersProvince: payload.headquartersProvince.trim(),
+    headquartersCountry: payload.headquartersCountry.trim(),
     googlePlaceId: payload.googlePlaceId.trim(),
+    phone: payload.phone.trim(),
     vatNumber: payload.vatNumber.trim(),
     iban: normalizeIban(payload.iban),
+    pecEmail: payload.pecEmail.trim(),
+    sdiCode: payload.sdiCode.trim(),
+    legalForm: payload.legalForm.trim(),
+    registrationNumber: payload.registrationNumber.trim(),
+    federationAffiliation: payload.federationAffiliation.trim(),
+    legalRepresentativeFirstName: payload.legalRepresentativeFirstName.trim(),
+    legalRepresentativeLastName: payload.legalRepresentativeLastName.trim(),
+    legalRepresentativeTaxCode: payload.legalRepresentativeTaxCode.trim().toUpperCase(),
+    legalRepresentativeRole: payload.legalRepresentativeRole.trim(),
+    contractSignaturePlace: payload.contractSignaturePlace.trim(),
+    contractSignerDisplayName: payload.contractSignerDisplayName.trim(),
+    delegateSignatureDataUrl: payload.delegateSignatureDataUrl.trim(),
     paypalEnabled: payload.paypalEnabled,
     paypalClientId: payload.paypalClientId.trim(),
     email: payload.email.trim(),
@@ -2080,9 +2223,21 @@ function normalizeAndValidateCompanyPayload(
   if (
     !normalized.title ||
     !normalized.headquartersAddress ||
+    !normalized.headquartersCity ||
+    !normalized.headquartersPostalCode ||
+    !normalized.headquartersProvince ||
+    !normalized.headquartersCountry ||
     !normalized.googlePlaceId ||
+    !normalized.phone ||
     !normalized.vatNumber ||
     !normalized.iban ||
+    !normalized.pecEmail ||
+    !normalized.legalForm ||
+    !normalized.legalRepresentativeFirstName ||
+    !normalized.legalRepresentativeLastName ||
+    !normalized.legalRepresentativeTaxCode ||
+    !normalized.legalRepresentativeRole ||
+    !normalized.contractSignaturePlace ||
     !normalized.email ||
     !stripHtml(normalized.consentMinors) ||
     !stripHtml(normalized.consentAdults) ||
@@ -2097,6 +2252,9 @@ function normalizeAndValidateCompanyPayload(
   if (!isValidEmail(normalized.email)) {
     return { ok: false, error: 'invalidEmail' }
   }
+  if (!isValidEmail(normalized.pecEmail)) {
+    return { ok: false, error: 'invalidEmail' }
+  }
   if (normalized.paypalEnabled && !normalized.paypalClientId) {
     return { ok: false, error: 'paypalClientIdRequired' }
   }
@@ -2109,9 +2267,28 @@ function buildCompanyFromPayload(input: NormalizedCompanyPayload, current?: Comp
     id: current?.id ?? nextCompanyId(),
     title: input.title,
     headquartersAddress: input.headquartersAddress,
+    headquartersCity: input.headquartersCity,
+    headquartersPostalCode: input.headquartersPostalCode,
+    headquartersProvince: input.headquartersProvince,
+    headquartersCountry: input.headquartersCountry,
     googlePlaceId: input.googlePlaceId,
+    phone: input.phone,
     vatNumber: input.vatNumber,
     iban: input.iban,
+    pecEmail: input.pecEmail,
+    sdiCode: input.sdiCode,
+    legalForm: input.legalForm,
+    registrationNumber: input.registrationNumber,
+    federationAffiliation: input.federationAffiliation,
+    legalRepresentativeFirstName: input.legalRepresentativeFirstName,
+    legalRepresentativeLastName: input.legalRepresentativeLastName,
+    legalRepresentativeTaxCode: input.legalRepresentativeTaxCode,
+    legalRepresentativeRole: input.legalRepresentativeRole,
+    contractSignaturePlace: input.contractSignaturePlace,
+    contractSignerDisplayName:
+      input.contractSignerDisplayName ||
+      `${input.legalRepresentativeFirstName} ${input.legalRepresentativeLastName}`.trim(),
+    delegateSignatureDataUrl: input.delegateSignatureDataUrl,
     paypalEnabled: input.paypalEnabled,
     paypalClientId: input.paypalEnabled ? input.paypalClientId : '',
     email: input.email,
@@ -2141,6 +2318,13 @@ function preparePackagePayload(payload: SavePackagePayload): PreparedPackagePayl
     contract: {
       contractHeaderImage: payload.contractHeaderImage.trim(),
       contractHeaderText: payload.contractHeaderText.trim(),
+      contractSpecialClauseIds: Array.from(
+        new Set(
+          (payload.contractSpecialClauseIds ?? [])
+            .map((item) => item.trim())
+            .filter((item) => item.length > 0),
+        ),
+      ),
       contractRegulation: payload.contractRegulation,
     },
   }
@@ -2242,6 +2426,7 @@ function buildSportPackageFromPayload(
     userSelectableSchedule: payload.userSelectableSchedule,
     contractHeaderImage: prepared.contract.contractHeaderImage,
     contractHeaderText: prepared.contract.contractHeaderText,
+    contractSpecialClauseIds: prepared.contract.contractSpecialClauseIds,
     contractRegulation: prepared.contract.contractRegulation,
     featuredImage: prepared.featuredImage,
     isFeatured: payload.isFeatured,

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { getCoreRowModel, useReactTable, type ColumnDef } from '@tanstack/react-table'
-import { SquarePen, Trash2 } from 'lucide-react'
+import { Check, SquarePen, Trash2, X } from 'lucide-react'
 import DataTable from '../components/DataTable'
+import RichTextEditor from '../components/RichTextEditor'
 import {
   createEnrollment,
   createEnrollmentInsurance,
@@ -66,6 +67,9 @@ function UtilityEnrollmentsPage() {
   const [insuranceDraft, setInsuranceDraft] = useState<SaveInsurancePayload>({
     title: '',
     description: '',
+    coverageText: '',
+    exclusionsText: '',
+    durationText: '',
     isActive: true,
   })
   const [message, setMessage] = useState('')
@@ -101,7 +105,7 @@ function UtilityEnrollmentsPage() {
   }
 
   const openCreateInsuranceModal = () => {
-    setInsuranceDraft({ title: '', description: '', isActive: true })
+    setInsuranceDraft({ title: '', description: '', coverageText: '', exclusionsText: '', durationText: '', isActive: true })
     setEditingInsuranceId(null)
     setInsuranceModalMode('create')
   }
@@ -110,6 +114,9 @@ function UtilityEnrollmentsPage() {
     setInsuranceDraft({
       title: insurance.title,
       description: insurance.description,
+      coverageText: insurance.coverageText,
+      exclusionsText: insurance.exclusionsText,
+      durationText: insurance.durationText,
       isActive: insurance.isActive,
     })
     setEditingInsuranceId(insurance.id)
@@ -247,6 +254,36 @@ function UtilityEnrollmentsPage() {
         id: 'description',
         header: t('utility.insurances.descriptionLabel'),
         cell: ({ row }) => <span className="line-clamp-2">{row.original.description}</span>,
+      },
+      {
+        id: 'coverageText',
+        header: t('utility.insurances.coverageTextLabel'),
+        cell: ({ row }) =>
+          row.original.coverageText.trim() ? (
+            <Check className="h-4 w-4 text-success" />
+          ) : (
+            <X className="h-4 w-4 text-error" />
+          ),
+      },
+      {
+        id: 'exclusionsText',
+        header: t('utility.insurances.exclusionsTextLabel'),
+        cell: ({ row }) =>
+          row.original.exclusionsText.trim() ? (
+            <Check className="h-4 w-4 text-success" />
+          ) : (
+            <X className="h-4 w-4 text-error" />
+          ),
+      },
+      {
+        id: 'durationText',
+        header: t('utility.insurances.durationTextLabel'),
+        cell: ({ row }) =>
+          row.original.durationText.trim() ? (
+            <Check className="h-4 w-4 text-success" />
+          ) : (
+            <X className="h-4 w-4 text-error" />
+          ),
       },
       {
         id: 'active',
@@ -499,6 +536,36 @@ function UtilityEnrollmentsPage() {
               <span className="label-text mb-1 text-xs">{t('utility.insurances.descriptionLabel')}</span>
               <textarea className="textarea textarea-bordered min-h-24 w-full" value={insuranceDraft.description} onChange={(event) => setInsuranceDraft((prev) => ({ ...prev, description: event.target.value }))} />
             </label>
+            <div className="space-y-2 rounded border border-base-300 p-2">
+              <p className="text-xs font-semibold">{t('utility.insurances.coverageTextLabel')}</p>
+              <RichTextEditor
+                value={insuranceDraft.coverageText}
+                onChange={(nextValue) =>
+                  setInsuranceDraft((prev) => ({ ...prev, coverageText: nextValue }))
+                }
+                minHeightClassName="min-h-32"
+              />
+            </div>
+            <div className="space-y-2 rounded border border-base-300 p-2">
+              <p className="text-xs font-semibold">{t('utility.insurances.exclusionsTextLabel')}</p>
+              <RichTextEditor
+                value={insuranceDraft.exclusionsText}
+                onChange={(nextValue) =>
+                  setInsuranceDraft((prev) => ({ ...prev, exclusionsText: nextValue }))
+                }
+                minHeightClassName="min-h-32"
+              />
+            </div>
+            <div className="space-y-2 rounded border border-base-300 p-2">
+              <p className="text-xs font-semibold">{t('utility.insurances.durationTextLabel')}</p>
+              <RichTextEditor
+                value={insuranceDraft.durationText}
+                onChange={(nextValue) =>
+                  setInsuranceDraft((prev) => ({ ...prev, durationText: nextValue }))
+                }
+                minHeightClassName="min-h-24"
+              />
+            </div>
             <label className="label cursor-pointer justify-start gap-2">
               <input type="checkbox" className="checkbox checkbox-sm checkbox-primary" checked={insuranceDraft.isActive} onChange={(event) => setInsuranceDraft((prev) => ({ ...prev, isActive: event.target.checked }))} />
               <span className="label-text">{t('utility.insurances.activeLabel')}</span>

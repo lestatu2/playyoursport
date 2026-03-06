@@ -14,6 +14,7 @@ import UtilityEnrollmentsPage from './pages/UtilityEnrollmentsPage'
 import UtilityAdditionalServicesPage from './pages/UtilityAdditionalServicesPage'
 import UtilityWhatsAppAccountsPage from './pages/UtilityWhatsAppAccountsPage'
 import UtilityPaymentMethodsPage from './pages/UtilityPaymentMethodsPage'
+import UtilityContractsPage from './pages/UtilityContractsPage'
 import UsersPage from './pages/UsersPage'
 import ClientsPage from './pages/ClientsPage'
 import AthletesPage from './pages/AthletesPage'
@@ -300,6 +301,14 @@ function App() {
           element={
             <UtilityRoute session={session}>
               <UtilityPaymentMethodsPage />
+            </UtilityRoute>
+          }
+        />
+        <Route
+          path="utility/contratti"
+          element={
+            <UtilityRoute session={session}>
+              <UtilityContractsPage />
             </UtilityRoute>
           }
         />

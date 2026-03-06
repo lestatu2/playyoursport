@@ -50,7 +50,8 @@
     "utilityEnrollments": "Iscrizioni",
     "utilityAdditionalServices": "Servizi aggiuntivi",
     "utilityWhatsAppAccounts": "Account WhatsApp",
-    "utilityPaymentMethods": "Metodi pagamento"
+    "utilityPaymentMethods": "Metodi pagamento",
+    "utilityContracts": "Contratti"
   },
   "users": {
     "title": "Utenti",
@@ -136,6 +137,9 @@
     "validationFilter": "Filtro validazione",
     "allStatuses": "Tutti gli stati",
     "actions": "Azioni",
+    "downloadConsents": "Scarica consensi",
+    "consentsNoLinkedMinor": "Nessun minore collegato disponibile per generare i consensi.",
+    "consentsDownloadError": "Errore durante il download dei consensi.",
     "validated": "Validato",
     "notValidated": "Non validato",
     "markValidated": "Segna validato",
@@ -285,6 +289,10 @@
       "subjectDataMissing": "Dati soggetto mancanti per generare il contratto.",
       "downloadError": "Errore durante la generazione del contratto PDF."
     },
+    "consents": {
+      "download": "Consensi PDF",
+      "downloadError": "Errore durante la generazione del PDF consensi."
+    },
     "plan": {
       "enrollmentFee": "Costo iscrizione",
       "enrollmentFeeCoveredNote": "Costo iscrizione azzerato: copertura iscrizione attiva e compatibile per questo atleta.",
@@ -379,7 +387,8 @@
       "users": "Utenti",
       "styling": "Styling",
       "language": "Lingua",
-      "payments": "Pagamenti"
+      "payments": "Pagamenti",
+      "contract": "Contratto"
     },
     "users": {
       "title": "Etichette ruoli",
@@ -422,9 +431,60 @@
       "currencyLabel": "Valuta",
       "saved": "Configurazione pagamenti salvata.",
       "invalidCurrency": "Valuta non valida."
+    },
+    "contract": {
+      "title": "Oggetto contrattuale",
+      "description": "Definisci il testo base del contratto e usa le variabili dinamiche.",
+      "baseTemplateLabel": "Template legale base",
+      "economicClausesLabel": "Clausole economiche (rate, ritardi, sospensioni, rimborsi, recesso)",
+      "servicesClausesLabel": "Clausole servizi e conguagli post-validazione",
+      "variablesLabel": "Campi variabili disponibili",
+      "insertVariable": "Inserisci variabile",
+      "invalidTemplate": "Inserisci un template contrattuale valido.",
+      "invalidEconomicClauses": "Inserisci le clausole economiche del contratto.",
+      "invalidServicesClauses": "Inserisci le clausole su servizi e conguagli.",
+      "saved": "Configurazione contratto salvata.",
+      "variables": {
+        "packageName": "Nome pacchetto",
+        "packageEditionYear": "Anno edizione pacchetto",
+        "packagePeriod": "Periodo pacchetto",
+        "trainingAddress": "Sede attività",
+        "companyTitle": "Nome azienda",
+        "athleteFullName": "Nome e cognome atleta",
+        "athleteBirthDate": "Data di nascita atleta",
+        "guardianFullName": "Nome e cognome genitore/tutore"
+      }
     }
   },
   "utility": {
+    "contracts": {
+      "title": "Contratti",
+      "description": "Configurazione contratti con sezioni separate.",
+      "tabs": {
+        "subject": "Oggetto",
+        "economic": "Regole economiche",
+        "services": "Servizi e conguagli",
+        "special": "Clausole speciali",
+        "variables": "Variabili"
+      },
+      "specialFormula": "Formula approvazione clausole speciali",
+      "specialList": "Clausole speciali disponibili",
+      "targetLabel": "Inserisci variabile in",
+      "targetHint": "Le variabili sono utilizzabili su tutte le sezioni.",
+      "targets": {
+        "subject": "Oggetto contrattuale",
+        "economic": "Regole economiche",
+        "services": "Servizi e conguagli",
+        "specialFormula": "Formula clausole speciali",
+        "specialClause": "Testo clausola speciale"
+      },
+      "addSpecial": "Aggiungi clausola",
+      "emptySpecial": "Nessuna clausola speciale configurata.",
+      "specialTitle": "Titolo clausola",
+      "specialText": "Testo clausola",
+      "removeSpecial": "Rimuovi clausola",
+      "active": "Attiva"
+    },
     "packages": {
       "title": "Pacchetti",
       "description": "Configurazione base pacchetto.",
@@ -594,9 +654,27 @@
       "create": "Crea azienda",
       "titleLabel": "Titolo",
       "addressLabel": "Sede indirizzo",
+      "cityLabel": "Città",
+      "postalCodeLabel": "CAP",
+      "provinceLabel": "Provincia",
+      "countryLabel": "Nazione",
       "googleIdentifierLabel": "Google identifier",
+      "phoneLabel": "Telefono",
       "vatLabel": "Partita IVA",
       "ibanLabel": "IBAN",
+      "pecEmailLabel": "PEC",
+      "sdiCodeLabel": "Codice SDI",
+      "legalFormLabel": "Forma giuridica",
+      "registrationNumberLabel": "Numero registro",
+      "federationAffiliationLabel": "Affiliazione/Federazione",
+      "legalRepresentativeFirstNameLabel": "Nome rappresentante legale",
+      "legalRepresentativeLastNameLabel": "Cognome rappresentante legale",
+      "legalRepresentativeTaxCodeLabel": "Codice fiscale rappresentante legale",
+      "legalRepresentativeRoleLabel": "Ruolo rappresentante legale",
+      "contractSignaturePlaceLabel": "Luogo firma contratto",
+      "contractSignerDisplayNameLabel": "Firmatario mostrato nel contratto",
+      "delegateSignatureLabel": "Firma delegato (immagine)",
+      "delegateSignaturePreviewAlt": "Anteprima firma delegato",
       "paypalLabel": "PayPal",
       "paypalClientIdLabel": "PayPal Client ID",
       "emailLabel": "Email",
@@ -687,6 +765,9 @@
       "create": "Crea assicurazione",
       "titleLabel": "Titolo",
       "descriptionLabel": "Descrizione",
+      "coverageTextLabel": "Coperture assicurative",
+      "exclusionsTextLabel": "Esclusioni assicurative",
+      "durationTextLabel": "Durata e validità",
       "activeLabel": "Attiva",
       "empty": "Nessuna assicurazione presente.",
       "created": "Assicurazione creata con successo.",

@@ -10,7 +10,7 @@ import {
   type AdditionalService,
   type PackagePaymentFrequency,
 } from '../lib/package-catalog'
-import { hasActiveCoverageForEnrollment, upsertCoverageFromEnrollmentPurchase } from '../lib/athlete-enrollment-coverages'
+import { resolveEnrollmentFeeForAthlete, upsertCoverageFromEnrollmentPurchase } from '../lib/athlete-enrollment-coverages'
 import { getPublicClients, getPublicMinors } from '../lib/public-customer-records'
 import { getPublicDirectAthletes } from '../lib/public-direct-athletes'
 import {
@@ -21,7 +21,12 @@ import {
   type PaymentInstallment,
 } from '../lib/activity-payment-plans'
 import { getAthleteActivities } from '../lib/athlete-activities'
-import { downloadContractPdf, type ContractPdfPayload } from '../lib/contract-pdf'
+import {
+  downloadContractPdf,
+  ensureContractHeaderImage,
+  type ContractPdfPayload,
+} from '../lib/contract-pdf'
+import { getProjectSettings } from '../lib/project-settings'
 
 type ActivitiesPaymentsTab = 'activities' | 'deadlines' | 'expired' | 'collections' | 'overdue'
 type FrequencyFilter = 'all' | 'daily' | 'weekly' | 'monthly' | 'yearly'
@@ -52,6 +57,7 @@ type PlanDraft = {
   enrollmentFee: number
   recurringAmount: number
   selectedPaymentMethodCode: string
+  contractSigned: boolean
   services: PlanVariableServiceDraft[]
   startDate: string
   endDate: string
@@ -407,13 +413,33 @@ function ActivitiesPaymentsPage() {
       return
     }
 
+    const projectSettings = getProjectSettings()
+    const specialClausesById = new Map(
+      projectSettings.contractSpecialClauses.map((clause) => [clause.id, clause]),
+    )
+    const packageSpecialClauses = (packageItem.contractSpecialClauseIds ?? [])
+      .map((id) => specialClausesById.get(id))
+      .filter((clause): clause is NonNullable<typeof clause> => Boolean(clause))
+      .map((clause) => ({
+        id: clause.id,
+        title: clause.title,
+        text: clause.text,
+      }))
+
+    const legalRepresentativeFullName = `${company.legalRepresentativeFirstName} ${company.legalRepresentativeLastName}`.trim()
+    const signerRole = item.type === 'minor'
+      ? (guardian?.parentRole ?? 'genitore')
+      : 'contraente'
+
     const payload: ContractPdfPayload = {
       activity: {
         key: item.key,
         createdAt: item.createdAt,
+        orderNumber: item.key,
       },
       package: {
         id: packageItem.id,
+        editionYear: packageItem.editionYear,
         name: packageItem.name,
         description: packageItem.description,
         durationType: packageItem.durationType,
@@ -422,15 +448,32 @@ function ActivitiesPaymentsPage() {
         periodStartDate: packageItem.periodStartDate,
         periodEndDate: packageItem.periodEndDate,
         trainingAddress: packageItem.trainingAddress,
-        contractHeaderImage: packageItem.contractHeaderImage,
+        contractHeaderImage: ensureContractHeaderImage(packageItem.contractHeaderImage, company.title),
         contractHeaderText: packageItem.contractHeaderText,
+        contractSpecialClauses: packageSpecialClauses,
         contractRegulation: packageItem.contractRegulation,
+      },
+      contractConfig: {
+        subjectTemplate: projectSettings.contractSubjectTemplate,
+        economicClausesTemplate: projectSettings.contractEconomicClausesTemplate,
+        servicesAdjustmentTemplate: projectSettings.contractServicesAdjustmentTemplate,
+        specialClausesFormula: projectSettings.contractSpecialClausesFormula,
       },
       company: {
         title: company.title,
+        legalForm: company.legalForm,
         headquartersAddress: company.headquartersAddress,
+        headquartersCity: company.headquartersCity,
+        headquartersPostalCode: company.headquartersPostalCode,
+        headquartersProvince: company.headquartersProvince,
+        headquartersCountry: company.headquartersCountry,
         vatNumber: company.vatNumber,
+        pecEmail: company.pecEmail,
         email: company.email,
+        legalRepresentativeFullName,
+        legalRepresentativeRole: company.legalRepresentativeRole,
+        contractSignaturePlace: company.contractSignaturePlace,
+        delegateSignatureDataUrl: company.delegateSignatureDataUrl,
         iban: company.iban,
         consentMinors: company.consentMinors,
         consentAdults: company.consentAdults,
@@ -459,6 +502,7 @@ function ActivitiesPaymentsPage() {
       subject: item.type === 'minor'
         ? {
             kind: 'minor',
+            signerRole,
             athlete: {
               firstName: minor?.firstName ?? '',
               lastName: minor?.lastName ?? '',
@@ -480,6 +524,7 @@ function ActivitiesPaymentsPage() {
           }
         : {
             kind: 'adult',
+            signerRole: 'contraente',
             athlete: {
               firstName: directAthlete?.firstName ?? '',
               lastName: directAthlete?.lastName ?? '',
@@ -496,11 +541,17 @@ function ActivitiesPaymentsPage() {
 
     const result = await downloadContractPdf({
       payload,
-      athleteFullName: `${item.firstName} ${item.lastName}`,
+      orderNumber: item.key,
+      contraenteFullName:
+        item.type === 'minor'
+          ? `${guardian?.parentFirstName ?? ''} ${guardian?.parentLastName ?? ''}`.trim()
+          : `${directAthlete?.firstName ?? ''} ${directAthlete?.lastName ?? ''}`.trim(),
+      minorFullName: item.type === 'minor' ? `${item.firstName} ${item.lastName}` : undefined,
       packageName: packageItem.name,
+      editionYear: packageItem.editionYear,
     })
     if (!result.ok) {
-      window.alert(t('activitiesPayments.contract.downloadError'))
+      window.alert(`${t('activitiesPayments.contract.downloadError')} (${result.error})`)
     }
   }
   const addableServiceOptions = useMemo(() => {
@@ -816,12 +867,18 @@ function ActivitiesPaymentsPage() {
     const defaultServicesDraft = [...fixedServicesDraft, ...variableServicesDraft]
     const athleteKey = item.key.split('::')[0]
     const selectedEnrollment = getEnrollmentById(packageItem.enrollmentId)
-    const isCoveredByActiveEnrollment = Boolean(
-      selectedEnrollment &&
-        hasActiveCoverageForEnrollment(athleteKey, selectedEnrollment, new Date(), {
+    const enrollmentFeeDecision = selectedEnrollment
+      ? resolveEnrollmentFeeForAthlete({
+          athleteKey,
+          targetEnrollment: selectedEnrollment,
+          defaultEnrollmentFee: packageItem.enrollmentPrice,
+          nowDate: new Date(),
           excludeSourcePackageId: packageItem.id,
-        }),
-    )
+        })
+      : {
+          enrollmentFee: packageItem.enrollmentPrice,
+          isCovered: false,
+        }
 
     const servicesFromPlan = existingPlan?.config.services
     const servicesDraft = Array.isArray(servicesFromPlan) && servicesFromPlan.length > 0
@@ -838,14 +895,16 @@ function ActivitiesPaymentsPage() {
           enrollmentFee: existingPlan.config.enrollmentFee,
           recurringAmount: existingPlan.config.recurringAmount,
           selectedPaymentMethodCode: (existingPlan.config.selectedPaymentMethodCode ?? item.selectedPaymentMethodCode) || 'onsite_pos',
+          contractSigned: Boolean(existingPlan.config.contractSigned),
           services: servicesDraft,
           startDate: existingPlan.config.startDate,
           endDate: existingPlan.config.endDate,
         }
       : {
-          enrollmentFee: isCoveredByActiveEnrollment ? 0 : packageItem.enrollmentPrice,
+          enrollmentFee: enrollmentFeeDecision.enrollmentFee,
           recurringAmount: packageItem.priceAmount,
           selectedPaymentMethodCode: item.selectedPaymentMethodCode || 'onsite_pos',
+          contractSigned: false,
           services: servicesDraft,
           startDate,
           endDate: fallbackEndDate,
@@ -856,7 +915,7 @@ function ActivitiesPaymentsPage() {
         ? existingPlan.installments
         : fallbackInstallments
     setPlanDraft({ ...baseDraft, installments })
-    setIsEnrollmentFeeCovered(isCoveredByActiveEnrollment && safeAmount(baseDraft.enrollmentFee) === 0)
+    setIsEnrollmentFeeCovered(enrollmentFeeDecision.isCovered && safeAmount(baseDraft.enrollmentFee) === 0)
     setNewServiceOptionKey('')
     setActivePlanItemKey(item.key)
   }
@@ -967,6 +1026,7 @@ function ActivitiesPaymentsPage() {
           amount: safeAmount(item.amount),
         })),
         selectedPaymentMethodCode: planDraft.selectedPaymentMethodCode,
+        contractSigned: planDraft.contractSigned,
         frequency: activePlanPackage.paymentFrequency as PackagePaymentFrequency,
         recurringEnabled: activePlanPackage.recurringPaymentEnabled,
         startDate: planDraft.startDate,
@@ -1303,7 +1363,7 @@ function ActivitiesPaymentsPage() {
                           {plan && packageItem ? (
                             <button
                               type="button"
-                              className="btn btn-xs btn-outline"
+                              className={`btn btn-xs ${plan.config.contractSigned ? 'btn-success' : 'btn-error'}`}
                               onClick={() => {
                                 void exportContractPdf(item, packageItem, plan)
                               }}
@@ -1473,10 +1533,19 @@ function ActivitiesPaymentsPage() {
                 {t(`utility.packages.paymentFrequency${activePlanPackage.paymentFrequency[0].toUpperCase()}${activePlanPackage.paymentFrequency.slice(1)}`)}
               </span>
             </div>
-            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-              <label className="form-control">
-                <span className="label-text mb-1 text-xs">{t('activitiesPayments.plan.enrollmentFee')}</span>
-                <input
+              <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+                <label className="label cursor-pointer justify-start gap-2 md:col-span-2">
+                  <input
+                    type="checkbox"
+                    className="checkbox checkbox-sm checkbox-primary"
+                    checked={planDraft.contractSigned}
+                    onChange={(event) => setPlanDraft((prev) => (prev ? { ...prev, contractSigned: event.target.checked } : prev))}
+                  />
+                  <span className="label-text">Contratto firmato</span>
+                </label>
+                <label className="form-control">
+                  <span className="label-text mb-1 text-xs">{t('activitiesPayments.plan.enrollmentFee')}</span>
+                  <input
                   type="number"
                   min={0}
                   className="input input-bordered w-full"

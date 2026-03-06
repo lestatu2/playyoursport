@@ -14,6 +14,7 @@ import {
   createPublicMinorRecord,
   findPublicClientByTaxCode,
   findPublicMinorByTaxCode,
+  type ParentRole,
 } from '../lib/public-customer-records'
 import { getProjectSettings, getProjectSettingsChangedEventName } from '../lib/project-settings'
 import { computeItalianTaxCode, findBirthPlaceCodeByName } from '../lib/tax-code'
@@ -61,6 +62,7 @@ type YouthDraft = {
   parentSecondaryPhone: string
   parentBirthDate: string
   parentBirthPlace: string
+  parentRole: ParentRole
   parentGender: 'M' | 'F'
   parentResidenceAddress: string
   parentTaxCode: string
@@ -143,6 +145,7 @@ const EMPTY_DRAFT: YouthDraft = {
   parentSecondaryPhone: '',
   parentBirthDate: '',
   parentBirthPlace: '',
+  parentRole: 'genitore',
   parentGender: 'F',
   parentResidenceAddress: '',
   parentTaxCode: '',
@@ -911,6 +914,7 @@ function PublicEnrollmentForm({
         parentSecondaryPhone: draft.parentSecondaryPhone,
         parentBirthDate: draft.parentBirthDate,
         parentBirthPlace: draft.parentBirthPlace,
+        parentRole: draft.parentRole,
         parentTaxCode: draft.parentTaxCode,
         residenceAddress: draft.parentResidenceAddress,
         consentEnrollmentAccepted: draft.consentEnrollmentAccepted,
@@ -920,6 +924,7 @@ function PublicEnrollmentForm({
         enrollmentConfirmationSignatureDataUrl: draft.enrollmentConfirmationSignatureDataUrl,
         parentTaxCodeImageDataUrl,
         parentIdentityDocumentImageDataUrl,
+        privacyPolicySigned: draft.privacyAccepted,
       })
 
       const createdMinor = createPublicMinorRecord({
@@ -1152,6 +1157,18 @@ function PublicEnrollmentForm({
                   <select className="select select-bordered w-full" value={draft.parentGender} onChange={(event) => setDraft((prev) => ({ ...prev, parentGender: event.target.value === 'M' ? 'M' : 'F' }))}>
                     <option value="F">F</option>
                     <option value="M">M</option>
+                  </select>
+                </label>
+                <label className="form-control">
+                  <span className="label-text mb-1 text-xs">Ruolo firmatario</span>
+                  <select
+                    className="select select-bordered w-full"
+                    value={draft.parentRole}
+                    onChange={(event) => setDraft((prev) => ({ ...prev, parentRole: event.target.value as ParentRole }))}
+                  >
+                    <option value="genitore">Genitore</option>
+                    <option value="tutore">Tutore</option>
+                    <option value="esercente_responsabilita">Esercente responsabilita</option>
                   </select>
                 </label>
                 <label className="form-control md:col-span-2">

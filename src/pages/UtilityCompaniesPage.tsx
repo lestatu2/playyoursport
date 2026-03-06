@@ -16,19 +16,39 @@ import {
 
 type ConsentTab = 'minors' | 'adults' | 'information' | 'data-processing'
 
-function UtilityCompaniesPage() {
-  const { t } = useTranslation()
-  const [companies, setCompanies] = useState<Company[]>(() => getCompanies())
-  const [isModalOpen, setIsModalOpen] = useState(false)
-  const [modalMode, setModalMode] = useState<'create' | 'edit'>('create')
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [activeConsentTab, setActiveConsentTab] = useState<ConsentTab>('minors')
-  const [draft, setDraft] = useState<SaveCompanyPayload>({
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '')
+    reader.onerror = () => reject(new Error('file_read_error'))
+    reader.readAsDataURL(file)
+  })
+}
+
+function buildEmptyDraft(): SaveCompanyPayload {
+  return {
     title: '',
     headquartersAddress: '',
+    headquartersCity: '',
+    headquartersPostalCode: '',
+    headquartersProvince: '',
+    headquartersCountry: 'Italia',
     googlePlaceId: '',
+    phone: '',
     vatNumber: '',
     iban: '',
+    pecEmail: '',
+    sdiCode: '',
+    legalForm: '',
+    registrationNumber: '',
+    federationAffiliation: '',
+    legalRepresentativeFirstName: '',
+    legalRepresentativeLastName: '',
+    legalRepresentativeTaxCode: '',
+    legalRepresentativeRole: '',
+    contractSignaturePlace: '',
+    contractSignerDisplayName: '',
+    delegateSignatureDataUrl: '',
     paypalEnabled: false,
     paypalClientId: '',
     email: '',
@@ -36,7 +56,17 @@ function UtilityCompaniesPage() {
     consentAdults: '',
     consentInformationNotice: '',
     consentDataProcessing: '',
-  })
+  }
+}
+
+function UtilityCompaniesPage() {
+  const { t } = useTranslation()
+  const [companies, setCompanies] = useState<Company[]>(() => getCompanies())
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [modalMode, setModalMode] = useState<'create' | 'edit'>('create')
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [activeConsentTab, setActiveConsentTab] = useState<ConsentTab>('minors')
+  const [draft, setDraft] = useState<SaveCompanyPayload>(() => buildEmptyDraft())
   const [message, setMessage] = useState('')
   const [isError, setIsError] = useState(false)
   const packageCatalogEvent = getPackageCatalogChangedEventName()
@@ -50,20 +80,7 @@ function UtilityCompaniesPage() {
   }, [packageCatalogEvent])
 
   const openCreateModal = () => {
-    setDraft({
-      title: '',
-      headquartersAddress: '',
-      googlePlaceId: '',
-      vatNumber: '',
-      iban: '',
-      paypalEnabled: false,
-      paypalClientId: '',
-      email: '',
-      consentMinors: '',
-      consentAdults: '',
-      consentInformationNotice: '',
-      consentDataProcessing: '',
-    })
+    setDraft(buildEmptyDraft())
     setModalMode('create')
     setEditingId(null)
     setActiveConsentTab('minors')
@@ -74,9 +91,26 @@ function UtilityCompaniesPage() {
     setDraft({
       title: company.title,
       headquartersAddress: company.headquartersAddress,
+      headquartersCity: company.headquartersCity,
+      headquartersPostalCode: company.headquartersPostalCode,
+      headquartersProvince: company.headquartersProvince,
+      headquartersCountry: company.headquartersCountry,
       googlePlaceId: company.googlePlaceId,
+      phone: company.phone,
       vatNumber: company.vatNumber,
       iban: company.iban,
+      pecEmail: company.pecEmail,
+      sdiCode: company.sdiCode,
+      legalForm: company.legalForm,
+      registrationNumber: company.registrationNumber,
+      federationAffiliation: company.federationAffiliation,
+      legalRepresentativeFirstName: company.legalRepresentativeFirstName,
+      legalRepresentativeLastName: company.legalRepresentativeLastName,
+      legalRepresentativeTaxCode: company.legalRepresentativeTaxCode,
+      legalRepresentativeRole: company.legalRepresentativeRole,
+      contractSignaturePlace: company.contractSignaturePlace,
+      contractSignerDisplayName: company.contractSignerDisplayName,
+      delegateSignatureDataUrl: company.delegateSignatureDataUrl,
       paypalEnabled: company.paypalEnabled,
       paypalClientId: company.paypalClientId,
       email: company.email,
@@ -246,7 +280,7 @@ function UtilityCompaniesPage() {
 
       {isModalOpen && (
         <dialog className="modal modal-open">
-          <div className="modal-box h-screen w-screen max-w-none space-y-4 rounded-none">
+          <div className="modal-box w-11/12 max-w-6xl space-y-4">
             <h3 className="text-lg font-semibold">
               {modalMode === 'create' ? t('utility.companies.create') : t('utility.categories.saveEdit')}
             </h3>
@@ -270,6 +304,24 @@ function UtilityCompaniesPage() {
                 />
               </label>
 
+              <label className="form-control">
+                <span className="label-text mb-1 text-xs">{t('utility.companies.pecEmailLabel')}</span>
+                <input
+                  className="input input-bordered w-full"
+                  value={draft.pecEmail}
+                  onChange={(event) => setDraft((prev) => ({ ...prev, pecEmail: event.target.value }))}
+                />
+              </label>
+
+              <label className="form-control">
+                <span className="label-text mb-1 text-xs">{t('utility.companies.phoneLabel')}</span>
+                <input
+                  className="input input-bordered w-full"
+                  value={draft.phone}
+                  onChange={(event) => setDraft((prev) => ({ ...prev, phone: event.target.value }))}
+                />
+              </label>
+
               <label className="form-control md:col-span-2">
                 <span className="label-text mb-1 text-xs">{t('utility.companies.addressLabel')}</span>
                 <input
@@ -279,6 +331,62 @@ function UtilityCompaniesPage() {
                     setDraft((prev) => ({
                       ...prev,
                       headquartersAddress: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+
+              <label className="form-control">
+                <span className="label-text mb-1 text-xs">{t('utility.companies.cityLabel')}</span>
+                <input
+                  className="input input-bordered w-full"
+                  value={draft.headquartersCity}
+                  onChange={(event) =>
+                    setDraft((prev) => ({
+                      ...prev,
+                      headquartersCity: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+
+              <label className="form-control">
+                <span className="label-text mb-1 text-xs">{t('utility.companies.postalCodeLabel')}</span>
+                <input
+                  className="input input-bordered w-full"
+                  value={draft.headquartersPostalCode}
+                  onChange={(event) =>
+                    setDraft((prev) => ({
+                      ...prev,
+                      headquartersPostalCode: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+
+              <label className="form-control">
+                <span className="label-text mb-1 text-xs">{t('utility.companies.provinceLabel')}</span>
+                <input
+                  className="input input-bordered w-full"
+                  value={draft.headquartersProvince}
+                  onChange={(event) =>
+                    setDraft((prev) => ({
+                      ...prev,
+                      headquartersProvince: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+
+              <label className="form-control">
+                <span className="label-text mb-1 text-xs">{t('utility.companies.countryLabel')}</span>
+                <input
+                  className="input input-bordered w-full"
+                  value={draft.headquartersCountry}
+                  onChange={(event) =>
+                    setDraft((prev) => ({
+                      ...prev,
+                      headquartersCountry: event.target.value,
                     }))
                   }
                 />
@@ -299,6 +407,15 @@ function UtilityCompaniesPage() {
               </label>
 
               <label className="form-control">
+                <span className="label-text mb-1 text-xs">{t('utility.companies.legalFormLabel')}</span>
+                <input
+                  className="input input-bordered w-full"
+                  value={draft.legalForm}
+                  onChange={(event) => setDraft((prev) => ({ ...prev, legalForm: event.target.value }))}
+                />
+              </label>
+
+              <label className="form-control">
                 <span className="label-text mb-1 text-xs">{t('utility.companies.vatLabel')}</span>
                 <input
                   className="input input-bordered w-full"
@@ -314,6 +431,126 @@ function UtilityCompaniesPage() {
                   value={draft.iban}
                   onChange={(event) => setDraft((prev) => ({ ...prev, iban: event.target.value }))}
                 />
+              </label>
+
+              <label className="form-control">
+                <span className="label-text mb-1 text-xs">{t('utility.companies.sdiCodeLabel')}</span>
+                <input
+                  className="input input-bordered w-full"
+                  value={draft.sdiCode}
+                  onChange={(event) => setDraft((prev) => ({ ...prev, sdiCode: event.target.value }))}
+                />
+              </label>
+
+              <label className="form-control">
+                <span className="label-text mb-1 text-xs">{t('utility.companies.registrationNumberLabel')}</span>
+                <input
+                  className="input input-bordered w-full"
+                  value={draft.registrationNumber}
+                  onChange={(event) => setDraft((prev) => ({ ...prev, registrationNumber: event.target.value }))}
+                />
+              </label>
+
+              <label className="form-control md:col-span-2">
+                <span className="label-text mb-1 text-xs">{t('utility.companies.federationAffiliationLabel')}</span>
+                <input
+                  className="input input-bordered w-full"
+                  value={draft.federationAffiliation}
+                  onChange={(event) => setDraft((prev) => ({ ...prev, federationAffiliation: event.target.value }))}
+                />
+              </label>
+
+              <label className="form-control">
+                <span className="label-text mb-1 text-xs">{t('utility.companies.legalRepresentativeFirstNameLabel')}</span>
+                <input
+                  className="input input-bordered w-full"
+                  value={draft.legalRepresentativeFirstName}
+                  onChange={(event) =>
+                    setDraft((prev) => ({ ...prev, legalRepresentativeFirstName: event.target.value }))
+                  }
+                />
+              </label>
+
+              <label className="form-control">
+                <span className="label-text mb-1 text-xs">{t('utility.companies.legalRepresentativeLastNameLabel')}</span>
+                <input
+                  className="input input-bordered w-full"
+                  value={draft.legalRepresentativeLastName}
+                  onChange={(event) =>
+                    setDraft((prev) => ({ ...prev, legalRepresentativeLastName: event.target.value }))
+                  }
+                />
+              </label>
+
+              <label className="form-control">
+                <span className="label-text mb-1 text-xs">{t('utility.companies.legalRepresentativeTaxCodeLabel')}</span>
+                <input
+                  className="input input-bordered w-full"
+                  value={draft.legalRepresentativeTaxCode}
+                  onChange={(event) =>
+                    setDraft((prev) => ({ ...prev, legalRepresentativeTaxCode: event.target.value }))
+                  }
+                />
+              </label>
+
+              <label className="form-control">
+                <span className="label-text mb-1 text-xs">{t('utility.companies.legalRepresentativeRoleLabel')}</span>
+                <input
+                  className="input input-bordered w-full"
+                  value={draft.legalRepresentativeRole}
+                  onChange={(event) =>
+                    setDraft((prev) => ({ ...prev, legalRepresentativeRole: event.target.value }))
+                  }
+                />
+              </label>
+
+              <label className="form-control">
+                <span className="label-text mb-1 text-xs">{t('utility.companies.contractSignaturePlaceLabel')}</span>
+                <input
+                  className="input input-bordered w-full"
+                  value={draft.contractSignaturePlace}
+                  onChange={(event) =>
+                    setDraft((prev) => ({ ...prev, contractSignaturePlace: event.target.value }))
+                  }
+                />
+              </label>
+
+              <label className="form-control">
+                <span className="label-text mb-1 text-xs">{t('utility.companies.contractSignerDisplayNameLabel')}</span>
+                <input
+                  className="input input-bordered w-full"
+                  value={draft.contractSignerDisplayName}
+                  onChange={(event) =>
+                    setDraft((prev) => ({ ...prev, contractSignerDisplayName: event.target.value }))
+                  }
+                />
+              </label>
+              <label className="form-control md:col-span-2">
+                <span className="label-text mb-1 text-xs">{t('utility.companies.delegateSignatureLabel')}</span>
+                <input
+                  type="file"
+                  className="file-input file-input-bordered w-full"
+                  accept="image/*"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0] ?? null
+                    if (!file) {
+                      return
+                    }
+                    void readFileAsDataUrl(file).then((dataUrl) => {
+                      setDraft((prev) => ({ ...prev, delegateSignatureDataUrl: dataUrl }))
+                    })
+                    event.currentTarget.value = ''
+                  }}
+                />
+                {draft.delegateSignatureDataUrl ? (
+                  <div className="mt-2 rounded border border-base-300 p-2">
+                    <img
+                      src={draft.delegateSignatureDataUrl}
+                      alt={t('utility.companies.delegateSignaturePreviewAlt')}
+                      className="max-h-24 object-contain"
+                    />
+                  </div>
+                ) : null}
               </label>
 
               <label className="label cursor-pointer justify-start gap-3 rounded-lg border border-base-300 px-3 py-2">

@@ -285,6 +285,9 @@ function PackagesPage() {
   >('general-info')
   const [paymentCurrency, setPaymentCurrency] = useState(() => getProjectSettings().paymentCurrency || 'EUR')
   const [googleMapsApiKey, setGoogleMapsApiKey] = useState(() => getProjectSettings().googleMapsApiKey || '')
+  const [availableContractSpecialClauses, setAvailableContractSpecialClauses] = useState(
+    () => getProjectSettings().contractSpecialClauses.filter((item) => item.isActive),
+  )
   const [draft, setDraft] = useState<SavePackagePayload>({
     productId: '',
     editionYear: currentYear,
@@ -322,6 +325,7 @@ function PackagesPage() {
     userSelectableSchedule: false,
     contractHeaderImage: '',
     contractHeaderText: '',
+    contractSpecialClauseIds: [],
     contractRegulation: '',
     featuredImage: '',
     isFeatured: false,
@@ -443,6 +447,7 @@ function PackagesPage() {
       const settings = getProjectSettings()
       setPaymentCurrency(settings.paymentCurrency || 'EUR')
       setGoogleMapsApiKey(settings.googleMapsApiKey || '')
+      setAvailableContractSpecialClauses(settings.contractSpecialClauses.filter((item) => item.isActive))
     }
     window.addEventListener(projectSettingsEvent, handleProjectSettingsChange)
     return () => window.removeEventListener(projectSettingsEvent, handleProjectSettingsChange)
@@ -576,6 +581,7 @@ function PackagesPage() {
       userSelectableSchedule: false,
       contractHeaderImage: '',
       contractHeaderText: '',
+      contractSpecialClauseIds: [],
       contractRegulation: '',
       featuredImage: '',
       isFeatured: false,
@@ -633,6 +639,7 @@ function PackagesPage() {
       userSelectableSchedule: item.userSelectableSchedule ?? false,
       contractHeaderImage: item.contractHeaderImage ?? '',
       contractHeaderText: item.contractHeaderText ?? '',
+      contractSpecialClauseIds: item.contractSpecialClauseIds ?? [],
       contractRegulation: item.contractRegulation ?? '',
       featuredImage: item.featuredImage,
       isFeatured: item.isFeatured ?? false,
@@ -2983,6 +2990,39 @@ function PackagesPage() {
                         placeholder={t('utility.packages.contractHeaderTextPlaceholder')}
                       />
                     </label>
+
+                    <div className="rounded-lg border border-base-300 p-3">
+                      <p className="mb-2 text-xs font-medium">Clausole speciali associate</p>
+                      {availableContractSpecialClauses.length === 0 ? (
+                        <p className="text-sm opacity-70">Nessuna clausola speciale attiva in configurazione.</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {availableContractSpecialClauses.map((clause) => (
+                            <label
+                              key={clause.id}
+                              className="label cursor-pointer justify-start gap-3 rounded border border-base-300 px-3 py-2"
+                            >
+                              <input
+                                type="checkbox"
+                                className="checkbox checkbox-primary checkbox-sm"
+                                checked={draft.contractSpecialClauseIds.includes(clause.id)}
+                                onChange={(event) =>
+                                  setDraft((prev) => ({
+                                    ...prev,
+                                    contractSpecialClauseIds: event.target.checked
+                                      ? Array.from(new Set([...prev.contractSpecialClauseIds, clause.id]))
+                                      : prev.contractSpecialClauseIds.filter((item) => item !== clause.id),
+                                  }))
+                                }
+                              />
+                              <span className="label-text">
+                                <span className="block font-medium">{clause.title}</span>
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                    </div>
 
                     <div className="form-control">
                       <span className="label-text mb-1 text-xs">{t('utility.packages.contractRegulationLabel')}</span>

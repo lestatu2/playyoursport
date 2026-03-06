@@ -40,6 +40,7 @@ export type ActivityPaymentPlan = {
     startDate: string
     endDate: string
     selectedPaymentMethodCode?: string
+    contractSigned?: boolean
   }
   installments: PaymentInstallment[]
 }
@@ -142,6 +143,7 @@ function normalizePlan(plan: ActivityPaymentPlan): ActivityPaymentPlan {
       variableServicesAmount: normalizeAmount(plan.config.variableServicesAmount),
       services,
       selectedPaymentMethodCode,
+      contractSigned: Boolean(plan.config.contractSigned),
       recurringEnabled: Boolean(plan.config.recurringEnabled),
       startDate: plan.config.startDate,
       endDate: plan.config.endDate,

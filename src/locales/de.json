@@ -50,7 +50,8 @@
     "utilityEnrollments": "Anmeldungen",
     "utilityAdditionalServices": "Zusatzleistungen",
     "utilityWhatsAppAccounts": "WhatsApp-Accounts",
-    "utilityPaymentMethods": "Zahlungsmethoden"
+    "utilityPaymentMethods": "Zahlungsmethoden",
+    "utilityContracts": "Vertraege"
   },
   "clients": {
     "title": "Kunden",
@@ -83,6 +84,9 @@
     "validationFilter": "Validierungsfilter",
     "allStatuses": "Alle Status",
     "actions": "Aktionen",
+    "downloadConsents": "Einwilligungen herunterladen",
+    "consentsNoLinkedMinor": "Kein verknuepfter Minderjaehriger zur Erstellung der Einwilligungen verfuegbar.",
+    "consentsDownloadError": "Fehler beim Herunterladen der Einwilligungen.",
     "validated": "Validiert",
     "notValidated": "Nicht validiert",
     "markValidated": "Als validiert markieren",
@@ -286,6 +290,10 @@
       "subjectDataMissing": "Dati soggetto mancanti per generare il contratto.",
       "downloadError": "Errore durante la generazione del contratto PDF."
     },
+    "consents": {
+      "download": "Consensi PDF",
+      "downloadError": "Errore durante la generazione del PDF consensi."
+    },
     "period": {
       "current": "Corrente",
       "total": "Totale"
@@ -321,7 +329,8 @@
       "users": "Benutzer",
       "styling": "Design",
       "language": "Sprache",
-      "payments": "Zahlungen"
+      "payments": "Zahlungen",
+      "contract": "Vertrag"
     },
     "users": {
       "title": "Rollenbezeichnungen",
@@ -364,9 +373,60 @@
       "currencyLabel": "Waehrung",
       "saved": "Zahlungseinstellungen gespeichert.",
       "invalidCurrency": "Ungueltige Waehrung."
+    },
+    "contract": {
+      "title": "Vertragsgegenstand",
+      "description": "Definiere den rechtlichen Basistekst des Vertrags und nutze dynamische Variablen.",
+      "baseTemplateLabel": "Rechtliche Basisschablone",
+      "economicClausesLabel": "Wirtschaftliche Klauseln (Raten, Verzug, Aussetzungen, Erstattungen, Ruecktritt)",
+      "servicesClausesLabel": "Klauseln zu Services und Nachberechnungen nach Validierung",
+      "variablesLabel": "Verfuegbare Variablen",
+      "insertVariable": "Variable einfuegen",
+      "invalidTemplate": "Bitte eine gueltige Vertragsschablone eingeben.",
+      "invalidEconomicClauses": "Bitte gueltige wirtschaftliche Klauseln eingeben.",
+      "invalidServicesClauses": "Bitte gueltige Klauseln fuer Services und Nachberechnungen eingeben.",
+      "saved": "Vertragskonfiguration gespeichert.",
+      "variables": {
+        "packageName": "Paketname",
+        "packageEditionYear": "Paket-Editionsjahr",
+        "packagePeriod": "Paketzeitraum",
+        "trainingAddress": "Trainingsadresse",
+        "companyTitle": "Unternehmensname",
+        "athleteFullName": "Vollstaendiger Name Athlet",
+        "athleteBirthDate": "Geburtsdatum Athlet",
+        "guardianFullName": "Vollstaendiger Name Elternteil/Vormund"
+      }
     }
   },
   "utility": {
+    "contracts": {
+      "title": "Vertraege",
+      "description": "Vertragskonfiguration mit getrennten Abschnitten.",
+      "tabs": {
+        "subject": "Gegenstand",
+        "economic": "Wirtschaftliche Regeln",
+        "services": "Services und Anpassungen",
+        "special": "Besondere Klauseln",
+        "variables": "Variablen"
+      },
+      "specialFormula": "Formel zur Genehmigung besonderer Klauseln",
+      "specialList": "Verfuegbare besondere Klauseln",
+      "targetLabel": "Variable einfuegen in",
+      "targetHint": "Variablen sind in allen Bereichen nutzbar.",
+      "targets": {
+        "subject": "Vertragsgegenstand",
+        "economic": "Wirtschaftliche Regeln",
+        "services": "Services und Anpassungen",
+        "specialFormula": "Formel besondere Klauseln",
+        "specialClause": "Text besondere Klausel"
+      },
+      "addSpecial": "Klausel hinzufuegen",
+      "emptySpecial": "Keine besondere Klausel konfiguriert.",
+      "specialTitle": "Klauseltitel",
+      "specialText": "Klauseltext",
+      "removeSpecial": "Klausel entfernen",
+      "active": "Aktiv"
+    },
     "packages": {
       "title": "Pakete",
       "description": "Grundkonfiguration des Pakets.",
@@ -536,9 +596,27 @@
       "create": "Unternehmen erstellen",
       "titleLabel": "Titel",
       "addressLabel": "Sitzadresse",
+      "cityLabel": "Stadt",
+      "postalCodeLabel": "Postleitzahl",
+      "provinceLabel": "Provinz",
+      "countryLabel": "Land",
       "googleIdentifierLabel": "Google-Identifier",
+      "phoneLabel": "Telefon",
       "vatLabel": "USt-IdNr",
       "ibanLabel": "IBAN",
+      "pecEmailLabel": "PEC-E-Mail",
+      "sdiCodeLabel": "SDI-Code",
+      "legalFormLabel": "Rechtsform",
+      "registrationNumberLabel": "Registernummer",
+      "federationAffiliationLabel": "Verband/Foederation",
+      "legalRepresentativeFirstNameLabel": "Vorname gesetzlicher Vertreter",
+      "legalRepresentativeLastNameLabel": "Nachname gesetzlicher Vertreter",
+      "legalRepresentativeTaxCodeLabel": "Steuercode gesetzlicher Vertreter",
+      "legalRepresentativeRoleLabel": "Rolle gesetzlicher Vertreter",
+      "contractSignaturePlaceLabel": "Ort der Vertragsunterzeichnung",
+      "contractSignerDisplayNameLabel": "Angezeigter Vertragsunterzeichner",
+      "delegateSignatureLabel": "Unterschrift Bevollmaechtigter (Bild)",
+      "delegateSignaturePreviewAlt": "Vorschau Unterschrift Bevollmaechtigter",
       "paypalLabel": "PayPal",
       "paypalClientIdLabel": "PayPal Client ID",
       "emailLabel": "E-Mail",
@@ -630,6 +708,9 @@
       "create": "Versicherung erstellen",
       "titleLabel": "Titel",
       "descriptionLabel": "Beschreibung",
+      "coverageTextLabel": "Versicherungsdeckungen",
+      "exclusionsTextLabel": "Versicherungsausschluesse",
+      "durationTextLabel": "Dauer und Gueltigkeit",
       "activeLabel": "Aktiv",
       "empty": "Keine Versicherung verfuegbar.",
       "created": "Versicherung erfolgreich erstellt.",

@@ -67,6 +67,36 @@ function safeCurrency(value) {
   return safe.toFixed(2)
 }
 
+function formatItDate(value) {
+  if (!value) {
+    return '-'
+  }
+  const direct = String(value).trim()
+  if (/^\d{4}-\d{2}-\d{2}$/.test(direct)) {
+    const [yy, mm, dd] = direct.split('-')
+    return `${dd}/${mm}/${yy}`
+  }
+  const parsed = new Date(direct)
+  if (Number.isNaN(parsed.getTime())) {
+    return direct
+  }
+  return parsed.toLocaleDateString('it-IT')
+}
+
+function splitResidenceAddress(address) {
+  const raw = String(address ?? '').trim()
+  if (!raw) {
+    return { city: '-', street: '-', number: '-' }
+  }
+  const parts = raw.split(',').map((item) => item.trim()).filter(Boolean)
+  const city = parts[0] || '-'
+  const streetPart = parts[1] || parts[0] || '-'
+  const streetMatch = streetPart.match(/^(.*?)(?:\s+n\.?\s*([A-Za-z0-9/-]+))?$/i)
+  const street = (streetMatch?.[1] || streetPart).trim() || '-'
+  const number = (streetMatch?.[2] || '').trim() || '-'
+  return { city, street, number }
+}
+
 function paymentMethodLabel(code) {
   if (code === 'bank_transfer') {
     return 'Bonifico bancario'
@@ -77,55 +107,66 @@ function paymentMethodLabel(code) {
   return 'In sede'
 }
 
-function buildPartyRows(party) {
-  return `
-    <tr><th>Nome</th><td>${escapeHtml(party.firstName)}</td></tr>
-    <tr><th>Cognome</th><td>${escapeHtml(party.lastName)}</td></tr>
-    <tr><th>Data di nascita</th><td>${escapeHtml(party.birthDate)}</td></tr>
-    <tr><th>Luogo di nascita</th><td>${escapeHtml(party.birthPlace)}</td></tr>
-    <tr><th>Codice fiscale</th><td>${escapeHtml(party.taxCode)}</td></tr>
-    <tr><th>Residenza</th><td>${escapeHtml(party.residenceAddress)}</td></tr>
-    ${
-      party.email
-        ? `<tr><th>Email</th><td>${escapeHtml(party.email)}</td></tr>`
-        : ''
-    }
-    ${
-      party.phone
-        ? `<tr><th>Telefono</th><td>${escapeHtml(party.phone)}</td></tr>`
-        : ''
-    }
-  `
+function resolveSignerRoleLabel(value) {
+  if (value === 'tutore') {
+    return 'tutore'
+  }
+  if (value === 'esercente_responsabilita') {
+    return 'esercente la responsabilita genitoriale'
+  }
+  if (value === 'contraente') {
+    return 'contraente'
+  }
+  return 'genitore'
 }
 
-function buildSignatureBox(label) {
-  return `
-    <div class="signature-box">
-      <p class="signature-label">${escapeHtml(label)}</p>
-      <div class="signature-line"></div>
-    </div>
-  `
+function formatPackagePeriod(pkg) {
+  if (pkg.durationType === 'period') {
+    return `${formatItDate(pkg.periodStartDate)} - ${formatItDate(pkg.periodEndDate)}`
+  }
+  const time = pkg.eventTime ? ` ore ${escapeHtml(pkg.eventTime)}` : ''
+  return `${formatItDate(pkg.eventDate)}${time}`
+}
+
+function applyContractTemplate(template, variables) {
+  const source = String(template || '')
+  return source.replace(/\{\{\s*([a-z0-9_]+)\s*\}\}/gi, (_, token) => {
+    const key = `{{${token.toLowerCase()}}}`
+    return variables[key] ?? ''
+  })
 }
 
 function buildContractHtml(payload) {
-  const totalInstallments = (payload.plan.installments || []).reduce(
-    (sum, item) => sum + (Number.isFinite(item.amount) ? Number(item.amount) : 0),
-    0,
-  )
-  const activeServices = (payload.plan.services || []).filter((item) => item.enabled)
   const subjectIsMinor = payload.subject.kind === 'minor'
-  const athleteLabel = subjectIsMinor ? 'Atleta minore' : 'Atleta'
-  const signerLabel = subjectIsMinor ? 'Firma genitore' : 'Firma atleta'
-  const signerName = subjectIsMinor
-    ? `${payload.subject.guardian?.firstName || ''} ${payload.subject.guardian?.lastName || ''}`.trim()
-    : `${payload.subject.athlete.firstName} ${payload.subject.athlete.lastName}`.trim()
+  const guardian = payload.subject.guardian || {}
+  const athlete = payload.subject.athlete || {}
+  const contraente = subjectIsMinor ? guardian : athlete
+  const contraenteFullName = `${contraente.firstName || ''} ${contraente.lastName || ''}`.trim()
+  const athleteFullName = `${athlete.firstName || ''} ${athlete.lastName || ''}`.trim()
+  const packagePeriod = formatPackagePeriod(payload.package)
+  const signerRoleLabel = resolveSignerRoleLabel(payload.subject.signerRole)
+  const place = payload.company.contractSignaturePlace || payload.company.headquartersCity || '-'
+  const today = formatItDate(new Date().toISOString())
 
-  const periodLabel =
-    payload.package.durationType === 'period'
-      ? `${escapeHtml(payload.package.periodStartDate)} - ${escapeHtml(payload.package.periodEndDate)}`
-      : `${escapeHtml(payload.package.eventDate)} ${payload.package.eventTime ? `ore ${escapeHtml(payload.package.eventTime)}` : ''}`
+  const variables = {
+    '{{package_name}}': escapeHtml(payload.package.name || ''),
+    '{{package_edition_year}}': escapeHtml(String(payload.package.editionYear || '')),
+    '{{package_period}}': escapeHtml(packagePeriod),
+    '{{training_address}}': escapeHtml(payload.package.trainingAddress || ''),
+    '{{company_title}}': escapeHtml(payload.company.title || ''),
+    '{{athlete_full_name}}': escapeHtml(athleteFullName),
+    '{{athlete_birth_date}}': escapeHtml(formatItDate(athlete.birthDate || '')),
+    '{{guardian_full_name}}': escapeHtml(`${guardian.firstName || ''} ${guardian.lastName || ''}`.trim()),
+  }
 
-  const mainConsentHtml = subjectIsMinor
+  const subjectHtml = applyContractTemplate(payload.contractConfig.subjectTemplate, variables)
+  const economicHtml = sanitizeRichHtml(payload.contractConfig.economicClausesTemplate)
+  const servicesHtml = sanitizeRichHtml(payload.contractConfig.servicesAdjustmentTemplate)
+  const specialFormulaHtml = sanitizeRichHtml(payload.contractConfig.specialClausesFormula)
+  const specialClauses = Array.isArray(payload.package.contractSpecialClauses)
+    ? payload.package.contractSpecialClauses
+    : []
+  const specificConsentsHtml = subjectIsMinor
     ? sanitizeRichHtml(payload.company.consentMinors)
     : sanitizeRichHtml(payload.company.consentAdults)
 
@@ -141,20 +182,13 @@ function buildContractHtml(payload) {
         p { margin: 0 0 6px; line-height: 1.4; }
         .header { margin-bottom: 16px; }
         .header img { max-width: 100%; max-height: 110px; object-fit: contain; margin-bottom: 8px; }
-        .card { border: 1px solid #d1d5db; border-radius: 8px; padding: 10px; margin-bottom: 10px; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .table { width: 100%; border-collapse: collapse; margin-top: 6px; }
-        .table th, .table td { border: 1px solid #d1d5db; padding: 6px; text-align: left; vertical-align: top; }
-        .table th { width: 34%; background: #f9fafb; }
-        .section-title { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
-        .sub-title { font-size: 13px; font-weight: 700; margin: 4px 0 6px; }
-        .muted { color: #6b7280; }
-        .service-chip { display: inline-block; padding: 2px 8px; border: 1px solid #d1d5db; border-radius: 999px; margin: 0 6px 6px 0; font-size: 11px; }
-        .signature-box { margin-top: 10px; }
-        .signature-label { font-size: 11px; margin-bottom: 18px; }
-        .signature-line { border-bottom: 1px solid #111827; height: 22px; width: 100%; }
-        .consent-block { margin-top: 10px; padding-top: 8px; border-top: 1px dashed #cbd5e1; }
-        .footer-space { margin-top: 14px; }
+        .section { border: 1px solid #d1d5db; border-radius: 8px; padding: 10px; margin-bottom: 10px; }
+        .section-title { font-size: 14px; font-weight: 700; margin-bottom: 8px; }
+        .list { margin: 0; padding-left: 18px; }
+        .list li { margin: 0 0 4px; line-height: 1.4; }
+        .signatures { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 16px; }
+        .signature-line { margin-top: 30px; border-bottom: 1px solid #111827; height: 1px; }
+        .small { font-size: 11px; color: #6b7280; }
       </style>
     </head>
     <body>
@@ -167,116 +201,160 @@ function buildContractHtml(payload) {
         ${sanitizeRichHtml(payload.package.contractHeaderText)}
       </div>
 
-      <div class="card">
-        <h2 class="section-title">Dati contratto</h2>
-        <table class="table">
-          <tbody>
-            <tr><th>Attività</th><td>${escapeHtml(payload.package.name)}</td></tr>
-            <tr><th>Periodo attività</th><td>${periodLabel}</td></tr>
-            <tr><th>Luogo attività</th><td>${escapeHtml(payload.package.trainingAddress)}</td></tr>
-            <tr><th>Azienda</th><td>${escapeHtml(payload.company.title)}</td></tr>
-            <tr><th>Sede legale</th><td>${escapeHtml(payload.company.headquartersAddress)}</td></tr>
-            <tr><th>P.IVA</th><td>${escapeHtml(payload.company.vatNumber)}</td></tr>
-            <tr><th>Email azienda</th><td>${escapeHtml(payload.company.email)}</td></tr>
-            <tr><th>IBAN</th><td>${escapeHtml(payload.company.iban)}</td></tr>
-            <tr><th>Data richiesta</th><td>${escapeHtml(payload.activity.createdAt)}</td></tr>
-            <tr><th>Metodo pagamento preferito</th><td>${escapeHtml(paymentMethodLabel(payload.plan.selectedPaymentMethodCode))}</td></tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="grid">
-        <div class="card">
-          <h3 class="sub-title">${athleteLabel}</h3>
-          <table class="table"><tbody>${buildPartyRows(payload.subject.athlete)}</tbody></table>
-        </div>
+      <div class="section">
+        <h2 class="section-title">Dati identificativi delle parti</h2>
+        <p><strong>Societa sportiva:</strong> ${escapeHtml(payload.company.title)} (${escapeHtml(payload.company.legalForm || '-')}) con sede in ${escapeHtml(payload.company.headquartersAddress)}, ${escapeHtml(payload.company.headquartersCity)} (${escapeHtml(payload.company.headquartersProvince)}), CAP ${escapeHtml(payload.company.headquartersPostalCode)}, ${escapeHtml(payload.company.headquartersCountry)}; P.IVA/CF ${escapeHtml(payload.company.vatNumber)}; e-mail ${escapeHtml(payload.company.email)}; PEC ${escapeHtml(payload.company.pecEmail || '-')}; rappresentante legale ${escapeHtml(payload.company.legalRepresentativeFullName)} (${escapeHtml(payload.company.legalRepresentativeRole || '-')}).</p>
+        <p><strong>Contraente (${escapeHtml(signerRoleLabel)}):</strong> ${escapeHtml(contraenteFullName || '-')} nato a ${escapeHtml(contraente.birthPlace || '-')} il ${escapeHtml(formatItDate(contraente.birthDate || ''))}, residente in ${escapeHtml(contraente.residenceAddress || '-')}, CF ${escapeHtml(contraente.taxCode || '-')}, e-mail ${escapeHtml(contraente.email || '-')}, telefono ${escapeHtml(contraente.phone || '-')}.</p>
         ${
           subjectIsMinor
-            ? `
-              <div class="card">
-                <h3 class="sub-title">Genitore / Firmatario</h3>
-                <table class="table"><tbody>${buildPartyRows(payload.subject.guardian || {})}</tbody></table>
-              </div>
-            `
+            ? `<p><strong>Atleta minore:</strong> ${escapeHtml(athleteFullName || '-')} nato a ${escapeHtml(athlete.birthPlace || '-')} il ${escapeHtml(formatItDate(athlete.birthDate || ''))}, residente in ${escapeHtml(athlete.residenceAddress || '-')}, CF ${escapeHtml(athlete.taxCode || '-')}.</p>`
             : ''
         }
+        <p><strong>Ordine:</strong> ${escapeHtml(payload.activity.orderNumber || payload.activity.key)} - <strong>Pacchetto:</strong> ${escapeHtml(payload.package.name)} (edizione ${escapeHtml(String(payload.package.editionYear || '-'))}) - <strong>Periodo:</strong> ${escapeHtml(packagePeriod)}.</p>
       </div>
 
-      <div class="card">
-        <h3 class="sub-title">Riepilogo economico</h3>
-        <p><strong>Costo iscrizione:</strong> ${safeCurrency(payload.plan.enrollmentFee)} EUR</p>
-        <p><strong>Costo ricorrente:</strong> ${safeCurrency(payload.plan.recurringAmount)} EUR</p>
-        <p><strong>Totale piano rate:</strong> ${safeCurrency(totalInstallments)} EUR</p>
-        <div class="footer-space">
-          <p><strong>Servizi attivi:</strong></p>
-          ${
-            activeServices.length > 0
-              ? activeServices
-                  .map(
-                    (service) =>
-                      `<span class="service-chip">${escapeHtml(service.title)} - ${safeCurrency(service.amount)} EUR</span>`,
-                  )
-                  .join('')
-              : '<span class="muted">Nessun servizio attivo</span>'
-          }
-        </div>
-        <div class="footer-space">
-          <p><strong>Rate previste:</strong></p>
-          <table class="table">
-            <thead>
-              <tr>
-                <th>Rata</th>
-                <th>Scadenza</th>
-                <th>Importo</th>
-                <th>Metodo</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${(payload.plan.installments || [])
-                .map(
-                  (item) => `
-                    <tr>
-                      <td>${escapeHtml(item.label)}</td>
-                      <td>${escapeHtml(item.dueDate)}</td>
-                      <td>${safeCurrency(item.amount)} EUR</td>
-                      <td>${escapeHtml(paymentMethodLabel(item.paymentMethodCode))}</td>
-                    </tr>
-                  `,
-                )
-                .join('')}
-            </tbody>
-          </table>
-        </div>
+      <div class="section">
+        <h2 class="section-title">Oggetto contrattuale</h2>
+        ${sanitizeRichHtml(subjectHtml)}
       </div>
 
-      <div class="card">
-        <h3 class="sub-title">Consensi e presa visione</h3>
-        <div class="consent-block">
-          ${mainConsentHtml}
-          ${buildSignatureBox(`Spazio firma - consenso iscrizione (${signerName || 'firmatario'})`)}
-        </div>
-        <div class="consent-block">
-          ${sanitizeRichHtml(payload.company.consentInformationNotice)}
-          ${buildSignatureBox(`Spazio firma - presa visione informativa (${signerName || 'firmatario'})`)}
-        </div>
-        <div class="consent-block">
-          ${sanitizeRichHtml(payload.company.consentDataProcessing)}
-          ${buildSignatureBox(`Spazio firma - consenso trattamento dati (${signerName || 'firmatario'})`)}
-        </div>
+      <div class="section">
+        <h2 class="section-title">Regole economiche</h2>
+        ${economicHtml}
+        ${servicesHtml}
+        <p><strong>Importo iscrizione:</strong> ${safeCurrency(payload.plan.enrollmentFee)} EUR. <strong>Importo ricorrente:</strong> ${safeCurrency(payload.plan.recurringAmount)} EUR. <strong>Metodo di pagamento scelto:</strong> ${escapeHtml(paymentMethodLabel(payload.plan.selectedPaymentMethodCode))}.</p>
       </div>
 
-      <div class="card">
-        <h3 class="sub-title">Regolamento pacchetto</h3>
+      <div class="section">
+        <h2 class="section-title">Iscrizione e copertura assicurativa</h2>
+        <p>La quota di iscrizione/assicurazione applicata al presente contratto e pari a ${safeCurrency(payload.plan.enrollmentFee)} EUR, secondo le regole di compatibilita e validita della copertura associate al tipo di iscrizione del pacchetto.</p>
+      </div>
+
+      <div class="section">
+        <h2 class="section-title">Consensi contrattuali</h2>
+        <div>${specificConsentsHtml}</div>
+        <div style="margin-top:8px;">${sanitizeRichHtml(payload.company.consentInformationNotice)}</div>
+      </div>
+
+      ${
+        specialClauses.length > 0
+          ? `
+      <div class="section">
+        <h2 class="section-title">Clausole speciali</h2>
+        ${specialFormulaHtml}
+        <ol class="list">
+          ${specialClauses.map((clause) => `<li><strong>${escapeHtml(clause.title)}</strong>: ${sanitizeRichHtml(clause.text)}</li>`).join('')}
+        </ol>
+      </div>
+      `
+          : ''
+      }
+
+      <div class="section">
+        <h2 class="section-title">Regolamento del pacchetto</h2>
         ${sanitizeRichHtml(payload.package.contractRegulation)}
       </div>
 
-      <div class="grid">
-        <div class="card">
-          ${buildSignatureBox(signerLabel)}
+      <div class="section">
+        <p><strong>Luogo:</strong> ${escapeHtml(place)} - <strong>Data:</strong> ${escapeHtml(today)}</p>
+        <div class="signatures">
+          <div>
+            <p><strong>Firma contraente (${escapeHtml(signerRoleLabel)})</strong></p>
+            <p class="small">${escapeHtml(contraenteFullName || '-')}</p>
+            <div class="signature-line"></div>
+          </div>
+          <div>
+            <p><strong>Firma responsabile aziendale</strong></p>
+            <p class="small">${escapeHtml(payload.company.legalRepresentativeFullName || '-')}</p>
+            ${
+              payload.company.delegateSignatureDataUrl
+                ? `<img src="${escapeHtml(payload.company.delegateSignatureDataUrl)}" alt="Firma responsabile" style="max-height:52px;max-width:220px;object-fit:contain;margin-top:8px;" />`
+                : '<div class="signature-line"></div>'
+            }
+          </div>
         </div>
-        <div class="card">
-          ${buildSignatureBox('Firma operatore centro sportivo')}
+      </div>
+    </body>
+  </html>
+  `
+}
+
+function buildConsentsHtml(payload) {
+  const subjectIsMinor = payload.subject.kind === 'minor'
+  const declarant = subjectIsMinor ? payload.subject.guardian || {} : payload.subject.athlete || {}
+  const fullName = `${declarant.firstName || ''} ${declarant.lastName || ''}`.trim()
+  const birthPlace = declarant.birthPlace || '-'
+  const birthDate = formatItDate(declarant.birthDate || '')
+  const residence = splitResidenceAddress(declarant.residenceAddress || '')
+  const phone = declarant.phone || '-'
+  const secondaryPhone = declarant.secondaryPhone || '-'
+  const email = declarant.email || '-'
+  const downloadDate = new Date().toLocaleDateString('it-IT')
+  const signaturePlace = payload.company.headquartersCity || payload.company.contractSignaturePlace || '-'
+  const portalName = payload.company.portalName || 'Play Your Sport'
+  const legalRepresentative = payload.company.legalRepresentativeFullName || '-'
+
+  return `
+  <!doctype html>
+  <html lang="it">
+    <head>
+      <meta charset="utf-8" />
+      <style>
+        @page { size: A4; margin: 18mm; }
+        body { font-family: Arial, sans-serif; color: #111827; font-size: 12px; }
+        p { margin: 0 0 8px; line-height: 1.5; }
+        h2 { margin: 0 0 10px; font-size: 14px; }
+        .section { border: 1px solid #d1d5db; border-radius: 8px; padding: 12px; margin-bottom: 12px; }
+        .signature-row { margin-top: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+        .signature-block { min-height: 90px; }
+        .signature-line { margin-top: 36px; border-bottom: 1px solid #111827; height: 1px; }
+        .small { font-size: 11px; }
+      </style>
+    </head>
+    <body>
+      <div class="section">
+        <p>Il sottoscritto ${escapeHtml(fullName)} nato a ${escapeHtml(birthPlace)} il ${escapeHtml(birthDate)} Residente a ${escapeHtml(residence.city)} Via ${escapeHtml(residence.street)} n.${escapeHtml(residence.number)} Tel. ${escapeHtml(phone)} Cell. ${escapeHtml(secondaryPhone)} Indirizzo posta elettronica ${escapeHtml(email)} ACCONSENTE ai sensi e per gli effetti dell'art. 13 del Regolamento UE 2016/679 del Parlamento europeo e del Consiglio, del 27 aprile 2016, con la sottoscrizione del presente modulo, al trattamento dei dati personali secondo le modalita e nei limiti di cui all'informativa allegata.</p>
+        <p>Letto, confermato e sottoscritto</p>
+        <p><strong>Data</strong> ${escapeHtml(downloadDate)} <strong>Luogo</strong> ${escapeHtml(signaturePlace)}</p>
+        <div class="signature-row">
+          <div class="signature-block">
+            <p>Firma del dichiarante (per esteso e leggibile)</p>
+            <div class="signature-line"></div>
+          </div>
+          <div class="signature-block">
+            <p>Firma del Responsabile del trattamento</p>
+            <p class="small">${escapeHtml(legalRepresentative)}</p>
+            ${
+              payload.company.delegateSignatureDataUrl
+                ? `<img src="${escapeHtml(payload.company.delegateSignatureDataUrl)}" alt="Firma delegato" style="max-height:52px;max-width:220px;object-fit:contain;margin-top:6px;" />`
+                : '<div class="signature-line"></div>'
+            }
+          </div>
         </div>
+      </div>
+
+      <div class="section">
+        <h2>INFORMATIVA PRIVACY</h2>
+        <p>Con la presente informativa, resa ai sensi e per gli effetti dell'art. 13 del Regolamento UE 2016/679 del Parlamento europeo e del Consiglio, del 27 aprile 2016, relativo alla protezione delle persone fisiche con riguardo al trattamento dei dati personali, nonche alla libera circolazione di tali dati (di seguito "Regolamento"), si intendono fornire dovute informazioni in ordine alle finalita e modalita del trattamento dei suoi dati personali.</p>
+        <p><strong>TIPOLOGIA DEI DATI TRATTATI</strong></p>
+        <p>I dati raccolti e trattati dal Titolare del trattamento sono dati di natura personale, ossia informazioni attraverso le quali un soggetto puo essere identificato come persona fisica (a titolo esemplificativo: nome, cognome, data di nascita, residenza, domicilio, indirizzo e-mail, numero di telefono, etc.).</p>
+        <p><strong>FINALITA DEL TRATTAMENTO</strong></p>
+        <p>I dati raccolti saranno utilizzati esclusivamente per le seguenti finalita: rilascio account accesso al portale ${escapeHtml(portalName)}.</p>
+        <p><strong>TITOLARE E RESPONSABILI DEL TRATTAMENTO</strong></p>
+        <p>Il Responsabile del trattamento e ${escapeHtml(legalRepresentative)}.</p>
+        <p>In ogni caso il trattamento avviene in modo da garantire la sicurezza e la riservatezza dei dati, mediante l'adozione delle misure previste dall'articolo 32 del Regolamento al fine di preservare l'integrita dei dati trattati e prevenire l'accesso agli stessi da parte di soggetti non autorizzati.</p>
+        <p><strong>NATURA DEL CONFERIMENTO</strong></p>
+        <p>Il conferimento dei dati e obbligatorio al fine di identificare gli utenti abilitati al portale dedicato.</p>
+        <div class="small">${sanitizeRichHtml(payload.company.consentDataProcessing)}</div>
+        <p><strong>RILASCIO DEL CONSENSO</strong></p>
+        <p>L'acquisizione del consenso al trattamento dei dati personali e necessaria per il rilascio delle credenziali di accesso al portale dedicato ${escapeHtml(portalName)}.</p>
+        <p>Il trattamento dei dati avverra nel pieno rispetto dei principi di riservatezza, correttezza, necessita, pertinenza, liceita e trasparenza imposti dal Regolamento per il tempo necessario al conseguimento degli scopi per cui i dati sono stati raccolti e, in ogni caso, non oltre 10 anni dalla loro raccolta.</p>
+        <p>Il trattamento dei dati avverra con strumenti informatici.</p>
+        <p><strong>TRASFERIMENTO DEI DATI PERSONALI</strong></p>
+        <p>I dati non saranno comunicati ad altri soggetti, ne saranno oggetto di diffusione.</p>
+        <p><strong>DIRITTI DEGLI INTERESSATI</strong></p>
+        <p>Le ricordiamo che sono riconosciuti i diritti di cui agli articoli 15 e seguenti del Regolamento. In qualsiasi momento, potra chiedere a ${escapeHtml(payload.company.title)} di aggiornare, modificare e/o correggere i suoi dati personali. Qualora ravvisasse una violazione dei Suoi diritti puo rivolgersi all'autorita di controllo competente ai sensi dell'art. 77 del GDPR, resta salva la possibilita di rivolgersi direttamente all'autorita giudiziaria.</p>
+        <p><strong>Firma del dichiarante</strong> ______________________ <strong>Data</strong> ${escapeHtml(downloadDate)}</p>
       </div>
     </body>
   </html>
@@ -308,18 +386,6 @@ app.get('/health', (_req, res) => {
 app.post('/api/contracts/pdf', async (req, res) => {
   try {
     const payload = req.body || {}
-    // Debug payload for contract rendering issues (logo/header/subject data).
-    // eslint-disable-next-line no-console
-    console.log('[contracts] request', {
-      activityKey: payload?.activity?.key ?? '',
-      packageId: payload?.package?.id ?? '',
-      packageName: payload?.package?.name ?? '',
-      subjectKind: payload?.subject?.kind ?? '',
-      hasHeaderImage: Boolean(payload?.package?.contractHeaderImage),
-      headerImagePrefix: String(payload?.package?.contractHeaderImage ?? '').slice(0, 40),
-      hasHeaderText: Boolean(payload?.package?.contractHeaderText),
-      hasRegulation: Boolean(payload?.package?.contractRegulation),
-    })
     const html = buildContractHtml(payload)
     const browser = await getBrowser()
     const page = await browser.newPage()
@@ -337,6 +403,30 @@ app.post('/api/contracts/pdf', async (req, res) => {
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('[contracts] pdf_generation_failed', error)
+    res.status(500).send('pdf_generation_failed')
+  }
+})
+
+app.post('/api/consents/pdf', async (req, res) => {
+  try {
+    const payload = req.body || {}
+    const html = buildConsentsHtml(payload)
+    const browser = await getBrowser()
+    const page = await browser.newPage()
+    await page.setContent(html, { waitUntil: 'networkidle0' })
+    const pdf = await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      preferCSSPageSize: true,
+      margin: { top: '12mm', right: '12mm', bottom: '12mm', left: '12mm' },
+    })
+    await page.close()
+    res.setHeader('Content-Type', 'application/pdf')
+    res.setHeader('Content-Disposition', 'attachment; filename="consensi-attivita.pdf"')
+    res.send(pdf)
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('[consents] pdf_generation_failed', error)
     res.status(500).send('pdf_generation_failed')
   }
 })

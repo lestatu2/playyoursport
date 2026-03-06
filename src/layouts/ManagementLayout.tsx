@@ -6,6 +6,7 @@ import {
   ChevronLeft,
   CircleUser,
   CreditCard,
+  FileText,
   Globe,
   HandCoins,
   LayoutDashboard,
@@ -303,6 +304,12 @@ function ManagementLayout({ session, onLogout }: ManagementLayoutProps) {
                       collapsed={collapsed}
                     />
                     <MenuItem
+                      to="/app/utility/contratti"
+                      icon={<FileText className="h-5 w-5 shrink-0" />}
+                      label={t('nav.utilityContracts')}
+                      collapsed={collapsed}
+                    />
+                    <MenuItem
                       to="/app/utility/whatsapp-accounts"
                       icon={<MessageCircle className="h-5 w-5 shrink-0" />}
                       label={t('nav.utilityWhatsAppAccounts')}
@@ -406,6 +413,19 @@ function ManagementLayout({ session, onLogout }: ManagementLayoutProps) {
                           >
                             <CreditCard className="h-4 w-4 shrink-0" />
                             {t('nav.utilityPaymentMethods')}
+                          </NavLink>
+                        </li>
+                        <li>
+                          <NavLink
+                            to="/app/utility/contratti"
+                            className={({ isActive }) =>
+                              `flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition ${
+                                isActive ? 'bg-primary text-primary-content' : 'hover:bg-base-300'
+                              }`
+                            }
+                          >
+                            <FileText className="h-4 w-4 shrink-0" />
+                            {t('nav.utilityContracts')}
                           </NavLink>
                         </li>
                         <li>
