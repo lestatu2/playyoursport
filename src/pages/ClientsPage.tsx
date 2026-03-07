@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { AlertTriangle, FileSignature, FileText, ShieldCheck, ShieldX, Wallet } from 'lucide-react'
+import { AlertTriangle, FileSignature, FileText, ShieldCheck, ShieldX, Trash2, Wallet } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { getCoreRowModel, useReactTable, type ColumnDef } from '@tanstack/react-table'
 import ExcelJS from 'exceljs'
 import { saveAs } from 'file-saver'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { Document, Packer, Paragraph, Table, TableCell, TableRow, TextRun, WidthType } from 'docx'
+import DataTable from '../components/DataTable'
 import {
   createPublicClientRecord,
   createPublicMinorRecord,
@@ -14,6 +16,7 @@ import {
   findPublicMinorByTaxCode,
   getPublicClients,
   getPublicMinors,
+  removePublicClientRecord,
   updatePublicClientRecord,
   updatePublicClientPrivacyPolicyStatus,
   updatePublicClientValidationStatus,
@@ -29,8 +32,15 @@ import { computeItalianTaxCode, findBirthPlaceCodeByName } from '../lib/tax-code
 import { getAvailablePaymentMethodsForCompany, type PaymentMethodCode } from '../lib/payment-methods'
 import { upsertCoverageFromEnrollmentPurchase } from '../lib/athlete-enrollment-coverages'
 import { downloadConsentsPdf, type ConsentPdfPayload } from '../lib/contract-pdf'
-import { getPublicDirectAthletes, type PublicDirectAthleteRecord } from '../lib/public-direct-athletes'
+import {
+  getPublicDirectAthletes,
+  removePublicDirectAthletesByClientId,
+  type PublicDirectAthleteRecord,
+} from '../lib/public-direct-athletes'
 import { getSession } from '../lib/auth'
+import { getActivityPaymentPlans } from '../lib/activity-payment-plans'
+import { readFileAsDataUrl } from '../lib/file-utils'
+import { resolveClientAvatarUrl } from '../lib/avatar'
 
 const GOOGLE_PLACES_SCRIPT_ID = 'pys-google-places-script'
 
@@ -113,6 +123,7 @@ function getAgeFromBirthDate(birthDate: string): number | null {
 
 type ClientDraft = Pick<
   PublicClientRecord,
+  | 'avatarUrl'
   | 'parentFirstName'
   | 'parentLastName'
   | 'parentEmail'
@@ -199,11 +210,7 @@ const emptyAddMinorDraft: AddMinorDraft = {
   residenceAddress: '',
 }
 
-const PARENT_ROLE_OPTIONS: Array<{ value: ParentRole; label: string }> = [
-  { value: 'genitore', label: 'Genitore' },
-  { value: 'tutore', label: 'Tutore' },
-  { value: 'esercente_responsabilita', label: 'Esercente responsabilita' },
-]
+const PARENT_ROLE_OPTIONS: ParentRole[] = ['genitore', 'tutore', 'esercente_responsabilita']
 
 type ClientExportFormat = 'xlsx' | 'pdf' | 'docx'
 
@@ -263,6 +270,7 @@ const CLIENT_EXPORT_FIELDS: ClientExportFieldKey[] = [
 ]
 
 function ClientDocumentPreview({ dataUrl }: { dataUrl: string }) {
+  const { t } = useTranslation()
   if (!dataUrl) {
     return <p className="text-sm opacity-70">-</p>
   }
@@ -271,7 +279,7 @@ function ClientDocumentPreview({ dataUrl }: { dataUrl: string }) {
   }
   return (
     <a className="link link-primary text-sm" href={dataUrl} target="_blank" rel="noreferrer">
-      Apri documento
+      {t('clients.openDocument')}
     </a>
   )
 }
@@ -319,6 +327,7 @@ function ClientsPage() {
   const [addMinorDraft, setAddMinorDraft] = useState<AddMinorDraft>(emptyAddMinorDraft)
   const [addMinorError, setAddMinorError] = useState('')
   const [googleMapsApiKey, setGoogleMapsApiKey] = useState(() => getProjectSettings().googleMapsApiKey || '')
+  const [avatarDicebearStyle, setAvatarDicebearStyle] = useState(() => getProjectSettings().avatarDicebearStyle)
   const parentBirthPlaceRef = useRef<HTMLInputElement | null>(null)
   const parentResidenceRef = useRef<HTMLInputElement | null>(null)
   const minorBirthPlaceRef = useRef<HTMLInputElement | null>(null)
@@ -392,7 +401,9 @@ function ClientsPage() {
   useEffect(() => {
     const settingsEvent = getProjectSettingsChangedEventName()
     const handleSettingsChange = () => {
-      setGoogleMapsApiKey(getProjectSettings().googleMapsApiKey || '')
+      const settings = getProjectSettings()
+      setGoogleMapsApiKey(settings.googleMapsApiKey || '')
+      setAvatarDicebearStyle(settings.avatarDicebearStyle)
     }
     window.addEventListener(settingsEvent, handleSettingsChange)
     return () => window.removeEventListener(settingsEvent, handleSettingsChange)
@@ -640,12 +651,17 @@ function ClientsPage() {
     })
   }, [minorsByClientId, privacyFilter, searchTerm, statusFilter, visibleClients])
 
+  const parentRoleLabel = useCallback(
+    (role: ParentRole) => t(`clients.parentRoleOptions.${role}`),
+    [t],
+  )
+
   const exportFieldLabel = useCallback((field: ClientExportFieldKey): string => {
     switch (field) {
       case 'clientId':
-        return 'ID cliente'
+        return t('clients.export.fields.clientId')
       case 'createdAt':
-        return 'Data creazione'
+        return t('clients.export.fields.createdAt')
       case 'parentFirstName':
         return t('clients.parentFirstName')
       case 'parentLastName':
@@ -661,7 +677,7 @@ function ClientsPage() {
       case 'parentBirthPlace':
         return t('clients.birthPlace')
       case 'parentRole':
-        return 'Ruolo firmatario'
+        return t('clients.parentRoleLabel')
       case 'parentTaxCode':
         return t('clients.taxCode')
       case 'residenceAddress':
@@ -669,40 +685,36 @@ function ClientsPage() {
       case 'validationStatus':
         return t('clients.status')
       case 'privacyPolicySigned':
-        return 'Privacy policy firmata'
+        return t('clients.export.fields.privacyPolicySigned')
       case 'consentEnrollmentAccepted':
-        return 'Consenso iscrizione'
+        return t('clients.export.fields.consentEnrollmentAccepted')
       case 'consentInformationAccepted':
-        return 'Presa visione informativa'
+        return t('clients.export.fields.consentInformationAccepted')
       case 'consentDataProcessingAccepted':
-        return 'Consenso trattamento dati'
+        return t('clients.export.fields.consentDataProcessingAccepted')
       case 'consentDataProcessingSignaturePresent':
-        return 'Firma trattamento dati presente'
+        return t('clients.export.fields.consentDataProcessingSignaturePresent')
       case 'enrollmentConfirmationSignaturePresent':
-        return 'Firma conferma iscrizione presente'
+        return t('clients.export.fields.enrollmentConfirmationSignaturePresent')
       case 'parentTaxCodeDocumentPresent':
-        return 'Documento CF presente'
+        return t('clients.export.fields.parentTaxCodeDocumentPresent')
       case 'parentIdentityDocumentPresent':
-        return 'Documento identita presente'
+        return t('clients.export.fields.parentIdentityDocumentPresent')
       case 'linkedMinorsCount':
         return t('clients.minorsCount')
       case 'linkedMinorsSummary':
-        return 'Dettaglio minori collegati'
+        return t('clients.export.fields.linkedMinorsSummary')
       case 'linkedMinorsValidation':
-        return 'Stato validazione minori'
+        return t('clients.export.fields.linkedMinorsValidation')
       case 'linkedDirectAthletes':
-        return 'Atleti adulti collegati'
+        return t('clients.export.fields.linkedDirectAthletes')
       default:
         return field
     }
   }, [t])
 
   const exportRows = useMemo(() => {
-    const boolLabel = (value: boolean) => (value ? 'Si' : 'No')
-    const roleLabel = (role: ParentRole) => {
-      const found = PARENT_ROLE_OPTIONS.find((item) => item.value === role)
-      return found?.label ?? role
-    }
+    const boolLabel = (value: boolean) => (value ? t('clients.export.yes') : t('clients.export.no'))
     const clientStatusLabel = (status: PublicClientRecord['validationStatus']) =>
       status === 'validated' ? t('clients.validated') : t('clients.notValidated')
     const minorStatusLabel = (status: PublicMinorRecord['validationStatus']) =>
@@ -716,7 +728,7 @@ function ClientsPage() {
             .map((minor) => {
               const packageItem = packagesById.get(minor.packageId)
               const packageName = packageItem?.name ?? minor.packageId
-              return `${minor.firstName} ${minor.lastName} | CF ${minor.taxCode} | Pacchetto ${packageName}`
+              return `${minor.firstName} ${minor.lastName} | CF ${minor.taxCode} | ${t('clients.export.package')} ${packageName}`
             })
             .join(' || ')
         : '-'
@@ -739,7 +751,7 @@ function ClientsPage() {
         parentSecondaryPhone: client.parentSecondaryPhone,
         parentBirthDate: client.parentBirthDate,
         parentBirthPlace: client.parentBirthPlace,
-        parentRole: roleLabel(client.parentRole),
+        parentRole: parentRoleLabel(client.parentRole),
         parentTaxCode: client.parentTaxCode,
         residenceAddress: client.residenceAddress,
         validationStatus: clientStatusLabel(client.validationStatus),
@@ -758,7 +770,196 @@ function ClientsPage() {
       }
       return row
     })
-  }, [directAthletesByClientId, filteredClients, minorsByClientId, packagesById, t])
+  }, [directAthletesByClientId, filteredClients, minorsByClientId, packagesById, parentRoleLabel, t])
+
+  const openClientEditor = useCallback((client: PublicClientRecord) => {
+    setActiveClientId(client.id)
+    setClientDraft({
+      avatarUrl: client.avatarUrl,
+      parentFirstName: client.parentFirstName,
+      parentLastName: client.parentLastName,
+      parentEmail: client.parentEmail,
+      parentPhone: client.parentPhone,
+      parentSecondaryPhone: client.parentSecondaryPhone,
+      parentBirthDate: client.parentBirthDate,
+      parentBirthPlace: client.parentBirthPlace,
+      parentRole: client.parentRole,
+      parentTaxCode: client.parentTaxCode,
+      residenceAddress: client.residenceAddress,
+    })
+    const clientMinors = minorsByClientId.get(client.id) ?? []
+    const nextMinorDrafts: Record<number, MinorDraft> = {}
+    clientMinors.forEach((minor) => {
+      nextMinorDrafts[minor.id] = {
+        firstName: minor.firstName,
+        lastName: minor.lastName,
+        birthDate: minor.birthDate,
+        birthPlace: minor.birthPlace,
+        residenceAddress: minor.residenceAddress,
+        taxCode: minor.taxCode,
+      }
+    })
+    setMinorDrafts(nextMinorDrafts)
+  }, [minorsByClientId])
+
+  const handleDeleteClient = useCallback((client: PublicClientRecord) => {
+    const linkedMinors = minorsByClientId.get(client.id) ?? []
+    const linkedDirectAthletes = directAthletesByClientId.get(client.id) ?? []
+    const athleteKeys = new Set<string>([
+      ...linkedMinors.map((minor) => `minor-${minor.id}`),
+      ...linkedDirectAthletes.map((athlete) => `direct-${athlete.id}`),
+    ])
+    const hasAssociatedActivePlan = getActivityPaymentPlans().some(
+      (plan) =>
+        athleteKeys.has(plan.athleteKey) &&
+        plan.installments.some((installment) => installment.paymentStatus === 'pending'),
+    )
+    if (hasAssociatedActivePlan) {
+      setMessage('Impossibile cancellare: esiste almeno un piano pagamenti attivo (con rate pendenti) sul cliente o sui minori collegati.')
+      return
+    }
+
+    const fullName = `${client.parentFirstName} ${client.parentLastName}`.trim()
+    const confirmed = window.confirm(`Confermi la cancellazione del cliente ${fullName || `#${client.id}`}?`)
+    if (!confirmed) {
+      return
+    }
+
+    const removedClient = removePublicClientRecord(client.id)
+    if (!removedClient) {
+      setMessage('Cliente non trovato.')
+      return
+    }
+    removePublicDirectAthletesByClientId(client.id)
+    setClients(getPublicClients())
+    setMinors(getPublicMinors())
+    setDirectAthletes(getPublicDirectAthletes())
+    if (activeClientId === client.id) {
+      setActiveClientId(null)
+      setClientDraft(null)
+      setMinorDrafts({})
+    }
+    setMessage('Cliente eliminato correttamente.')
+  }, [activeClientId, directAthletesByClientId, minorsByClientId])
+
+  const clientColumns: ColumnDef<PublicClientRecord>[] = [
+    {
+      id: 'avatar',
+      header: t('clients.avatar'),
+      cell: ({ row }) => (
+        <img
+          src={resolveClientAvatarUrl(row.original, avatarDicebearStyle)}
+          alt=""
+          className="h-8 w-8 rounded-full border border-base-300 object-cover"
+        />
+      ),
+      meta: { responsivePriority: 'low' },
+    },
+    {
+      id: 'parent',
+      header: t('clients.parent'),
+      cell: ({ row }) => `${row.original.parentFirstName} ${row.original.parentLastName}`,
+      meta: { responsivePriority: 'high' },
+    },
+    {
+      id: 'email',
+      header: t('clients.email'),
+      cell: ({ row }) => row.original.parentEmail,
+      meta: { responsivePriority: 'low' },
+    },
+    {
+      id: 'phone',
+      header: t('clients.phone'),
+      cell: ({ row }) => row.original.parentPhone,
+      meta: { responsivePriority: 'low' },
+    },
+    {
+      id: 'minors',
+      header: t('clients.minors'),
+      cell: ({ row }) => {
+        const linkedMinors = minorsByClientId.get(row.original.id) ?? []
+        return linkedMinors.length === 0
+          ? '-'
+          : linkedMinors.map((minor) => `${minor.firstName} ${minor.lastName}`).join(', ')
+      },
+      meta: { responsivePriority: 'low' },
+    },
+    {
+      id: 'status',
+      header: t('clients.status'),
+      cell: ({ row }) => (
+        <span className={`badge ${row.original.validationStatus === 'validated' ? 'badge-success' : 'badge-warning'}`}>
+          {row.original.validationStatus === 'validated' ? t('clients.validated') : t('clients.notValidated')}
+        </span>
+      ),
+      meta: { responsivePriority: 'high' },
+    },
+    {
+      id: 'actions',
+      header: t('clients.actions'),
+      cell: ({ row }) => {
+        const client = row.original
+        const isPrivacySigned = isClientPrivacyPolicySigned(client)
+        return (
+          <div className="flex items-center gap-1">
+            <span
+              className="inline-flex items-center"
+              title={isPrivacySigned ? t('clients.privacySigned') : t('clients.privacyNotSigned')}
+            >
+              {isPrivacySigned ? (
+                <ShieldCheck className="h-4 w-4 text-success" />
+              ) : (
+                <ShieldX className="h-4 w-4 text-error" />
+              )}
+            </span>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm btn-square"
+              onClick={() => openClientEditor(client)}
+              title={client.validationStatus === 'validated' ? t('clients.openProfile') : t('clients.openValidation')}
+            >
+              {client.validationStatus === 'validated'
+                ? <FileText className="h-4 w-4" />
+                : <AlertTriangle className="h-4 w-4 text-warning" />}
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm btn-square"
+              title={t('clients.downloadConsents')}
+              onClick={() => {
+                void downloadClientConsents(client)
+              }}
+            >
+              <FileSignature className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm btn-square"
+              title={t('athletes.openActivitiesPayments')}
+              onClick={() => navigate(`/app/attivita-pagamenti?clientId=${client.id}`)}
+            >
+              <Wallet className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm btn-square text-error"
+              title={t('clients.deleteClient')}
+              onClick={() => handleDeleteClient(client)}
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
+        )
+      },
+      meta: { responsivePriority: 'high' },
+    },
+  ]
+
+  const clientTable = useReactTable({
+    data: filteredClients,
+    columns: clientColumns,
+    getCoreRowModel: getCoreRowModel(),
+  })
 
   const toggleExportField = (field: ClientExportFieldKey) => {
     setSelectedExportFields((prev) => (
@@ -783,7 +984,7 @@ function ClientsPage() {
         return item
       })
       const workbook = new ExcelJS.Workbook()
-      const worksheet = workbook.addWorksheet('Clienti')
+      const worksheet = workbook.addWorksheet(t('clients.title'))
       worksheet.columns = headers.map((header) => ({ header, key: header }))
       records.forEach((record) => {
         worksheet.addRow(record)
@@ -800,7 +1001,7 @@ function ClientsPage() {
     if (exportFormat === 'pdf') {
       const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' })
       doc.setFontSize(11)
-      doc.text('Export schede clienti', 40, 36)
+      doc.text(t('clients.export.title'), 40, 36)
       autoTable(doc, {
         head: [headers],
         body: bodyRows,
@@ -832,7 +1033,7 @@ function ClientsPage() {
     const doc = new Document({
       sections: [{
         children: [
-          new Paragraph({ children: [new TextRun({ text: 'Export schede clienti', bold: true })] }),
+          new Paragraph({ children: [new TextRun({ text: t('clients.export.title'), bold: true })] }),
           new Paragraph(''),
           new Table({
             width: { size: 100, type: WidthType.PERCENTAGE },
@@ -916,48 +1117,45 @@ function ClientsPage() {
     [],
   )
 
-  const downloadClientConsents = useCallback(
-    async (client: PublicClientRecord, preferredMinor?: PublicMinorRecord | null): Promise<boolean> => {
-      const clientMinors = minorsByClientId.get(client.id) ?? []
-      const clientDirectAthletes = directAthletesByClientId.get(client.id) ?? []
-      const fallbackDirectAthlete =
-        directAthletes.find((athlete) => athlete.taxCode.trim().toUpperCase() === client.parentTaxCode.trim().toUpperCase()) ??
-        null
-      const minor = preferredMinor ?? clientMinors[0] ?? null
-      const directAthlete = clientDirectAthletes[0] ?? fallbackDirectAthlete
-      const selectedPackageId = minor ? minor.packageId : directAthlete?.packageId ?? ''
-      if (!selectedPackageId) {
-        window.alert(t('clients.consentsNoLinkedMinor'))
-        return false
-      }
-      const packageItem = packagesById.get(selectedPackageId)
-      if (!packageItem) {
-        window.alert(t('clients.consentsNoLinkedMinor'))
-        return false
-      }
-      const company = companiesById.get(packageItem.companyId)
-      if (!company) {
-        window.alert(t('activitiesPayments.contract.companyNotFound'))
-        return false
-      }
-      const payload = buildConsentPayload(
-        client,
-        company,
-        minor ? { kind: 'minor', minor } : { kind: 'adult', athlete: directAthlete as PublicDirectAthleteRecord },
-      )
-      const fullName = `${client.parentFirstName} ${client.parentLastName}`
-      const result = await downloadConsentsPdf({
-        payload,
-        clientFullName: fullName,
-      })
-      if (!result.ok) {
-        window.alert(`${t('clients.consentsDownloadError')} (${result.error})`)
-        return false
-      }
-      return true
-    },
-    [buildConsentPayload, companiesById, directAthletes, directAthletesByClientId, minorsByClientId, packagesById, t],
-  )
+  async function downloadClientConsents(client: PublicClientRecord, preferredMinor?: PublicMinorRecord | null): Promise<boolean> {
+    const clientMinors = minorsByClientId.get(client.id) ?? []
+    const clientDirectAthletes = directAthletesByClientId.get(client.id) ?? []
+    const fallbackDirectAthlete =
+      directAthletes.find((athlete) => athlete.taxCode.trim().toUpperCase() === client.parentTaxCode.trim().toUpperCase()) ??
+      null
+    const minor = preferredMinor ?? clientMinors[0] ?? null
+    const directAthlete = clientDirectAthletes[0] ?? fallbackDirectAthlete
+    const selectedPackageId = minor ? minor.packageId : directAthlete?.packageId ?? ''
+    if (!selectedPackageId) {
+      window.alert(t('clients.consentsNoLinkedMinor'))
+      return false
+    }
+    const packageItem = packagesById.get(selectedPackageId)
+    if (!packageItem) {
+      window.alert(t('clients.consentsNoLinkedMinor'))
+      return false
+    }
+    const company = companiesById.get(packageItem.companyId)
+    if (!company) {
+      window.alert(t('activitiesPayments.contract.companyNotFound'))
+      return false
+    }
+    const payload = buildConsentPayload(
+      client,
+      company,
+      minor ? { kind: 'minor', minor } : { kind: 'adult', athlete: directAthlete as PublicDirectAthleteRecord },
+    )
+    const fullName = `${client.parentFirstName} ${client.parentLastName}`
+    const result = await downloadConsentsPdf({
+      payload,
+      clientFullName: fullName,
+    })
+    if (!result.ok) {
+      window.alert(`${t('clients.consentsDownloadError')} (${result.error})`)
+      return false
+    }
+    return true
+  }
 
   const openCreateModal = () => {
     setCreateMode('parent')
@@ -1081,6 +1279,8 @@ function ClientsPage() {
       parentBirthDate: createDraft.parentBirthDate,
       parentBirthPlace: createDraft.parentBirthPlace,
       parentRole: createDraft.parentRole,
+      parentGender: createDraft.parentGender,
+      avatarUrl: '',
       parentTaxCode: createDraft.parentTaxCode,
       residenceAddress: createDraft.parentResidenceAddress,
       consentEnrollmentAccepted: true,
@@ -1098,6 +1298,8 @@ function ClientsPage() {
       firstName: createDraft.minorFirstName,
       lastName: createDraft.minorLastName,
       birthDate: createDraft.minorBirthDate,
+      gender: createDraft.minorGender,
+      avatarUrl: '',
       birthPlace: createDraft.minorBirthPlace,
       residenceAddress: createDraft.minorResidenceAddress,
       taxCode: createDraft.minorTaxCode,
@@ -1177,6 +1379,8 @@ function ClientsPage() {
       firstName: addMinorDraft.firstName,
       lastName: addMinorDraft.lastName,
       birthDate: addMinorDraft.birthDate,
+      gender: addMinorDraft.gender,
+      avatarUrl: '',
       birthPlace: addMinorDraft.birthPlace,
       residenceAddress: addMinorDraft.residenceAddress,
       taxCode: addMinorDraft.taxCode,
@@ -1197,35 +1401,6 @@ function ClientsPage() {
     closeAddMinorModal()
     closeModal()
     navigate(`/app/attivita-pagamenti?athleteId=minor-${createdMinor.id}`)
-  }
-
-  const openClientModal = (client: PublicClientRecord) => {
-    setActiveClientId(client.id)
-    setClientDraft({
-      parentFirstName: client.parentFirstName,
-      parentLastName: client.parentLastName,
-      parentEmail: client.parentEmail,
-      parentPhone: client.parentPhone,
-      parentSecondaryPhone: client.parentSecondaryPhone,
-      parentBirthDate: client.parentBirthDate,
-      parentBirthPlace: client.parentBirthPlace,
-      parentRole: client.parentRole,
-      parentTaxCode: client.parentTaxCode,
-      residenceAddress: client.residenceAddress,
-    })
-    const clientMinors = minorsByClientId.get(client.id) ?? []
-    const nextMinorDrafts: Record<number, MinorDraft> = {}
-    clientMinors.forEach((minor) => {
-      nextMinorDrafts[minor.id] = {
-        firstName: minor.firstName,
-        lastName: minor.lastName,
-        birthDate: minor.birthDate,
-        birthPlace: minor.birthPlace,
-        residenceAddress: minor.residenceAddress,
-        taxCode: minor.taxCode,
-      }
-    })
-    setMinorDrafts(nextMinorDrafts)
   }
 
   const closeModal = () => {
@@ -1314,7 +1489,7 @@ function ClientsPage() {
           onClick={() => setIsExportModalOpen(true)}
           disabled={filteredClients.length === 0}
         >
-          Esporta schede
+          {t('clients.export.button')}
         </button>
         <button type="button" className="btn btn-primary btn-sm" onClick={openCreateModal}>
           {t('clients.create')}
@@ -1361,113 +1536,29 @@ function ClientsPage() {
           </button>
         </div>
       </div>
-      <div className="overflow-x-auto rounded-lg border border-base-300 bg-base-100">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>{t('clients.parent')}</th>
-              <th>{t('clients.email')}</th>
-              <th>{t('clients.phone')}</th>
-              <th>{t('clients.minors')}</th>
-              <th>{t('clients.status')}</th>
-              <th>{t('clients.actions')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredClients.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="text-center text-sm opacity-70">{t('clients.empty')}</td>
-              </tr>
-            ) : (
-              filteredClients.map((client) => {
-                const linkedMinors = minorsByClientId.get(client.id) ?? []
-                const isPrivacySigned = isClientPrivacyPolicySigned(client)
-                return (
-                  <tr key={client.id}>
-                    <td>{client.parentFirstName} {client.parentLastName}</td>
-                    <td>{client.parentEmail}</td>
-                    <td>{client.parentPhone}</td>
-                    <td>
-                      {linkedMinors.length === 0
-                        ? '-'
-                        : linkedMinors.map((minor) => `${minor.firstName} ${minor.lastName}`).join(', ')}
-                    </td>
-                    <td>
-                      <span className={`badge ${client.validationStatus === 'validated' ? 'badge-success' : 'badge-warning'}`}>
-                        {client.validationStatus === 'validated'
-                          ? t('clients.validated')
-                          : t('clients.notValidated')}
-                      </span>
-                    </td>
-                    <td>
-                      <div className="flex items-center gap-1">
-                        <span
-                          className="inline-flex items-center"
-                          title={isPrivacySigned ? 'Privacy firmata' : 'Privacy non firmata'}
-                        >
-                          {isPrivacySigned ? (
-                            <ShieldCheck className="h-4 w-4 text-success" />
-                          ) : (
-                            <ShieldX className="h-4 w-4 text-error" />
-                          )}
-                        </span>
-                        <button
-                          type="button"
-                          className="btn btn-ghost btn-sm btn-square"
-                          onClick={() => openClientModal(client)}
-                          title={client.validationStatus === 'validated' ? t('clients.openProfile') : t('clients.openValidation')}
-                        >
-                          {client.validationStatus === 'validated'
-                            ? <FileText className="h-4 w-4" />
-                            : <AlertTriangle className="h-4 w-4 text-warning" />}
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-ghost btn-sm btn-square"
-                          title={t('clients.downloadConsents')}
-                          onClick={() => {
-                            void downloadClientConsents(client)
-                          }}
-                        >
-                          <FileSignature className="h-4 w-4" />
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-ghost btn-sm btn-square"
-                          title={t('athletes.openActivitiesPayments')}
-                          onClick={() => navigate(`/app/attivita-pagamenti?clientId=${client.id}`)}
-                        >
-                          <Wallet className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                )
-              })
-            )}
-          </tbody>
-        </table>
+      <div className="rounded-lg border border-base-300 bg-base-100">
+        {filteredClients.length === 0 ? <p className="p-4 text-center text-sm opacity-70">{t('clients.empty')}</p> : <DataTable table={clientTable} />}
       </div>
 
       {isExportModalOpen ? (
         <dialog className="modal modal-open">
           <div className="modal-box w-11/12 max-w-5xl">
-            <h3 className="text-lg font-semibold">Esporta schede clienti</h3>
+            <h3 className="text-lg font-semibold">{t('clients.export.title')}</h3>
             <p className="mt-1 text-sm opacity-70">
-              Seleziona i campi della scheda cliente da includere e il formato del file.
+              {t('clients.export.description')}
             </p>
 
             <div className="mt-4 space-y-4">
               <label className="form-control max-w-xs">
-                <span className="label-text mb-1 text-xs">Formato export</span>
+                <span className="label-text mb-1 text-xs">{t('clients.export.formatLabel')}</span>
                 <select
                   className="select select-bordered w-full"
                   value={exportFormat}
                   onChange={(event) => setExportFormat(event.target.value as ClientExportFormat)}
                 >
-                  <option value="xlsx">Excel (.xlsx)</option>
-                  <option value="pdf">PDF (.pdf)</option>
-                  <option value="docx">Word (.docx)</option>
+                  <option value="xlsx">{t('clients.export.formats.xlsx')}</option>
+                  <option value="pdf">{t('clients.export.formats.pdf')}</option>
+                  <option value="docx">{t('clients.export.formats.docx')}</option>
                 </select>
               </label>
 
@@ -1477,17 +1568,17 @@ function ClientsPage() {
                   className="btn btn-xs btn-outline"
                   onClick={() => setSelectedExportFields(availableClientExportFields)}
                 >
-                  Seleziona tutto
+                  {t('clients.export.selectAll')}
                 </button>
                 <button
                   type="button"
                   className="btn btn-xs btn-outline"
                   onClick={() => setSelectedExportFields([])}
                 >
-                  Deseleziona tutto
+                  {t('clients.export.deselectAll')}
                 </button>
                 <span className="text-xs opacity-70">
-                  Campi selezionati: {effectiveSelectedExportFields.length}
+                  {t('clients.export.selectedCount', { count: effectiveSelectedExportFields.length })}
                 </span>
               </div>
 
@@ -1516,7 +1607,7 @@ function ClientsPage() {
                 onClick={() => void exportClientProfiles()}
                 disabled={effectiveSelectedExportFields.length === 0 || filteredClients.length === 0}
               >
-                Esporta
+                {t('clients.export.exportAction')}
               </button>
             </div>
           </div>
@@ -1540,10 +1631,41 @@ function ClientsPage() {
                     setMessage(t('clients.updated'))
                   }}
                 />
-                <span className="label-text">Privacy policy firmata</span>
+                <span className="label-text">{t('clients.export.fields.privacyPolicySigned')}</span>
               </label>
             </div>
             <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div className="form-control md:col-span-2">
+                <span className="label-text mb-1 text-xs">{t('clients.avatar')}</span>
+                <div className="flex flex-wrap items-center gap-3">
+                  <img
+                    src={resolveClientAvatarUrl({ ...activeClient, avatarUrl: clientDraft.avatarUrl }, avatarDicebearStyle)}
+                    alt=""
+                    className="h-12 w-12 rounded-full border border-base-300 object-cover"
+                  />
+                  <input
+                    type="file"
+                    className="file-input file-input-bordered w-full max-w-md"
+                    accept="image/*"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0]
+                      if (!file) {
+                        return
+                      }
+                      void readFileAsDataUrl(file).then((dataUrl) => {
+                        setClientDraft((prev) => (prev ? { ...prev, avatarUrl: dataUrl } : prev))
+                      })
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-sm"
+                    onClick={() => setClientDraft((prev) => (prev ? { ...prev, avatarUrl: '' } : prev))}
+                  >
+                    {t('clients.removeAvatar')}
+                  </button>
+                </div>
+              </div>
               <label className="form-control">
                 <span className="label-text mb-1 text-xs">{t('clients.parentFirstName')}</span>
                 <input className="input input-bordered w-full" value={clientDraft.parentFirstName} onChange={(event) => setClientDraft((prev) => (prev ? { ...prev, parentFirstName: event.target.value } : prev))} />
@@ -1569,7 +1691,7 @@ function ClientsPage() {
                 <input type="date" className="input input-bordered w-full" value={clientDraft.parentBirthDate} onChange={(event) => setClientDraft((prev) => (prev ? { ...prev, parentBirthDate: event.target.value } : prev))} />
               </label>
               <label className="form-control">
-                <span className="label-text mb-1 text-xs">Ruolo firmatario</span>
+                <span className="label-text mb-1 text-xs">{t('clients.parentRoleLabel')}</span>
                 <select
                   className="select select-bordered w-full"
                   value={clientDraft.parentRole}
@@ -1580,7 +1702,7 @@ function ClientsPage() {
                   }
                 >
                   {PARENT_ROLE_OPTIONS.map((item) => (
-                    <option key={item.value} value={item.value}>{item.label}</option>
+                    <option key={item} value={item}>{parentRoleLabel(item)}</option>
                   ))}
                 </select>
               </label>
@@ -1936,7 +2058,7 @@ function ClientsPage() {
                       </select>
                     </label>
                     <label className="form-control">
-                      <span className="label-text mb-1 text-xs">Ruolo firmatario</span>
+                      <span className="label-text mb-1 text-xs">{t('clients.parentRoleLabel')}</span>
                       <select
                         className="select select-bordered w-full"
                         value={createDraft.parentRole}
@@ -1945,7 +2067,7 @@ function ClientsPage() {
                         }
                       >
                         {PARENT_ROLE_OPTIONS.map((item) => (
-                          <option key={item.value} value={item.value}>{item.label}</option>
+                          <option key={item} value={item}>{parentRoleLabel(item)}</option>
                         ))}
                       </select>
                     </label>

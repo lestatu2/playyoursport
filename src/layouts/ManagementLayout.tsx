@@ -126,18 +126,24 @@ function ManagementLayout({ session, onLogout }: ManagementLayoutProps) {
             <h1 className="text-lg font-semibold">{t('layout.managementPanel')}</h1>
           </div>
           <div className="flex items-center gap-3">
-            <div className="hidden items-center gap-1 sm:flex">
-              {languageSettings.activeLanguages.map((languageCode) => (
-                <button
-                  key={languageCode}
-                  type="button"
-                  className={`btn btn-xs ${currentLanguage === languageCode ? 'btn-primary' : 'btn-ghost'}`}
-                  onClick={() => switchLanguage(languageCode)}
-                >
-                  <FlagIcon language={languageCode} className="h-3.5 w-5 rounded-xs" />
-                </button>
-              ))}
-            </div>
+            {languageSettings.activeLanguages.length > 1 ? (
+              <div className="hidden items-center gap-1 sm:flex">
+                {languageSettings.activeLanguages.map((languageCode) => (
+                  <button
+                    key={languageCode}
+                    type="button"
+                    className={`inline-flex cursor-pointer items-center justify-center rounded-sm p-1 transition-opacity focus:outline-none focus-visible:ring-1 focus-visible:ring-base-content/40 ${
+                      currentLanguage === languageCode
+                        ? 'opacity-100'
+                        : 'opacity-45 hover:opacity-80 focus-visible:opacity-80'
+                    }`}
+                    onClick={() => switchLanguage(languageCode)}
+                  >
+                    <FlagIcon language={languageCode} className="h-3.5 w-5 rounded-xs" />
+                  </button>
+                ))}
+              </div>
+            ) : null}
             <div className="hidden text-right sm:block">
               <p className="text-sm font-semibold">{session.name}</p>
               <p className="text-xs opacity-70">{roleLabel}</p>

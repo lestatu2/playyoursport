@@ -9,6 +9,7 @@ export type ParentRole = 'genitore' | 'tutore' | 'esercente_responsabilita'
 export type PublicClientRecord = {
   id: number
   userId: number
+  avatarUrl: string
   parentFirstName: string
   parentLastName: string
   parentEmail: string
@@ -17,6 +18,7 @@ export type PublicClientRecord = {
   parentBirthDate: string
   parentBirthPlace: string
   parentRole: ParentRole
+  parentGender?: 'M' | 'F'
   parentTaxCode: string
   residenceAddress: string
   consentEnrollmentAccepted: boolean
@@ -35,9 +37,11 @@ export type PublicMinorRecord = {
   id: number
   clientId: number
   packageId: string
+  avatarUrl: string
   firstName: string
   lastName: string
   birthDate: string
+  gender?: 'M' | 'F'
   birthPlace: string
   residenceAddress: string
   taxCode: string
@@ -84,7 +88,9 @@ function normalizeClientValidationStatus(status: string): PublicValidationStatus
 function normalizeClientRecord(item: PublicClientRecord): PublicClientRecord {
   return {
     ...item,
+    avatarUrl: (item.avatarUrl ?? '').trim(),
     parentRole: normalizeParentRole(item.parentRole),
+    parentGender: item.parentGender === 'F' ? 'F' : item.parentGender === 'M' ? 'M' : undefined,
     privacyPolicySigned: Boolean(item.privacyPolicySigned),
     validationStatus: normalizeClientValidationStatus(item.validationStatus),
   }
@@ -114,6 +120,8 @@ export function getPublicClients(): PublicClientRecord[] {
 export function getPublicMinors(): PublicMinorRecord[] {
   return readJson<PublicMinorRecord>(PUBLIC_MINORS_KEY).map((item) => ({
     ...item,
+    avatarUrl: (item.avatarUrl ?? '').trim(),
+    gender: item.gender === 'F' ? 'F' : item.gender === 'M' ? 'M' : undefined,
     medicalCertificateImageDataUrl: item.medicalCertificateImageDataUrl ?? '',
     medicalCertificateExpiryDate: item.medicalCertificateExpiryDate ?? '',
     selectedPaymentMethodCode: (item as { selectedPaymentMethodCode?: string }).selectedPaymentMethodCode ?? '',
@@ -139,6 +147,7 @@ export function findPublicMinorByTaxCode(taxCode: string): PublicMinorRecord | n
 
 export function createPublicClientRecord(payload: {
   userId: number
+  avatarUrl?: string
   parentFirstName: string
   parentLastName: string
   parentEmail: string
@@ -147,6 +156,7 @@ export function createPublicClientRecord(payload: {
   parentBirthDate: string
   parentBirthPlace: string
   parentRole: ParentRole
+  parentGender?: 'M' | 'F'
   parentTaxCode: string
   residenceAddress: string
   consentEnrollmentAccepted: boolean
@@ -162,6 +172,7 @@ export function createPublicClientRecord(payload: {
   const next: PublicClientRecord = {
     id: nextId(all),
     userId: payload.userId,
+    avatarUrl: payload.avatarUrl?.trim() ?? '',
     parentFirstName: payload.parentFirstName.trim(),
     parentLastName: payload.parentLastName.trim(),
     parentEmail: payload.parentEmail.trim().toLowerCase(),
@@ -173,6 +184,7 @@ export function createPublicClientRecord(payload: {
       payload.parentRole === 'tutore' || payload.parentRole === 'esercente_responsabilita'
         ? payload.parentRole
         : 'genitore',
+    parentGender: payload.parentGender === 'F' ? 'F' : payload.parentGender === 'M' ? 'M' : undefined,
     parentTaxCode: normalizeTaxCode(payload.parentTaxCode),
     residenceAddress: payload.residenceAddress.trim(),
     consentEnrollmentAccepted: payload.consentEnrollmentAccepted,
@@ -193,9 +205,11 @@ export function createPublicClientRecord(payload: {
 export function createPublicMinorRecord(payload: {
   clientId: number
   packageId: string
+  avatarUrl?: string
   firstName: string
   lastName: string
   birthDate: string
+  gender?: 'M' | 'F'
   birthPlace: string
   residenceAddress: string
   taxCode: string
@@ -209,9 +223,11 @@ export function createPublicMinorRecord(payload: {
     id: nextId(all),
     clientId: payload.clientId,
     packageId: payload.packageId,
+    avatarUrl: payload.avatarUrl?.trim() ?? '',
     firstName: payload.firstName.trim(),
     lastName: payload.lastName.trim(),
     birthDate: payload.birthDate.trim(),
+    gender: payload.gender === 'F' ? 'F' : payload.gender === 'M' ? 'M' : undefined,
     birthPlace: payload.birthPlace.trim(),
     residenceAddress: payload.residenceAddress.trim(),
     taxCode: normalizeTaxCode(payload.taxCode),
@@ -257,7 +273,7 @@ export function updatePublicClientRecord(
     | 'parentRole'
     | 'parentTaxCode'
     | 'residenceAddress'
-  >,
+  > & Partial<Pick<PublicClientRecord, 'avatarUrl'>>,
 ): PublicClientRecord | null {
   const all = getPublicClients()
   const current = all.find((item) => item.id === clientId) ?? null
@@ -277,6 +293,7 @@ export function updatePublicClientRecord(
       payload.parentRole === 'tutore' || payload.parentRole === 'esercente_responsabilita'
         ? payload.parentRole
         : 'genitore',
+    avatarUrl: (payload.avatarUrl ?? current.avatarUrl).trim(),
     parentTaxCode: normalizeTaxCode(payload.parentTaxCode),
     residenceAddress: payload.residenceAddress.trim(),
   }
@@ -335,7 +352,7 @@ export function updatePublicMinorRecord(
     | 'residenceAddress'
     | 'taxCode'
   > &
-    Partial<Pick<PublicMinorRecord, 'medicalCertificateImageDataUrl' | 'medicalCertificateExpiryDate'>>,
+    Partial<Pick<PublicMinorRecord, 'avatarUrl' | 'medicalCertificateImageDataUrl' | 'medicalCertificateExpiryDate'>>,
 ): PublicMinorRecord | null {
   const all = getPublicMinors()
   const current = all.find((item) => item.id === minorId) ?? null
@@ -350,6 +367,7 @@ export function updatePublicMinorRecord(
     birthPlace: payload.birthPlace.trim(),
     residenceAddress: payload.residenceAddress.trim(),
     taxCode: normalizeTaxCode(payload.taxCode),
+    avatarUrl: (payload.avatarUrl ?? current.avatarUrl).trim(),
     medicalCertificateImageDataUrl: (payload.medicalCertificateImageDataUrl ?? current.medicalCertificateImageDataUrl).trim(),
     medicalCertificateExpiryDate: (payload.medicalCertificateExpiryDate ?? current.medicalCertificateExpiryDate).trim(),
   }
@@ -358,4 +376,25 @@ export function updatePublicMinorRecord(
     all.map((item) => (item.id === minorId ? updated : item)),
   )
   return updated
+}
+
+export function removePublicClientRecord(
+  clientId: number,
+): { client: PublicClientRecord; removedMinors: PublicMinorRecord[] } | null {
+  const allClients = getPublicClients()
+  const currentClient = allClients.find((item) => item.id === clientId) ?? null
+  if (!currentClient) {
+    return null
+  }
+  const allMinors = getPublicMinors()
+  const removedMinors = allMinors.filter((minor) => minor.clientId === clientId)
+  writeJson(
+    PUBLIC_CLIENTS_KEY,
+    allClients.filter((item) => item.id !== clientId),
+  )
+  writeJson(
+    PUBLIC_MINORS_KEY,
+    allMinors.filter((minor) => minor.clientId !== clientId),
+  )
+  return { client: currentClient, removedMinors }
 }

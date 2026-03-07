@@ -1,12 +1,14 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AlertTriangle, FileText, Wallet } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { getCoreRowModel, useReactTable, type ColumnDef } from '@tanstack/react-table'
 import ExcelJS from 'exceljs'
 import { saveAs } from 'file-saver'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { Document, Packer, Paragraph, Table, TableCell, TableRow, TextRun, WidthType } from 'docx'
+import DataTable from '../components/DataTable'
 import {
   getPublicClients,
   getPublicMinors,
@@ -27,9 +29,12 @@ import { getAthleteActivities } from '../lib/athlete-activities'
 import { getSession } from '../lib/auth'
 import { getAgeFromBirthDate } from '../lib/date-utils'
 import { readFileAsDataUrl } from '../lib/file-utils'
+import { getProjectSettings, getProjectSettingsChangedEventName } from '../lib/project-settings'
+import { resolveDirectAthleteAvatarUrl, resolveMinorAvatarUrl } from '../lib/avatar'
 
 type MinorDraft = Pick<
   PublicMinorRecord,
+  | 'avatarUrl'
   | 'firstName'
   | 'lastName'
   | 'birthDate'
@@ -48,6 +53,7 @@ type AthleteRow =
     }
 type DirectDraft = Pick<
   PublicDirectAthleteRecord,
+  | 'avatarUrl'
   | 'firstName'
   | 'lastName'
   | 'birthDate'
@@ -70,6 +76,7 @@ type ParsedResidence = {
 }
 
 function AthleteDocumentPreview({ dataUrl }: { dataUrl: string }) {
+  const { t } = useTranslation()
   if (!dataUrl) {
     return <p className="text-sm opacity-70">-</p>
   }
@@ -78,7 +85,7 @@ function AthleteDocumentPreview({ dataUrl }: { dataUrl: string }) {
   }
   return (
     <a className="link link-primary text-sm" href={dataUrl} target="_blank" rel="noreferrer">
-      Apri documento
+      {t('athletes.openDocument')}
     </a>
   )
 }
@@ -190,7 +197,17 @@ function AthletesPage() {
   const [splitResidenceColumns, setSplitResidenceColumns] = useState(false)
   const session = useMemo(() => getSession(), [])
   const isSuperAdministrator = session?.role === 'super-administrator'
+  const [avatarDicebearStyle, setAvatarDicebearStyle] = useState(() => getProjectSettings().avatarDicebearStyle)
   const lockedAthleteId = searchParams.get('athleteId')
+
+  useEffect(() => {
+    const settingsEvent = getProjectSettingsChangedEventName()
+    const handleSettingsChange = () => {
+      setAvatarDicebearStyle(getProjectSettings().avatarDicebearStyle)
+    }
+    window.addEventListener(settingsEvent, handleSettingsChange)
+    return () => window.removeEventListener(settingsEvent, handleSettingsChange)
+  }, [])
 
   const clientsById = useMemo(() => new Map(getPublicClients().map((client) => [client.id, client])), [])
   const packages = useMemo(() => getPackages(), [])
@@ -318,7 +335,7 @@ function AthletesPage() {
   }, [certificateFilter, clientsById, directAthletes, enrollmentCoveragesByAthleteKey, enrollmentExpiryFrom, enrollmentExpiryTo, enrollmentStatusFilter, expiryFrom, expiryTo, globalSearch, lockedAthleteId, minors, packageFilter, packagesById, typeFilter, validationFilter])
 
   const athleteExportRows = useMemo(() => {
-    const yesNo = (value: boolean) => (value ? 'Si' : 'No')
+    const yesNo = (value: boolean) => (value ? t('athletes.export.yes') : t('athletes.export.no'))
     return filteredAthletes
       .filter((row) => {
         const validationStatus = row.type === 'minor' ? row.minor.validationStatus : row.direct.validationStatus
@@ -368,8 +385,8 @@ function AthletesPage() {
 
   const exportAthletes = async () => {
     const headersBase = [
-      ...(isSuperAdministrator ? ['ID atleta'] : []),
-      'Tipo',
+      ...(isSuperAdministrator ? [t('athletes.export.fields.athleteId')] : []),
+      t('athletes.type'),
       t('athletes.firstName'),
       t('athletes.lastName'),
       t('athletes.birthDate'),
@@ -378,11 +395,11 @@ function AthletesPage() {
       t('athletes.residence'),
       t('athletes.package'),
       t('athletes.parent'),
-      'CF genitore',
+      t('athletes.export.fields.parentTaxCode'),
       t('clients.email'),
       t('clients.phone'),
       t('athletes.certificateExpiry'),
-      'Documento certificato presente',
+      t('athletes.export.fields.medicalCertificateDocumentPresent'),
       t('athletes.enrollmentsCoverageTitle'),
     ]
     const rowsBase = athleteExportRows.map((item) => [
@@ -408,8 +425,8 @@ function AthletesPage() {
     if (exportFormat === 'xlsx') {
       const records = athleteExportRows.map((item) => {
         const record: Record<string, string> = {
-          ...(isSuperAdministrator ? { 'ID atleta': item.athleteId } : {}),
-          Tipo: item.athleteType,
+          ...(isSuperAdministrator ? { [t('athletes.export.fields.athleteId')]: item.athleteId } : {}),
+          [t('athletes.type')]: item.athleteType,
           [t('athletes.firstName')]: item.firstName,
           [t('athletes.lastName')]: item.lastName,
           [t('athletes.birthDate')]: item.birthDate,
@@ -417,25 +434,25 @@ function AthletesPage() {
           [t('athletes.taxCode')]: item.taxCode,
         }
         if (splitResidenceColumns) {
-          record['Via/Piazza'] = item.residenceStreet
-          record['Citta'] = item.residenceCity
-          record['Provincia'] = item.residenceProvince
-          record['CAP'] = item.residencePostalCode
+          record[t('athletes.export.fields.residenceStreet')] = item.residenceStreet
+          record[t('athletes.export.fields.residenceCity')] = item.residenceCity
+          record[t('athletes.export.fields.residenceProvince')] = item.residenceProvince
+          record[t('athletes.export.fields.residencePostalCode')] = item.residencePostalCode
         } else {
           record[t('athletes.residence')] = item.residenceAddress
         }
         record[t('athletes.package')] = item.packageName
         record[t('athletes.parent')] = item.parentFullName
-        record['CF genitore'] = item.parentTaxCode
+        record[t('athletes.export.fields.parentTaxCode')] = item.parentTaxCode
         record[t('clients.email')] = item.email
         record[t('clients.phone')] = item.phone
         record[t('athletes.certificateExpiry')] = item.medicalCertificateExpiryDate
-        record['Documento certificato presente'] = item.medicalCertificateDocumentPresent
+        record[t('athletes.export.fields.medicalCertificateDocumentPresent')] = item.medicalCertificateDocumentPresent
         record[t('athletes.enrollmentsCoverageTitle')] = item.enrollmentsSummary
         return record
       })
       const workbook = new ExcelJS.Workbook()
-      const worksheet = workbook.addWorksheet('Atleti')
+      const worksheet = workbook.addWorksheet(t('athletes.title'))
       const columns = records.length > 0 ? Object.keys(records[0]) : headersBase
       worksheet.columns = columns.map((header) => ({ header, key: header }))
       records.forEach((record) => {
@@ -453,7 +470,7 @@ function AthletesPage() {
     if (exportFormat === 'pdf') {
       const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' })
       doc.setFontSize(11)
-      doc.text('Export schede atleti', 40, 36)
+      doc.text(t('athletes.export.title'), 40, 36)
       autoTable(doc, {
         head: [headersBase],
         body: rowsBase,
@@ -484,7 +501,7 @@ function AthletesPage() {
     const doc = new Document({
       sections: [{
         children: [
-          new Paragraph({ children: [new TextRun({ text: 'Export schede atleti', bold: true })] }),
+          new Paragraph({ children: [new TextRun({ text: t('athletes.export.title'), bold: true })] }),
           new Paragraph(''),
           new Table({
             width: { size: 100, type: WidthType.PERCENTAGE },
@@ -521,6 +538,8 @@ function AthletesPage() {
     () => (activeDirect ? getAthleteActivitiesByAthleteKey(`direct-${activeDirect.id}`) : []),
     [activeDirect],
   )
+  const packageChipClassName =
+    'inline-flex max-w-full items-start justify-start rounded-md border border-base-300 bg-base-100 px-2 py-1 text-left text-xs leading-tight text-base-content whitespace-normal break-words hover:bg-base-200'
   const getActivityPackageLabel = useCallback((packageId: string): string => {
     const packageItem = packagesById.get(packageId)
     if (!packageItem) {
@@ -573,9 +592,10 @@ function AthletesPage() {
     setDirectAthletes(getPublicDirectAthletes())
   }
 
-  const openAthleteModal = (minor: PublicMinorRecord) => {
+  const openAthleteModal = useCallback((minor: PublicMinorRecord) => {
     setActiveMinorId(minor.id)
     setMinorDraft({
+      avatarUrl: minor.avatarUrl,
       firstName: minor.firstName,
       lastName: minor.lastName,
       birthDate: minor.birthDate,
@@ -603,7 +623,7 @@ function AthletesPage() {
       return next?.id ?? ''
     })()
     setNewMinorPackageId(firstAvailablePackageId)
-  }
+  }, [packages])
 
   const closeModal = () => {
     setActiveMinorId(null)
@@ -614,9 +634,10 @@ function AthletesPage() {
     setNewDirectPackageId('')
   }
 
-  const openDirectAthleteModal = (direct: PublicDirectAthleteRecord) => {
+  const openDirectAthleteModal = useCallback((direct: PublicDirectAthleteRecord) => {
     setActiveDirectId(direct.id)
     setDirectDraft({
+      avatarUrl: direct.avatarUrl,
       firstName: direct.firstName,
       lastName: direct.lastName,
       birthDate: direct.birthDate,
@@ -646,7 +667,7 @@ function AthletesPage() {
       return next?.id ?? ''
     })()
     setNewDirectPackageId(firstAvailablePackageId)
-  }
+  }, [packages])
 
   const addPackageToActiveMinor = () => {
     if (!activeMinor || !newMinorPackageId) {
@@ -736,6 +757,215 @@ function AthletesPage() {
     setSearchParams(next, { replace: true })
   }
 
+  const athleteColumns = useMemo<ColumnDef<AthleteRow>[]>(() => [
+    {
+      id: 'avatar',
+      header: 'Avatar',
+      cell: ({ row }) => {
+        const minor = row.original.type === 'minor' ? row.original.minor : null
+        const direct = row.original.type === 'direct' ? row.original.direct : null
+        const client =
+          minor
+            ? clientsById.get(minor.clientId) ?? null
+            : direct?.clientId !== null && direct?.clientId !== undefined
+              ? clientsById.get(direct.clientId) ?? null
+              : null
+        const avatarUrl = minor
+          ? resolveMinorAvatarUrl(minor, avatarDicebearStyle, client)
+          : direct
+            ? resolveDirectAthleteAvatarUrl(direct, avatarDicebearStyle, client)
+            : ''
+        return <img src={avatarUrl} alt="" className="h-8 w-8 rounded-full border border-base-300 object-cover" />
+      },
+      meta: { responsivePriority: 'low' },
+    },
+    {
+      id: 'athlete',
+      header: t('athletes.athlete'),
+      cell: ({ row }) => {
+        const minor = row.original.type === 'minor' ? row.original.minor : null
+        const direct = row.original.type === 'direct' ? row.original.direct : null
+        return minor ? `${minor.firstName} ${minor.lastName}` : `${direct?.firstName ?? ''} ${direct?.lastName ?? ''}`
+      },
+      meta: { responsivePriority: 'high' },
+    },
+    {
+      id: 'type',
+      header: t('athletes.type'),
+      cell: ({ row }) => (
+        <span className={`badge ${row.original.type === 'minor' ? 'badge-info' : 'badge-primary'}`}>
+          {row.original.type === 'minor' ? t('athletes.minorType') : t('athletes.adultType')}
+        </span>
+      ),
+      meta: { responsivePriority: 'high' },
+    },
+    {
+      id: 'birthDate',
+      header: t('athletes.birthDate'),
+      cell: ({ row }) => {
+        const minor = row.original.type === 'minor' ? row.original.minor : null
+        const direct = row.original.type === 'direct' ? row.original.direct : null
+        return minor?.birthDate ?? direct?.birthDate ?? '-'
+      },
+      meta: { responsivePriority: 'low' },
+    },
+    {
+      id: 'parent',
+      header: t('athletes.parent'),
+      cell: ({ row }) => {
+        if (row.original.type !== 'minor') {
+          return '-'
+        }
+        const client = clientsById.get(row.original.minor.clientId)
+        if (!client) {
+          return '-'
+        }
+        return (
+          <button
+            type="button"
+            className="link text-base-content text-left"
+            onClick={() => navigate(`/app/clienti?clientId=${client.id}`)}
+          >
+            {client.parentFirstName} {client.parentLastName}
+          </button>
+        )
+      },
+      meta: { responsivePriority: 'low' },
+    },
+    {
+      id: 'package',
+      header: t('athletes.package'),
+      cell: ({ row }) => {
+        const minor = row.original.type === 'minor' ? row.original.minor : null
+        const direct = row.original.type === 'direct' ? row.original.direct : null
+        const athleteKey = minor ? `minor-${minor.id}` : direct ? `direct-${direct.id}` : ''
+        const packageIds =
+          athleteActivitiesByAthleteKey.get(athleteKey) ??
+          (minor?.packageId || direct?.packageId
+            ? [minor?.packageId ?? direct?.packageId ?? '']
+            : [])
+        if (packageIds.length === 0) {
+          return '-'
+        }
+        return (
+          <div className="flex flex-wrap gap-1">
+            {packageIds.map((pkgId) => (
+              <button
+                key={`${row.original.id}-${pkgId}`}
+                type="button"
+                className={packageChipClassName}
+                onClick={() => navigate(`/app/pacchetti?packageId=${pkgId}`)}
+              >
+                {packagesById.get(pkgId)?.name ?? pkgId}
+              </button>
+            ))}
+          </div>
+        )
+      },
+      meta: { responsivePriority: 'low' },
+    },
+    {
+      id: 'enrollments',
+      header: t('athletes.enrollmentsCoverageTitle'),
+      cell: ({ row }) => {
+        const minor = row.original.type === 'minor' ? row.original.minor : null
+        const direct = row.original.type === 'direct' ? row.original.direct : null
+        const athleteKey = minor ? `minor-${minor.id}` : direct ? `direct-${direct.id}` : ''
+        const enrollments = enrollmentCoveragesByAthleteKey.get(athleteKey) ?? []
+        if (enrollments.length === 0) {
+          return <span className="text-sm opacity-70">-</span>
+        }
+        return (
+          <div className="flex flex-wrap gap-1">
+            {enrollments.map((enrollment) => {
+              const title = enrollmentLabelById.get(enrollment.sourceEnrollmentId) ?? enrollment.sourceEnrollmentId
+              const isValid = isEnrollmentCoverageValid(enrollment.validTo)
+              return (
+                <span key={enrollment.id} className={`badge ${isValid ? 'badge-success' : 'badge-error'}`}>
+                  {title} {enrollment.validTo}
+                </span>
+              )
+            })}
+          </div>
+        )
+      },
+      meta: { responsivePriority: 'low' },
+    },
+    {
+      id: 'certificate',
+      header: t('athletes.certificateExpiry'),
+      cell: ({ row }) => {
+        const minor = row.original.type === 'minor' ? row.original.minor : null
+        const direct = row.original.type === 'direct' ? row.original.direct : null
+        const value = minor?.medicalCertificateExpiryDate || direct?.medicalCertificateExpiryDate || ''
+        if (!value) {
+          return <span className="text-error font-medium">-</span>
+        }
+        return (
+          <span className={isCertificateValid(value) ? 'text-success font-medium' : 'text-error font-medium'}>
+            {value}
+          </span>
+        )
+      },
+      meta: { responsivePriority: 'low' },
+    },
+    {
+      id: 'status',
+      header: t('athletes.status'),
+      cell: ({ row }) => {
+        const isValidated = (
+          row.original.type === 'minor'
+            ? row.original.minor.validationStatus
+            : row.original.direct.validationStatus
+        ) === 'validated'
+        return (
+          <span className={`badge ${isValidated ? 'badge-success' : 'badge-warning'}`}>
+            {isValidated ? t('athletes.validated') : t('athletes.notValidated')}
+          </span>
+        )
+      },
+      meta: { responsivePriority: 'high' },
+    },
+    {
+      id: 'actions',
+      header: t('athletes.actions'),
+      cell: ({ row }) => {
+        const minor = row.original.type === 'minor' ? row.original.minor : null
+        const direct = row.original.type === 'direct' ? row.original.direct : null
+        const isValidated = (minor ? minor.validationStatus : direct?.validationStatus) === 'validated'
+        return (
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm btn-square"
+              onClick={() => (minor ? openAthleteModal(minor) : direct ? openDirectAthleteModal(direct) : undefined)}
+              title={isValidated ? t('athletes.openProfile') : t('athletes.openValidation')}
+            >
+              {isValidated
+                ? <FileText className="h-4 w-4" />
+                : <AlertTriangle className="h-4 w-4 text-warning" />}
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm btn-square"
+              title={t('athletes.openActivitiesPayments')}
+              onClick={() => navigate(`/app/attivita-pagamenti?athleteId=${row.original.id}`)}
+            >
+              <Wallet className="h-4 w-4" />
+            </button>
+          </div>
+        )
+      },
+      meta: { responsivePriority: 'high' },
+    },
+  ], [athleteActivitiesByAthleteKey, avatarDicebearStyle, clientsById, enrollmentCoveragesByAthleteKey, enrollmentLabelById, navigate, openDirectAthleteModal, openAthleteModal, packageChipClassName, packagesById, t])
+
+  const athletesTable = useReactTable({
+    data: filteredAthletes,
+    columns: athleteColumns,
+    getCoreRowModel: getCoreRowModel(),
+  })
+
   return (
     <section className="space-y-4">
       <div>
@@ -750,7 +980,7 @@ function AthletesPage() {
           onClick={() => setIsExportModalOpen(true)}
           disabled={athleteExportRows.length === 0}
         >
-          Esporta schede atleta
+          {t('athletes.export.button')}
         </button>
       </div>
       <div className="grid grid-cols-1 gap-3 rounded-lg border border-base-300 bg-base-100 p-3 md:grid-cols-2 lg:grid-cols-12">
@@ -846,173 +1076,28 @@ function AthletesPage() {
           </button>
         </div>
       </div>
-      <div className="overflow-x-auto rounded-lg border border-base-300 bg-base-100">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>{t('athletes.athlete')}</th>
-              <th>{t('athletes.type')}</th>
-              <th>{t('athletes.birthDate')}</th>
-              <th>{t('athletes.parent')}</th>
-              <th>{t('athletes.package')}</th>
-              <th>{t('athletes.enrollmentsCoverageTitle')}</th>
-              <th>{t('athletes.certificateExpiry')}</th>
-              <th>{t('athletes.status')}</th>
-              <th>{t('athletes.actions')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredAthletes.length === 0 ? (
-              <tr>
-                <td colSpan={9} className="text-center text-sm opacity-70">{t('athletes.empty')}</td>
-              </tr>
-            ) : (
-              filteredAthletes.map((row) => {
-                const minor = row.type === 'minor' ? row.minor : null
-                const direct = row.type === 'direct' ? row.direct : null
-                const client = minor ? clientsById.get(minor.clientId) : null
-                const isValidated = (minor ? minor.validationStatus : direct?.validationStatus) === 'validated'
-                return (
-                  <tr key={row.id}>
-                    <td>{minor ? `${minor.firstName} ${minor.lastName}` : `${direct?.firstName ?? ''} ${direct?.lastName ?? ''}`}</td>
-                    <td>
-                      <span className={`badge ${minor ? 'badge-info' : 'badge-primary'}`}>
-                        {minor ? t('athletes.minorType') : t('athletes.adultType')}
-                      </span>
-                    </td>
-                    <td>{minor?.birthDate ?? direct?.birthDate ?? '-'}</td>
-                    <td>
-                      {minor && client ? (
-                        <button
-                          type="button"
-                          className="link text-base-content text-left"
-                          onClick={() => navigate(`/app/clienti?clientId=${client.id}`)}
-                        >
-                          {client.parentFirstName} {client.parentLastName}
-                        </button>
-                      ) : (
-                        '-'
-                      )}
-                    </td>
-                    <td>
-                      {(() => {
-                        const athleteKey = minor ? `minor-${minor.id}` : direct ? `direct-${direct.id}` : ''
-                        const packageIds =
-                          athleteActivitiesByAthleteKey.get(athleteKey) ??
-                          (minor?.packageId || direct?.packageId
-                            ? [minor?.packageId ?? direct?.packageId ?? '']
-                            : [])
-                        if (packageIds.length === 0) {
-                          return '-'
-                        }
-                        return (
-                          <div className="flex flex-wrap gap-1">
-                            {packageIds.map((pkgId) => (
-                              <button
-                                key={`${row.id}-${pkgId}`}
-                                type="button"
-                                className="badge badge-outline text-base-content"
-                                onClick={() => navigate(`/app/pacchetti?packageId=${pkgId}`)}
-                              >
-                                {packagesById.get(pkgId)?.name ?? pkgId}
-                              </button>
-                            ))}
-                          </div>
-                        )
-                      })()}
-                    </td>
-                    <td>
-                      {(() => {
-                        const athleteKey = minor ? `minor-${minor.id}` : direct ? `direct-${direct.id}` : ''
-                        const enrollments = enrollmentCoveragesByAthleteKey.get(athleteKey) ?? []
-                        if (enrollments.length === 0) {
-                          return <span className="text-sm opacity-70">-</span>
-                        }
-                        return (
-                          <div className="flex flex-wrap gap-1">
-                            {enrollments.map((enrollment) => {
-                              const title = enrollmentLabelById.get(enrollment.sourceEnrollmentId) ?? enrollment.sourceEnrollmentId
-                              const isValid = isEnrollmentCoverageValid(enrollment.validTo)
-                              return (
-                                <span key={enrollment.id} className={`badge ${isValid ? 'badge-success' : 'badge-error'}`}>
-                                  {title} {enrollment.validTo}
-                                </span>
-                              )
-                            })}
-                          </div>
-                        )
-                      })()}
-                    </td>
-                    <td>
-                      {(minor?.medicalCertificateExpiryDate || direct?.medicalCertificateExpiryDate) ? (
-                        <span
-                          className={
-                            isCertificateValid(minor?.medicalCertificateExpiryDate || direct?.medicalCertificateExpiryDate || '')
-                              ? 'text-success font-medium'
-                              : 'text-error font-medium'
-                          }
-                        >
-                          {minor?.medicalCertificateExpiryDate || direct?.medicalCertificateExpiryDate}
-                        </span>
-                      ) : (
-                        <span className="text-error font-medium">-</span>
-                      )}
-                    </td>
-                    <td>
-                      <span className={`badge ${isValidated ? 'badge-success' : 'badge-warning'}`}>
-                        {isValidated
-                          ? t('athletes.validated')
-                          : t('athletes.notValidated')}
-                      </span>
-                    </td>
-                    <td>
-                      <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          className="btn btn-ghost btn-sm btn-square"
-                          onClick={() => (minor ? openAthleteModal(minor) : direct ? openDirectAthleteModal(direct) : undefined)}
-                          title={isValidated ? t('athletes.openProfile') : t('athletes.openValidation')}
-                        >
-                          {isValidated
-                            ? <FileText className="h-4 w-4" />
-                            : <AlertTriangle className="h-4 w-4 text-warning" />}
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-ghost btn-sm btn-square"
-                          title={t('athletes.openActivitiesPayments')}
-                          onClick={() => navigate(`/app/attivita-pagamenti?athleteId=${row.id}`)}
-                        >
-                          <Wallet className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                )
-              })
-            )}
-          </tbody>
-        </table>
+      <div className="rounded-lg border border-base-300 bg-base-100">
+        {filteredAthletes.length === 0 ? <p className="p-4 text-center text-sm opacity-70">{t('athletes.empty')}</p> : <DataTable table={athletesTable} />}
       </div>
 
       {isExportModalOpen ? (
         <dialog className="modal modal-open">
           <div className="modal-box w-11/12 max-w-2xl">
-            <h3 className="text-lg font-semibold">Esporta schede atleta</h3>
+            <h3 className="text-lg font-semibold">{t('athletes.export.title')}</h3>
             <p className="mt-1 text-sm opacity-70">
-              Export basato sui dati della scheda atleta e sui filtri correnti.
+              {t('athletes.export.description')}
             </p>
             <div className="mt-4 space-y-4">
               <label className="form-control max-w-xs">
-                <span className="label-text mb-1 text-xs">Formato export</span>
+                <span className="label-text mb-1 text-xs">{t('athletes.export.formatLabel')}</span>
                 <select
                   className="select select-bordered w-full"
                   value={exportFormat}
                   onChange={(event) => setExportFormat(event.target.value as AthleteExportFormat)}
                 >
-                  <option value="xlsx">Excel (.xlsx)</option>
-                  <option value="pdf">PDF (.pdf)</option>
-                  <option value="docx">Word (.docx)</option>
+                  <option value="xlsx">{t('athletes.export.formats.xlsx')}</option>
+                  <option value="pdf">{t('athletes.export.formats.pdf')}</option>
+                  <option value="docx">{t('athletes.export.formats.docx')}</option>
                 </select>
               </label>
               <label className="label cursor-pointer justify-start gap-2">
@@ -1024,7 +1109,7 @@ function AthletesPage() {
                   disabled={exportFormat !== 'xlsx'}
                 />
                 <span className="label-text">
-                  Dati residenza separati (solo Excel): Via/Piazza, Citta, Provincia, CAP
+                  {t('athletes.export.splitResidenceColumns')}
                 </span>
               </label>
             </div>
@@ -1038,7 +1123,7 @@ function AthletesPage() {
                 onClick={() => void exportAthletes()}
                 disabled={athleteExportRows.length === 0}
               >
-                Esporta
+                {t('athletes.export.exportAction')}
               </button>
             </div>
           </div>
@@ -1051,6 +1136,37 @@ function AthletesPage() {
           <div className="modal-box w-11/12 max-w-3xl">
             <h3 className="text-lg font-semibold">{t('athletes.detailTitle')}</h3>
             <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div className="form-control md:col-span-2">
+                <span className="label-text mb-1 text-xs">Avatar</span>
+                <div className="flex flex-wrap items-center gap-3">
+                  <img
+                    src={resolveMinorAvatarUrl({ ...activeMinor, avatarUrl: minorDraft.avatarUrl }, avatarDicebearStyle, clientsById.get(activeMinor.clientId) ?? null)}
+                    alt=""
+                    className="h-12 w-12 rounded-full border border-base-300 object-cover"
+                  />
+                  <input
+                    type="file"
+                    className="file-input file-input-bordered w-full max-w-md"
+                    accept="image/*"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0]
+                      if (!file) {
+                        return
+                      }
+                      void readFileAsDataUrl(file).then((dataUrl) => {
+                        setMinorDraft((prev) => (prev ? { ...prev, avatarUrl: dataUrl } : prev))
+                      })
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-sm"
+                    onClick={() => setMinorDraft((prev) => (prev ? { ...prev, avatarUrl: '' } : prev))}
+                  >
+                    Rimuovi
+                  </button>
+                </div>
+              </div>
               <label className="form-control">
                 <span className="label-text mb-1 text-xs">{t('athletes.firstName')}</span>
                 <input className="input input-bordered w-full" value={minorDraft.firstName} onChange={(event) => setMinorDraft((prev) => (prev ? { ...prev, firstName: event.target.value } : prev))} />
@@ -1123,7 +1239,7 @@ function AthletesPage() {
                     <button
                       key={activity.key}
                       type="button"
-                      className="badge badge-outline text-base-content"
+                      className={packageChipClassName}
                       onClick={() => navigate(`/app/pacchetti?packageId=${activity.packageId}`)}
                     >
                       {getActivityPackageLabel(activity.packageId)}
@@ -1211,6 +1327,37 @@ function AthletesPage() {
           <div className="modal-box w-11/12 max-w-3xl">
             <h3 className="text-lg font-semibold">{t('athletes.detailTitle')}</h3>
             <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div className="form-control md:col-span-2">
+                <span className="label-text mb-1 text-xs">Avatar</span>
+                <div className="flex flex-wrap items-center gap-3">
+                  <img
+                    src={resolveDirectAthleteAvatarUrl({ ...activeDirect, avatarUrl: directDraft.avatarUrl }, avatarDicebearStyle, activeDirect.clientId !== null ? clientsById.get(activeDirect.clientId) ?? null : null)}
+                    alt=""
+                    className="h-12 w-12 rounded-full border border-base-300 object-cover"
+                  />
+                  <input
+                    type="file"
+                    className="file-input file-input-bordered w-full max-w-md"
+                    accept="image/*"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0]
+                      if (!file) {
+                        return
+                      }
+                      void readFileAsDataUrl(file).then((dataUrl) => {
+                        setDirectDraft((prev) => (prev ? { ...prev, avatarUrl: dataUrl } : prev))
+                      })
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-sm"
+                    onClick={() => setDirectDraft((prev) => (prev ? { ...prev, avatarUrl: '' } : prev))}
+                  >
+                    Rimuovi
+                  </button>
+                </div>
+              </div>
               <label className="form-control">
                 <span className="label-text mb-1 text-xs">{t('athletes.firstName')}</span>
                 <input className="input input-bordered w-full" value={directDraft.firstName} onChange={(event) => setDirectDraft((prev) => (prev ? { ...prev, firstName: event.target.value } : prev))} />
@@ -1292,7 +1439,7 @@ function AthletesPage() {
                     <button
                       key={activity.key}
                       type="button"
-                      className="badge badge-outline text-base-content"
+                      className={packageChipClassName}
                       onClick={() => navigate(`/app/pacchetti?packageId=${activity.packageId}`)}
                     >
                       {getActivityPackageLabel(activity.packageId)}

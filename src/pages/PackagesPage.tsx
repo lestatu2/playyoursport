@@ -60,18 +60,6 @@ const WEEK_DAYS: Array<{ value: number; labelKey: string }> = [
   { value: 0, labelKey: 'utility.packages.weekdaySunday' },
 ]
 const GOOGLE_PLACES_SCRIPT_ID = 'pys-google-places-script'
-type PackageTableColumnId = 'name' | 'ageRange' | 'period' | 'paymentFrequency' | 'priceByPeriod' | 'category' | 'company' | 'audience'
-const DEFAULT_PACKAGE_TABLE_PRIORITY_ORDER: PackageTableColumnId[] = [
-  'name',
-  'ageRange',
-  'period',
-  'paymentFrequency',
-  'priceByPeriod',
-  'category',
-  'company',
-  'audience',
-]
-const DEFAULT_PACKAGE_TABLE_HIGH_PRIORITY: PackageTableColumnId[] = ['name', 'ageRange', 'period', 'paymentFrequency', 'priceByPeriod']
 
 declare global {
   interface Window {
@@ -342,11 +330,6 @@ function PackagesPage() {
   const [filterFrequency, setFilterFrequency] = useState<'all' | 'non-recurring' | PackagePaymentFrequency>('all')
   const [filterAgeMin, setFilterAgeMin] = useState('')
   const [filterAgeMax, setFilterAgeMax] = useState('')
-  const [isPriorityModalOpen, setIsPriorityModalOpen] = useState(false)
-  const [priorityOrder, setPriorityOrder] = useState<PackageTableColumnId[]>(DEFAULT_PACKAGE_TABLE_PRIORITY_ORDER)
-  const [highPriorityColumns, setHighPriorityColumns] = useState<PackageTableColumnId[]>(DEFAULT_PACKAGE_TABLE_HIGH_PRIORITY)
-  const [priorityDraftOrder, setPriorityDraftOrder] = useState<PackageTableColumnId[]>(DEFAULT_PACKAGE_TABLE_PRIORITY_ORDER)
-  const [priorityDraftHighColumns, setPriorityDraftHighColumns] = useState<PackageTableColumnId[]>(DEFAULT_PACKAGE_TABLE_HIGH_PRIORITY)
   const [isEditionsModalOpen, setIsEditionsModalOpen] = useState(false)
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false)
   const [groupModalMode, setGroupModalMode] = useState<'create' | 'edit'>('create')
@@ -1052,23 +1035,6 @@ function PackagesPage() {
     [packages, selectedProductId],
   )
 
-  const highPrioritySet = useMemo(() => new Set(highPriorityColumns), [highPriorityColumns])
-  const columnOrder = useMemo(() => [...priorityOrder, 'actions'], [priorityOrder])
-
-  const columnLabelById = useMemo<Record<PackageTableColumnId, string>>(
-    () => ({
-      name: t('utility.packages.nameLabel'),
-      ageRange: t('utility.packages.ageRangeLabel'),
-      period: 'Periodo',
-      paymentFrequency: t('utility.packages.paymentFrequencyLabel'),
-      priceByPeriod: t('utility.packages.pricePerPeriodLabel'),
-      category: t('utility.packages.categoryLabel'),
-      company: t('utility.packages.companyLabel'),
-      audience: t('utility.packages.audienceLabel'),
-    }),
-    [t],
-  )
-
   const filteredProducts = useMemo(() => {
     const lockedPackageId = searchParams.get('packageId')
     const lockedProductId = lockedPackageId
@@ -1175,83 +1141,52 @@ function PackagesPage() {
     })
   }
 
-  const openPriorityModal = () => {
-    setPriorityDraftOrder(priorityOrder)
-    setPriorityDraftHighColumns(highPriorityColumns)
-    setIsPriorityModalOpen(true)
-  }
-
-  const applyPriorityModal = () => {
-    setPriorityOrder(priorityDraftOrder)
-    setHighPriorityColumns(priorityDraftHighColumns)
-    setIsPriorityModalOpen(false)
-  }
-
-  const movePriorityItem = (id: PackageTableColumnId, direction: 'up' | 'down') => {
-    setPriorityDraftOrder((prev) => {
-      const index = prev.indexOf(id)
-      if (index < 0) {
-        return prev
-      }
-      if (direction === 'up' && index === 0) {
-        return prev
-      }
-      if (direction === 'down' && index === prev.length - 1) {
-        return prev
-      }
-      const next = [...prev]
-      const swapIndex = direction === 'up' ? index - 1 : index + 1
-      ;[next[index], next[swapIndex]] = [next[swapIndex], next[index]]
-      return next
-    })
-  }
-
   const columns = useMemo<ColumnDef<ProductRow>[]>(
     () => [
       {
         id: 'name',
         header: t('utility.packages.nameLabel'),
         cell: ({ row }) => <span className="font-medium">{row.original.name}</span>,
-        meta: { responsivePriority: highPrioritySet.has('name') ? 'high' : 'low' },
+        meta: { responsivePriority: 'high' },
       },
       {
         id: 'ageRange',
         header: t('utility.packages.ageRangeLabel'),
         cell: ({ row }) => <span>{`${row.original.ageMin} - ${row.original.ageMax}`}</span>,
-        meta: { responsivePriority: highPrioritySet.has('ageRange') ? 'high' : 'low' },
+        meta: { responsivePriority: 'high' },
       },
       {
         id: 'period',
-        header: 'Periodo',
+        header: t('utility.packages.durationPeriod'),
         cell: ({ row }) =>
           row.original.durationType === 'period'
             ? <span>{`${row.original.periodStartDate} - ${row.original.periodEndDate}`}</span>
             : <span>{`${row.original.eventDate} ${row.original.eventTime}`.trim() || '-'}</span>,
-        meta: { responsivePriority: highPrioritySet.has('period') ? 'high' : 'low' },
+        meta: { responsivePriority: 'high' },
       },
       {
         id: 'paymentFrequency',
         header: t('utility.packages.paymentFrequencyLabel'),
         cell: ({ row }) => <span>{formatPackageFrequency(row.original)}</span>,
-        meta: { responsivePriority: highPrioritySet.has('paymentFrequency') ? 'high' : 'low' },
+        meta: { responsivePriority: 'high' },
       },
       {
         id: 'priceByPeriod',
         header: t('utility.packages.pricePerPeriodLabel'),
         cell: ({ row }) => <span>{formatPackagePriceByPeriod(row.original)}</span>,
-        meta: { responsivePriority: highPrioritySet.has('priceByPeriod') ? 'high' : 'low' },
+        meta: { responsivePriority: 'high' },
       },
       {
         id: 'category',
         header: t('utility.packages.categoryLabel'),
         cell: ({ row }) => <span>{categoryLabelById.get(row.original.categoryId) ?? '-'}</span>,
-        meta: { responsivePriority: highPrioritySet.has('category') ? 'high' : 'low' },
+        meta: { responsivePriority: 'low' },
       },
       {
         id: 'company',
         header: t('utility.packages.companyLabel'),
         cell: ({ row }) => <span>{companyLabelById.get(row.original.companyId) ?? '-'}</span>,
-        meta: { responsivePriority: highPrioritySet.has('company') ? 'high' : 'low' },
+        meta: { responsivePriority: 'low' },
       },
       {
         id: 'audience',
@@ -1263,7 +1198,7 @@ function PackagesPage() {
               : t('utility.packages.audienceYouth')}
           </span>
         ),
-        meta: { responsivePriority: highPrioritySet.has('audience') ? 'high' : 'low' },
+        meta: { responsivePriority: 'low' },
       },
       {
         id: 'actions',
@@ -1315,7 +1250,6 @@ function PackagesPage() {
       companyLabelById,
       formatPackageFrequency,
       formatPackagePriceByPeriod,
-      highPrioritySet,
       openPackageWhatsAppGroup,
       openEditionsModal,
       openEditModal,
@@ -1327,9 +1261,6 @@ function PackagesPage() {
   const table = useReactTable({
     data: filteredProducts,
     columns,
-    state: {
-      columnOrder,
-    },
     getCoreRowModel: getCoreRowModel(),
   })
 
@@ -1494,9 +1425,6 @@ function PackagesPage() {
                 />
               </label>
               <div className="lg:col-span-2 flex items-end justify-end gap-2">
-                <button type="button" className="btn btn-outline btn-sm" onClick={openPriorityModal}>
-                  {t('utility.packages.columnPriorityButton')}
-                </button>
                 <button type="button" className="btn btn-outline btn-sm" onClick={resetFilters}>
                   {t('common.resetFilters')}
                 </button>
@@ -1576,62 +1504,6 @@ function PackagesPage() {
             </div>
           </div>
           <button type="button" className="modal-backdrop" onClick={closeEditionsModal} />
-        </dialog>
-      )}
-
-      {isPriorityModalOpen && (
-        <dialog className="modal modal-open">
-          <div className="modal-box max-w-2xl space-y-4">
-            <h3 className="text-lg font-semibold">{t('utility.packages.columnPriorityModalTitle')}</h3>
-            <p className="text-sm opacity-70">{t('utility.packages.columnPriorityModalHelp')}</p>
-
-            <div className="space-y-2">
-              {priorityDraftOrder.map((columnId, index) => {
-                const isHigh = priorityDraftHighColumns.includes(columnId)
-                return (
-                  <div key={`priority-${columnId}`} className="grid items-center gap-2 rounded-lg border border-base-300 p-2 md:grid-cols-[1fr_auto_auto_auto]">
-                    <span className="text-sm">{columnLabelById[columnId]}</span>
-                    <label className="label cursor-pointer justify-start gap-2 p-0">
-                      <span className="label-text text-xs">{t('utility.packages.columnPriorityHighLabel')}</span>
-                      <input
-                        type="checkbox"
-                        className="toggle toggle-sm"
-                        checked={isHigh}
-                        onChange={(event) =>
-                          setPriorityDraftHighColumns((prev) =>
-                            event.target.checked ? [...new Set([...prev, columnId])] : prev.filter((item) => item !== columnId),
-                          )
-                        }
-                      />
-                    </label>
-                    <div className="flex gap-1">
-                      <button type="button" className="btn btn-ghost btn-xs" disabled={index === 0} onClick={() => movePriorityItem(columnId, 'up')}>
-                        {t('utility.packages.columnMoveUp')}
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-ghost btn-xs"
-                        disabled={index === priorityDraftOrder.length - 1}
-                        onClick={() => movePriorityItem(columnId, 'down')}
-                      >
-                        {t('utility.packages.columnMoveDown')}
-                      </button>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-
-            <div className="modal-action">
-              <button type="button" className="btn btn-ghost" onClick={() => setIsPriorityModalOpen(false)}>
-                {t('utility.categories.cancelEdit')}
-              </button>
-              <button type="button" className="btn btn-primary" onClick={applyPriorityModal}>
-                {t('common.save')}
-              </button>
-            </div>
-          </div>
-          <button type="button" className="modal-backdrop" onClick={() => setIsPriorityModalOpen(false)} />
         </dialog>
       )}
 

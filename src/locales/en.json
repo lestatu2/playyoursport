@@ -6,6 +6,24 @@
     "logout": "Logout",
     "accessDenied": "Access denied"
   },
+  "dataTable": {
+    "columns": "Columns",
+    "rowsPerPage": "Rows per page",
+    "pageSizeOption": "{{size}} / page",
+    "columnsManagement": "Column management",
+    "visible": "Visible",
+    "mobileVisible": "Visible on mobile",
+    "mobilePriority": "Mobile priority",
+    "up": "Up",
+    "down": "Down",
+    "close": "Close",
+    "showDetails": "Show details",
+    "hideDetails": "Hide details",
+    "pageOf": "Page {{page}} / {{total}}",
+    "totalRows": "Total rows: {{total}}",
+    "previous": "Previous",
+    "next": "Next"
+  },
   "editor": {
     "bold": "Bold",
     "italic": "Italic",
@@ -130,29 +148,72 @@
     "confirmValidateWithUnvalidatedMinors": "There are linked minors not validated yet. Validate the parent anyway?",
     "updated": "Client status updated.",
     "empty": "No clients registered.",
-    "create": "Crea cliente",
-    "createTitle": "Crea cliente",
-    "createModeLabel": "Tipo creazione",
-    "createAsParent": "Cliente come genitore",
-    "createAsAthlete": "Cliente come atleta",
-    "createPackageLabel": "Pacchetto",
-    "createNoPackages": "Nessun pacchetto ragazzi disponibile",
-    "createRequired": "Compila tutti i campi obbligatori.",
-    "createSelectPackage": "Seleziona un pacchetto valido.",
-    "minorAgeNotCompatible": "Età del minore non compatibile con il pacchetto selezionato ({{min}}-{{max}} anni).",
-    "createAthleteNotImplemented": "Creazione cliente come atleta non ancora disponibile.",
-    "addMinor": "Aggiungi minore",
-    "addMinorTitle": "Aggiungi minore",
-    "createAthlete": "Crea atleta",
-    "minor": "Minore",
-    "gender": "Sesso",
-    "genderMale": "Maschio",
-    "genderFemale": "Femmina",
-    "created": "Cliente e minore creati e validati.",
-    "minorCreated": "Minore creato e validato.",
-    "paymentMethod": "Metodo di pagamento",
-    "noPaymentMethods": "Nessun metodo disponibile",
-    "selectPaymentMethod": "Seleziona un metodo di pagamento."
+    "create": "Create client",
+    "createTitle": "Create client",
+    "createModeLabel": "Creation type",
+    "createAsParent": "Client as parent",
+    "createAsAthlete": "Client as athlete",
+    "createPackageLabel": "Package",
+    "createNoPackages": "No youth package available",
+    "createRequired": "Fill in all required fields.",
+    "createSelectPackage": "Select a valid package.",
+    "minorAgeNotCompatible": "Minor age is not compatible with selected package ({{min}}-{{max}} years).",
+    "createAthleteNotImplemented": "Client creation as athlete is not available yet.",
+    "addMinor": "Add minor",
+    "addMinorTitle": "Add minor",
+    "createAthlete": "Create athlete",
+    "minor": "Minor",
+    "gender": "Gender",
+    "genderMale": "Male",
+    "genderFemale": "Female",
+    "created": "Client and minor created and validated.",
+    "minorCreated": "Minor created and validated.",
+    "paymentMethod": "Payment method",
+    "noPaymentMethods": "No method available",
+    "selectPaymentMethod": "Select a payment method.",
+    "openDocument": "Open document",
+    "avatar": "Avatar",
+    "removeAvatar": "Remove",
+    "deleteClient": "Delete client",
+    "parentRoleLabel": "Signatory role",
+    "parentRoleOptions": {
+      "genitore": "Parent",
+      "tutore": "Guardian",
+      "esercente_responsabilita": "Holder of parental responsibility"
+    },
+    "export": {
+      "button": "Export profiles",
+      "title": "Export client profiles",
+      "description": "Select client profile fields to include and choose the file format.",
+      "formatLabel": "Export format",
+      "formats": {
+        "xlsx": "Excel (.xlsx)",
+        "pdf": "PDF (.pdf)",
+        "docx": "Word (.docx)"
+      },
+      "selectAll": "Select all",
+      "deselectAll": "Deselect all",
+      "selectedCount": "Selected fields: {{count}}",
+      "exportAction": "Export",
+      "yes": "Yes",
+      "no": "No",
+      "package": "Package",
+      "fields": {
+        "clientId": "Client ID",
+        "createdAt": "Created date",
+        "privacyPolicySigned": "Privacy policy signed",
+        "consentEnrollmentAccepted": "Enrollment consent",
+        "consentInformationAccepted": "Information notice acknowledged",
+        "consentDataProcessingAccepted": "Data processing consent",
+        "consentDataProcessingSignaturePresent": "Data processing signature present",
+        "enrollmentConfirmationSignaturePresent": "Enrollment confirmation signature present",
+        "parentTaxCodeDocumentPresent": "Tax code document present",
+        "parentIdentityDocumentPresent": "Identity document present",
+        "linkedMinorsSummary": "Linked minors details",
+        "linkedMinorsValidation": "Linked minors validation status",
+        "linkedDirectAthletes": "Linked adult athletes"
+      }
+    }
   },
   "athletes": {
     "title": "Athletes",
@@ -204,6 +265,31 @@
     "enrollmentsCoverageInsurance": "Insurance",
     "enrollmentsCoverageValidFrom": "Valid from",
     "enrollmentsCoverageValidTo": "Valid to",
+    "openDocument": "Open document",
+    "export": {
+      "button": "Export athlete profiles",
+      "title": "Export athlete profiles",
+      "description": "Export based on athlete profile data and current filters.",
+      "formatLabel": "Export format",
+      "formats": {
+        "xlsx": "Excel (.xlsx)",
+        "pdf": "PDF (.pdf)",
+        "docx": "Word (.docx)"
+      },
+      "splitResidenceColumns": "Split residence data (Excel only): Street, City, Province, ZIP code",
+      "exportAction": "Export",
+      "yes": "Yes",
+      "no": "No",
+      "fields": {
+        "athleteId": "Athlete ID",
+        "parentTaxCode": "Parent tax code",
+        "medicalCertificateDocumentPresent": "Certificate document present",
+        "residenceStreet": "Street",
+        "residenceCity": "City",
+        "residenceProvince": "Province",
+        "residencePostalCode": "ZIP code"
+      }
+    },
     "status": "Validation status",
     "actions": "Actions",
     "validated": "Validated",
@@ -257,11 +343,11 @@
       "period": "Period",
       "workflow": "Workflow",
       "plan": "Plan",
-      "paymentStatus": "Stato pagamenti"
+      "paymentStatus": "Payment status"
     },
     "types": {
       "minor": "Minor",
-      "directUser": "Direct athlete"
+      "directUser": "Adult"
     },
     "period": {
       "current": "Current",
@@ -275,6 +361,25 @@
       "generatePlan": "Generate plan",
       "savePlan": "Save plan",
       "planGenerated": "Plan ({{count}} installments)"
+    },
+    "export": {
+      "button": "Export",
+      "modalTitle": "Export report",
+      "scopeLabel": "Scope",
+      "scopeActivities": "Activities",
+      "scopePayments": "Payments",
+      "formatLabel": "Format",
+      "formats": {
+        "xlsx": "Excel (.xlsx)",
+        "pdf": "PDF (.pdf)",
+        "docx": "Word (.docx)"
+      },
+      "rowsCount": "Rows to export: {{count}}",
+      "download": "Download",
+      "titleActivities": "Activities export",
+      "titlePayments": "Payments export",
+      "fileActivities": "activities",
+      "filePayments": "payments"
     },
     "plan": {
       "enrollmentFee": "Enrollment fee",
@@ -310,21 +415,22 @@
       "lockInstallment": "Blocca rata"
     },
     "status": {
-      "noPlan": "Nessun piano",
-      "inRegola": "In regola",
-      "inScadenza": "In scadenza",
-      "scaduta": "Scaduta",
-      "insoluti": "Insoluti",
-      "insolutiCount": "Insoluti: {{count}}",
-      "currentPaid": "Rata periodo pagata",
-      "currentPendingCount": "Rate periodo da pagare: {{count}}",
-      "noInstallmentInPeriod": "Nessuna rata nel periodo"
+      "noPlan": "No plan",
+      "inRegola": "On track",
+      "inScadenza": "Due soon",
+      "toPay": "To pay",
+      "scaduta": "Overdue",
+      "insoluti": "Overdue unpaid",
+      "insolutiCount": "Overdue unpaid: {{count}}",
+      "currentPaid": "Current period installment paid",
+      "currentPendingCount": "Current period installments to pay: {{count}}",
+      "noInstallmentInPeriod": "No installment in selected period"
     },
     "contract": {
-      "download": "Contratto PDF",
-      "companyNotFound": "Azienda del pacchetto non trovata.",
-      "subjectDataMissing": "Dati soggetto mancanti per generare il contratto.",
-      "downloadError": "Errore durante la generazione del contratto PDF."
+      "download": "Contract PDF",
+      "companyNotFound": "Package company not found.",
+      "subjectDataMissing": "Missing subject data to generate contract.",
+      "downloadError": "Error while generating contract PDF."
     },
     "consents": {
       "download": "Consents PDF",
@@ -650,7 +756,7 @@
       "updated": "Package updated successfully.",
       "deleted": "Package deleted successfully.",
       "confirmDelete": "Confirm deletion of package \"{{title}}\"?",
-      "audienceLabel": "Tipologia età"
+      "audienceLabel": "Age category"
     },
     "companies": {
       "title": "Companies",

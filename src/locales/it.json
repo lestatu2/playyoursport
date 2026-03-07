@@ -6,6 +6,24 @@
     "logout": "Logout",
     "accessDenied": "Accesso negato"
   },
+  "dataTable": {
+    "columns": "Colonne",
+    "rowsPerPage": "Righe per pagina",
+    "pageSizeOption": "{{size}} / pagina",
+    "columnsManagement": "Gestione colonne",
+    "visible": "Visibile",
+    "mobileVisible": "Visibile mobile",
+    "mobilePriority": "Mobile prioritaria",
+    "up": "Su",
+    "down": "Giu",
+    "close": "Chiudi",
+    "showDetails": "Mostra dettagli",
+    "hideDetails": "Nascondi dettagli",
+    "pageOf": "Pagina {{page}} / {{total}}",
+    "totalRows": "Totale righe: {{total}}",
+    "previous": "Precedente",
+    "next": "Successiva"
+  },
   "editor": {
     "bold": "Grassetto",
     "italic": "Corsivo",
@@ -33,7 +51,7 @@
     "de": "Tedesco"
   },
   "nav": {
-    "dashboard": "Dashboard",
+    "dashboard": "Cruscotto",
     "users": "Utenti",
     "clients": "Clienti",
     "athletes": "Atleti",
@@ -153,6 +171,50 @@
     "created": "Cliente e minore creati e validati.",
     "minorCreated": "Minore creato e validato.",
     "empty": "Nessun cliente registrato."
+    ,
+    "openDocument": "Apri documento",
+    "avatar": "Avatar",
+    "removeAvatar": "Rimuovi",
+    "deleteClient": "Elimina cliente",
+    "parentRoleLabel": "Ruolo firmatario",
+    "parentRoleOptions": {
+      "genitore": "Genitore",
+      "tutore": "Tutore",
+      "esercente_responsabilita": "Esercente responsabilita"
+    },
+    "export": {
+      "button": "Esporta schede",
+      "title": "Esporta schede clienti",
+      "description": "Seleziona i campi della scheda cliente da includere e il formato del file.",
+      "formatLabel": "Formato export",
+      "formats": {
+        "xlsx": "Excel (.xlsx)",
+        "pdf": "PDF (.pdf)",
+        "docx": "Word (.docx)"
+      },
+      "selectAll": "Seleziona tutto",
+      "deselectAll": "Deseleziona tutto",
+      "selectedCount": "Campi selezionati: {{count}}",
+      "exportAction": "Esporta",
+      "yes": "Si",
+      "no": "No",
+      "package": "Pacchetto",
+      "fields": {
+        "clientId": "ID cliente",
+        "createdAt": "Data creazione",
+        "privacyPolicySigned": "Privacy policy firmata",
+        "consentEnrollmentAccepted": "Consenso iscrizione",
+        "consentInformationAccepted": "Presa visione informativa",
+        "consentDataProcessingAccepted": "Consenso trattamento dati",
+        "consentDataProcessingSignaturePresent": "Firma trattamento dati presente",
+        "enrollmentConfirmationSignaturePresent": "Firma conferma iscrizione presente",
+        "parentTaxCodeDocumentPresent": "Documento CF presente",
+        "parentIdentityDocumentPresent": "Documento identita presente",
+        "linkedMinorsSummary": "Dettaglio minori collegati",
+        "linkedMinorsValidation": "Stato validazione minori",
+        "linkedDirectAthletes": "Atleti adulti collegati"
+      }
+    }
   },
   "athletes": {
     "title": "Atleti",
@@ -204,6 +266,31 @@
     "enrollmentsCoverageInsurance": "Assicurazione",
     "enrollmentsCoverageValidFrom": "Valida da",
     "enrollmentsCoverageValidTo": "Valida fino a",
+    "openDocument": "Apri documento",
+    "export": {
+      "button": "Esporta schede atleta",
+      "title": "Esporta schede atleta",
+      "description": "Export basato sui dati della scheda atleta e sui filtri correnti.",
+      "formatLabel": "Formato export",
+      "formats": {
+        "xlsx": "Excel (.xlsx)",
+        "pdf": "PDF (.pdf)",
+        "docx": "Word (.docx)"
+      },
+      "splitResidenceColumns": "Dati residenza separati (solo Excel): Via/Piazza, Citta, Provincia, CAP",
+      "exportAction": "Esporta",
+      "yes": "Si",
+      "no": "No",
+      "fields": {
+        "athleteId": "ID atleta",
+        "parentTaxCode": "CF genitore",
+        "medicalCertificateDocumentPresent": "Documento certificato presente",
+        "residenceStreet": "Via/Piazza",
+        "residenceCity": "Citta",
+        "residenceProvince": "Provincia",
+        "residencePostalCode": "CAP"
+      }
+    },
     "status": "Stato validazione",
     "actions": "Azioni",
     "validated": "Validato",
@@ -261,7 +348,7 @@
     },
     "types": {
       "minor": "Minore",
-      "directUser": "Atleta diretto"
+      "directUser": "Adulto"
     },
     "period": {
       "current": "Corrente",
@@ -276,10 +363,30 @@
       "savePlan": "Salva piano",
       "planGenerated": "Piano ({{count}} rate)"
     },
+    "export": {
+      "button": "Esporta",
+      "modalTitle": "Esporta report",
+      "scopeLabel": "Ambito",
+      "scopeActivities": "Attivita",
+      "scopePayments": "Pagamenti",
+      "formatLabel": "Formato",
+      "formats": {
+        "xlsx": "Excel (.xlsx)",
+        "pdf": "PDF (.pdf)",
+        "docx": "Word (.docx)"
+      },
+      "rowsCount": "Righe da esportare: {{count}}",
+      "download": "Scarica",
+      "titleActivities": "Export attivita",
+      "titlePayments": "Export pagamenti",
+      "fileActivities": "attivita",
+      "filePayments": "pagamenti"
+    },
     "status": {
       "noPlan": "Nessun piano",
       "inRegola": "In regola",
       "inScadenza": "In scadenza",
+      "toPay": "Da pagare",
       "scaduta": "Scaduta",
       "insoluti": "Insoluti",
       "insolutiCount": "Insoluti: {{count}}",
@@ -380,8 +487,8 @@
     "demoUser": "Utente test admin"
   },
   "dashboard": {
-    "title": "Dashboard",
-    "subtitle": "Area overview amministrativa."
+    "title": "Cruscotto",
+    "subtitle": "Area di panoramica amministrativa."
   },
   "configuration": {
     "title": "Configurazione",

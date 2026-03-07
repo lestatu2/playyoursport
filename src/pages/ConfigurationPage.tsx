@@ -18,11 +18,13 @@ import {
   clearProjectLogo,
   getDefaultProjectSettings,
   getProjectSettings,
+  setAvatarDicebearStyle,
   setGoogleMapsApiKey,
   setPaymentCurrency,
   setProjectLogo,
   setProjectName,
 } from '../lib/project-settings'
+import { DICEBEAR_STYLE_OPTIONS } from '../lib/avatar'
 import { applyTheme, getAvailableThemes, getStoredTheme } from '../lib/theme'
 
 const SUPPORTED_PAYMENT_CURRENCIES = ['EUR', 'USD', 'GBP', 'CHF'] as const
@@ -90,6 +92,7 @@ function ConfigurationPage() {
       clearProjectLogo()
     }
     setGoogleMapsApiKey(projectDraft.googleMapsApiKey)
+    setAvatarDicebearStyle(projectDraft.avatarDicebearStyle)
 
     setProjectDraft(getProjectSettings())
     setIsError(false)
@@ -151,9 +154,16 @@ function ConfigurationPage() {
       const nextActive = isActive
         ? prev.activeLanguages.filter((item) => item !== language)
         : [...prev.activeLanguages, language]
+      const normalizedPrimary =
+        nextActive.length === 1
+          ? nextActive[0]
+          : nextActive.includes(prev.primaryLanguage)
+            ? prev.primaryLanguage
+            : (nextActive[0] ?? prev.primaryLanguage)
 
       return {
         ...prev,
+        primaryLanguage: normalizedPrimary,
         activeLanguages: nextActive,
       }
     })
@@ -393,6 +403,32 @@ function ConfigurationPage() {
                   ))}
                 </select>
               </label>
+
+              <label className="form-control max-w-md">
+                <span className="label-text mb-1 text-xs">Stile avatar predefinito (DiceBear)</span>
+                <select
+                  className="select select-bordered w-full"
+                  value={projectDraft.avatarDicebearStyle}
+                  onChange={(event) =>
+                    setProjectDraft((prev) => ({
+                      ...prev,
+                      avatarDicebearStyle: event.target.value,
+                    }))
+                  }
+                >
+                  {DICEBEAR_STYLE_OPTIONS.map((style) => (
+                    <option key={style} value={style}>
+                      {style}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <div className="mt-2">
+                <button type="button" className="btn btn-primary w-full sm:w-auto" onClick={handleProjectSave}>
+                  {t('common.save')}
+                </button>
+              </div>
             </div>
           )}
 

@@ -6,6 +6,24 @@
     "logout": "Cerrar sesion",
     "accessDenied": "Acceso denegado"
   },
+  "dataTable": {
+    "columns": "Columnas",
+    "rowsPerPage": "Filas por pagina",
+    "pageSizeOption": "{{size}} / pagina",
+    "columnsManagement": "Gestion de columnas",
+    "visible": "Visible",
+    "mobileVisible": "Visible en movil",
+    "mobilePriority": "Prioridad movil",
+    "up": "Subir",
+    "down": "Bajar",
+    "close": "Cerrar",
+    "showDetails": "Mostrar detalles",
+    "hideDetails": "Ocultar detalles",
+    "pageOf": "Pagina {{page}} / {{total}}",
+    "totalRows": "Total filas: {{total}}",
+    "previous": "Anterior",
+    "next": "Siguiente"
+  },
   "editor": {
     "bold": "Negrita",
     "italic": "Cursiva",
@@ -33,7 +51,7 @@
     "de": "Aleman"
   },
   "nav": {
-    "dashboard": "Dashboard",
+    "dashboard": "Panel de control",
     "users": "Usuarios",
     "clients": "Clientes",
     "athletes": "Atletas",
@@ -98,29 +116,72 @@
     "confirmValidateWithUnvalidatedMinors": "Hay menores vinculados no validados. Quieres validar el tutor igualmente?",
     "updated": "Estado de cliente actualizado.",
     "empty": "No hay clientes registrados.",
-    "create": "Crea cliente",
-    "createTitle": "Crea cliente",
-    "createModeLabel": "Tipo creazione",
-    "createAsParent": "Cliente come genitore",
-    "createAsAthlete": "Cliente come atleta",
-    "createPackageLabel": "Pacchetto",
-    "createNoPackages": "Nessun pacchetto ragazzi disponibile",
-    "createRequired": "Compila tutti i campi obbligatori.",
-    "createSelectPackage": "Seleziona un pacchetto valido.",
-    "minorAgeNotCompatible": "Età del minore non compatibile con il pacchetto selezionato ({{min}}-{{max}} anni).",
-    "createAthleteNotImplemented": "Creazione cliente come atleta non ancora disponibile.",
-    "addMinor": "Aggiungi minore",
-    "addMinorTitle": "Aggiungi minore",
-    "createAthlete": "Crea atleta",
-    "minor": "Minore",
-    "gender": "Sesso",
-    "genderMale": "Maschio",
-    "genderFemale": "Femmina",
-    "created": "Cliente e minore creati e validati.",
-    "minorCreated": "Minore creato e validato.",
-    "paymentMethod": "Metodo di pagamento",
-    "noPaymentMethods": "Nessun metodo disponibile",
-    "selectPaymentMethod": "Seleziona un metodo di pagamento."
+    "create": "Crear cliente",
+    "createTitle": "Crear cliente",
+    "createModeLabel": "Tipo de creacion",
+    "createAsParent": "Cliente como tutor",
+    "createAsAthlete": "Cliente como atleta",
+    "createPackageLabel": "Paquete",
+    "createNoPackages": "No hay paquete juvenil disponible",
+    "createRequired": "Completa todos los campos obligatorios.",
+    "createSelectPackage": "Selecciona un paquete valido.",
+    "minorAgeNotCompatible": "La edad del menor no es compatible con el paquete seleccionado ({{min}}-{{max}} anos).",
+    "createAthleteNotImplemented": "La creacion del cliente como atleta aun no esta disponible.",
+    "addMinor": "Agregar menor",
+    "addMinorTitle": "Agregar menor",
+    "createAthlete": "Crear atleta",
+    "minor": "Menor",
+    "gender": "Sexo",
+    "genderMale": "Masculino",
+    "genderFemale": "Femenino",
+    "created": "Cliente y menor creados y validados.",
+    "minorCreated": "Menor creado y validado.",
+    "paymentMethod": "Metodo de pago",
+    "noPaymentMethods": "No hay metodo disponible",
+    "selectPaymentMethod": "Selecciona un metodo de pago.",
+    "openDocument": "Abrir documento",
+    "avatar": "Avatar",
+    "removeAvatar": "Quitar",
+    "deleteClient": "Eliminar cliente",
+    "parentRoleLabel": "Rol del firmante",
+    "parentRoleOptions": {
+      "genitore": "Tutor",
+      "tutore": "Guardador",
+      "esercente_responsabilita": "Titular de la responsabilidad parental"
+    },
+    "export": {
+      "button": "Exportar fichas",
+      "title": "Exportar fichas de clientes",
+      "description": "Selecciona los campos de la ficha del cliente y el formato del archivo.",
+      "formatLabel": "Formato de exportacion",
+      "formats": {
+        "xlsx": "Excel (.xlsx)",
+        "pdf": "PDF (.pdf)",
+        "docx": "Word (.docx)"
+      },
+      "selectAll": "Seleccionar todo",
+      "deselectAll": "Deseleccionar todo",
+      "selectedCount": "Campos seleccionados: {{count}}",
+      "exportAction": "Exportar",
+      "yes": "Si",
+      "no": "No",
+      "package": "Paquete",
+      "fields": {
+        "clientId": "ID cliente",
+        "createdAt": "Fecha de creacion",
+        "privacyPolicySigned": "Politica de privacidad firmada",
+        "consentEnrollmentAccepted": "Consentimiento de inscripcion",
+        "consentInformationAccepted": "Informativa leida",
+        "consentDataProcessingAccepted": "Consentimiento de tratamiento de datos",
+        "consentDataProcessingSignaturePresent": "Firma de tratamiento de datos presente",
+        "enrollmentConfirmationSignaturePresent": "Firma de confirmacion de inscripcion presente",
+        "parentTaxCodeDocumentPresent": "Documento fiscal presente",
+        "parentIdentityDocumentPresent": "Documento de identidad presente",
+        "linkedMinorsSummary": "Detalle de menores vinculados",
+        "linkedMinorsValidation": "Estado de validacion de menores",
+        "linkedDirectAthletes": "Atletas adultos vinculados"
+      }
+    }
   },
   "athletes": {
     "title": "Atletas",
@@ -172,6 +233,31 @@
     "enrollmentsCoverageInsurance": "Seguro",
     "enrollmentsCoverageValidFrom": "Valida desde",
     "enrollmentsCoverageValidTo": "Valida hasta",
+    "openDocument": "Abrir documento",
+    "export": {
+      "button": "Exportar fichas de atletas",
+      "title": "Exportar fichas de atletas",
+      "description": "Exportacion basada en los datos de la ficha del atleta y en los filtros actuales.",
+      "formatLabel": "Formato de exportacion",
+      "formats": {
+        "xlsx": "Excel (.xlsx)",
+        "pdf": "PDF (.pdf)",
+        "docx": "Word (.docx)"
+      },
+      "splitResidenceColumns": "Datos de residencia separados (solo Excel): Calle/Plaza, Ciudad, Provincia, Codigo postal",
+      "exportAction": "Exportar",
+      "yes": "Si",
+      "no": "No",
+      "fields": {
+        "athleteId": "ID atleta",
+        "parentTaxCode": "Codigo fiscal tutor",
+        "medicalCertificateDocumentPresent": "Documento de certificado presente",
+        "residenceStreet": "Calle/Plaza",
+        "residenceCity": "Ciudad",
+        "residenceProvince": "Provincia",
+        "residencePostalCode": "Codigo postal"
+      }
+    },
     "status": "Estado validacion",
     "actions": "Acciones",
     "validated": "Validado",
@@ -225,11 +311,11 @@
       "period": "Periodo",
       "workflow": "Workflow",
       "plan": "Plan",
-      "paymentStatus": "Stato pagamenti"
+      "paymentStatus": "Estado de pagos"
     },
     "types": {
       "minor": "Menor",
-      "directUser": "Atleta directo"
+      "directUser": "Adulto"
     },
     "period": {
       "current": "Actual",
@@ -243,6 +329,25 @@
       "generatePlan": "Generar plan",
       "savePlan": "Guardar plan",
       "planGenerated": "Plan ({{count}} cuotas)"
+    },
+    "export": {
+      "button": "Exportar",
+      "modalTitle": "Exportar reporte",
+      "scopeLabel": "Ambito",
+      "scopeActivities": "Actividades",
+      "scopePayments": "Pagos",
+      "formatLabel": "Formato",
+      "formats": {
+        "xlsx": "Excel (.xlsx)",
+        "pdf": "PDF (.pdf)",
+        "docx": "Word (.docx)"
+      },
+      "rowsCount": "Filas a exportar: {{count}}",
+      "download": "Descargar",
+      "titleActivities": "Exportacion de actividades",
+      "titlePayments": "Exportacion de pagos",
+      "fileActivities": "actividades",
+      "filePayments": "pagos"
     },
     "plan": {
       "enrollmentFee": "Costo inscripcion",
@@ -278,21 +383,22 @@
       "lockInstallment": "Blocca rata"
     },
     "status": {
-      "noPlan": "Nessun piano",
-      "inRegola": "In regola",
-      "inScadenza": "In scadenza",
-      "scaduta": "Scaduta",
-      "insoluti": "Insoluti",
-      "insolutiCount": "Insoluti: {{count}}",
-      "currentPaid": "Rata periodo pagata",
-      "currentPendingCount": "Rate periodo da pagare: {{count}}",
-      "noInstallmentInPeriod": "Nessuna rata nel periodo"
+      "noPlan": "Sin plan",
+      "inRegola": "Al dia",
+      "inScadenza": "Proxima al vencimiento",
+      "toPay": "Por pagar",
+      "scaduta": "Vencida",
+      "insoluti": "Impagos",
+      "insolutiCount": "Impagos: {{count}}",
+      "currentPaid": "Cuota del periodo pagada",
+      "currentPendingCount": "Cuotas del periodo por pagar: {{count}}",
+      "noInstallmentInPeriod": "Sin cuota en el periodo"
     },
     "contract": {
-      "download": "Contratto PDF",
-      "companyNotFound": "Azienda del pacchetto non trovata.",
-      "subjectDataMissing": "Dati soggetto mancanti per generare il contratto.",
-      "downloadError": "Errore durante la generazione del contratto PDF."
+      "download": "Contrato PDF",
+      "companyNotFound": "Empresa del paquete no encontrada.",
+      "subjectDataMissing": "Faltan datos del sujeto para generar el contrato.",
+      "downloadError": "Error al generar el contrato PDF."
     },
     "consents": {
       "download": "Consensi PDF",
@@ -318,7 +424,7 @@
     "demoUser": "Usuario admin de prueba"
   },
   "dashboard": {
-    "title": "Dashboard",
+    "title": "Panel de control",
     "subtitle": "Area de resumen administrativo."
   },
   "configuration": {
@@ -588,7 +694,7 @@
       "updated": "Paquete actualizado correctamente.",
       "deleted": "Paquete eliminado correctamente.",
       "confirmDelete": "Confirmar eliminacion del paquete \"{{title}}\"?",
-      "audienceLabel": "Tipologia età"
+      "audienceLabel": "Categoria de edad"
     },
     "companies": {
       "title": "Empresas",
@@ -1012,35 +1118,35 @@
     }
   },
   "users": {
-    "title": "Utenti",
-    "description": "Creazione e gestione utenti per ruolo.",
-    "create": "Crea utente",
-    "empty": "Nessun utente presente per questo ruolo.",
-    "fullName": "Nome e cognome",
-    "firstName": "Nome",
-    "lastName": "Cognome",
+    "title": "Usuarios",
+    "description": "Creacion y gestion de usuarios por rol.",
+    "create": "Crear usuario",
+    "empty": "No hay usuarios para este rol.",
+    "fullName": "Nombre completo",
+    "firstName": "Nombre",
+    "lastName": "Apellido",
     "avatar": "Avatar",
     "login": "Login",
     "password": "Password",
-    "email": "Mail",
-    "age": "Eta",
-    "sector": "Settore",
-    "profession": "Professione",
-    "searchAllFields": "Cerca (tutti i campi)",
-    "allOption": "Tutti",
-    "invalidData": "Compila correttamente tutti i campi richiesti.",
-    "duplicateEmail": "Esiste gia un utente con questa mail.",
-    "duplicateLogin": "Esiste gia un utente con questo login.",
-    "notAllowedRole": "Non hai i permessi per gestire questo ruolo.",
-    "created": "Utente creato con successo.",
-    "updated": "Utente aggiornato con successo.",
-    "deleted": "Utente eliminato con successo.",
-    "confirmDelete": "Confermi eliminazione utente \"{{name}}\"?",
+    "email": "Correo",
+    "age": "Edad",
+    "sector": "Sector",
+    "profession": "Profesion",
+    "searchAllFields": "Buscar (todos los campos)",
+    "allOption": "Todos",
+    "invalidData": "Completa correctamente todos los campos obligatorios.",
+    "duplicateEmail": "Ya existe un usuario con este correo.",
+    "duplicateLogin": "Ya existe un usuario con este login.",
+    "notAllowedRole": "No tienes permisos para gestionar este rol.",
+    "created": "Usuario creado correctamente.",
+    "updated": "Usuario actualizado correctamente.",
+    "deleted": "Usuario eliminado correctamente.",
+    "confirmDelete": "Confirmar eliminacion del usuario \"{{name}}\"?",
     "permissions": {
-      "title": "Permessi",
-      "packagesManage": "Gestione pacchetti",
-      "usersRead": "Visualizzazione utenti",
-      "subscribersManage": "Gestione subscribers"
+      "title": "Permisos",
+      "packagesManage": "Gestion de paquetes",
+      "usersRead": "Visualizacion de usuarios",
+      "subscribersManage": "Gestion de suscriptores"
     }
   }
 }

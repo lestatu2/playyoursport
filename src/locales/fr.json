@@ -6,6 +6,24 @@
     "logout": "Deconnexion",
     "accessDenied": "Acces refuse"
   },
+  "dataTable": {
+    "columns": "Colonnes",
+    "rowsPerPage": "Lignes par page",
+    "pageSizeOption": "{{size}} / page",
+    "columnsManagement": "Gestion des colonnes",
+    "visible": "Visible",
+    "mobileVisible": "Visible mobile",
+    "mobilePriority": "Priorite mobile",
+    "up": "Haut",
+    "down": "Bas",
+    "close": "Fermer",
+    "showDetails": "Afficher les details",
+    "hideDetails": "Masquer les details",
+    "pageOf": "Page {{page}} / {{total}}",
+    "totalRows": "Total lignes: {{total}}",
+    "previous": "Precedent",
+    "next": "Suivante"
+  },
   "editor": {
     "bold": "Gras",
     "italic": "Italique",
@@ -120,7 +138,50 @@
     "minorCreated": "Mineur cree et valide.",
     "paymentMethod": "Methode de paiement",
     "noPaymentMethods": "Aucune methode disponible",
-    "selectPaymentMethod": "Selectionner une methode de paiement."
+    "selectPaymentMethod": "Selectionner une methode de paiement.",
+    "openDocument": "Ouvrir document",
+    "avatar": "Avatar",
+    "removeAvatar": "Retirer",
+    "deleteClient": "Supprimer client",
+    "parentRoleLabel": "Role du signataire",
+    "parentRoleOptions": {
+      "genitore": "Parent",
+      "tutore": "Tuteur",
+      "esercente_responsabilita": "Titulaire de la responsabilite parentale"
+    },
+    "export": {
+      "button": "Exporter fiches",
+      "title": "Exporter fiches clients",
+      "description": "Selectionnez les champs de la fiche client et le format du fichier.",
+      "formatLabel": "Format export",
+      "formats": {
+        "xlsx": "Excel (.xlsx)",
+        "pdf": "PDF (.pdf)",
+        "docx": "Word (.docx)"
+      },
+      "selectAll": "Tout selectionner",
+      "deselectAll": "Tout deselectionner",
+      "selectedCount": "Champs selectionnes : {{count}}",
+      "exportAction": "Exporter",
+      "yes": "Oui",
+      "no": "Non",
+      "package": "Pack",
+      "fields": {
+        "clientId": "ID client",
+        "createdAt": "Date creation",
+        "privacyPolicySigned": "Politique de confidentialite signee",
+        "consentEnrollmentAccepted": "Consentement inscription",
+        "consentInformationAccepted": "Prise de connaissance informative",
+        "consentDataProcessingAccepted": "Consentement traitement des donnees",
+        "consentDataProcessingSignaturePresent": "Signature traitement des donnees presente",
+        "enrollmentConfirmationSignaturePresent": "Signature confirmation inscription presente",
+        "parentTaxCodeDocumentPresent": "Document fiscal present",
+        "parentIdentityDocumentPresent": "Document identite present",
+        "linkedMinorsSummary": "Detail mineurs lies",
+        "linkedMinorsValidation": "Statut validation mineurs",
+        "linkedDirectAthletes": "Athletes adultes lies"
+      }
+    }
   },
   "athletes": {
     "title": "Athletes",
@@ -172,6 +233,31 @@
     "enrollmentsCoverageInsurance": "Assurance",
     "enrollmentsCoverageValidFrom": "Valide du",
     "enrollmentsCoverageValidTo": "Valide jusqu'au",
+    "openDocument": "Ouvrir document",
+    "export": {
+      "button": "Exporter fiches athletes",
+      "title": "Exporter fiches athletes",
+      "description": "Export base sur les donnees de la fiche athlete et les filtres actuels.",
+      "formatLabel": "Format export",
+      "formats": {
+        "xlsx": "Excel (.xlsx)",
+        "pdf": "PDF (.pdf)",
+        "docx": "Word (.docx)"
+      },
+      "splitResidenceColumns": "Donnees de residence separees (Excel seulement) : Rue/Place, Ville, Province, Code postal",
+      "exportAction": "Exporter",
+      "yes": "Oui",
+      "no": "Non",
+      "fields": {
+        "athleteId": "ID athlete",
+        "parentTaxCode": "Code fiscal parent",
+        "medicalCertificateDocumentPresent": "Document certificat present",
+        "residenceStreet": "Rue/Place",
+        "residenceCity": "Ville",
+        "residenceProvince": "Province",
+        "residencePostalCode": "Code postal"
+      }
+    },
     "status": "Statut validation",
     "actions": "Actions",
     "validated": "Valide",
@@ -225,11 +311,11 @@
       "period": "Periode",
       "workflow": "Workflow",
       "plan": "Plan",
-      "paymentStatus": "Stato pagamenti"
+      "paymentStatus": "Statut paiements"
     },
     "types": {
       "minor": "Mineur",
-      "directUser": "Athlete direct"
+      "directUser": "Adulte"
     },
     "period": {
       "current": "Courant",
@@ -243,6 +329,25 @@
       "generatePlan": "Generer plan",
       "savePlan": "Enregistrer plan",
       "planGenerated": "Plan ({{count}} echeances)"
+    },
+    "export": {
+      "button": "Exporter",
+      "modalTitle": "Exporter rapport",
+      "scopeLabel": "Portee",
+      "scopeActivities": "Activites",
+      "scopePayments": "Paiements",
+      "formatLabel": "Format",
+      "formats": {
+        "xlsx": "Excel (.xlsx)",
+        "pdf": "PDF (.pdf)",
+        "docx": "Word (.docx)"
+      },
+      "rowsCount": "Lignes a exporter : {{count}}",
+      "download": "Telecharger",
+      "titleActivities": "Export activites",
+      "titlePayments": "Export paiements",
+      "fileActivities": "activites",
+      "filePayments": "paiements"
     },
     "plan": {
       "enrollmentFee": "Cout inscription",
@@ -278,21 +383,22 @@
       "lockInstallment": "Blocca rata"
     },
     "status": {
-      "noPlan": "Nessun piano",
-      "inRegola": "In regola",
-      "inScadenza": "In scadenza",
-      "scaduta": "Scaduta",
-      "insoluti": "Insoluti",
-      "insolutiCount": "Insoluti: {{count}}",
-      "currentPaid": "Rata periodo pagata",
-      "currentPendingCount": "Rate periodo da pagare: {{count}}",
-      "noInstallmentInPeriod": "Nessuna rata nel periodo"
+      "noPlan": "Aucun plan",
+      "inRegola": "A jour",
+      "inScadenza": "Echeance proche",
+      "toPay": "A payer",
+      "scaduta": "Echue",
+      "insoluti": "Impayes",
+      "insolutiCount": "Impayes: {{count}}",
+      "currentPaid": "Echeance de la periode payee",
+      "currentPendingCount": "Echeances de la periode a payer: {{count}}",
+      "noInstallmentInPeriod": "Aucune echeance dans la periode"
     },
     "contract": {
-      "download": "Contratto PDF",
-      "companyNotFound": "Azienda del pacchetto non trovata.",
-      "subjectDataMissing": "Dati soggetto mancanti per generare il contratto.",
-      "downloadError": "Errore durante la generazione del contratto PDF."
+      "download": "Contrat PDF",
+      "companyNotFound": "Entreprise du package introuvable.",
+      "subjectDataMissing": "Donnees sujet manquantes pour generer le contrat.",
+      "downloadError": "Erreur lors de la generation du contrat PDF."
     },
     "consents": {
       "download": "Consensi PDF",
@@ -581,7 +687,7 @@
       "deleted": "Package supprime avec succes.",
       "confirmDelete": "Confirmer la suppression du package \"{{title}}\"?",
       "contractTab": "Contratto",
-      "audienceLabel": "Tipologia età",
+      "audienceLabel": "Categorie d'age",
       "contractHeaderImageLabel": "Immagine intestazione",
       "contractHeaderImageRemove": "Rimuovi immagine",
       "contractHeaderImageUploadError": "Errore durante il caricamento immagine intestazione.",
@@ -1012,35 +1118,35 @@
     }
   },
   "users": {
-    "title": "Utenti",
-    "description": "Creazione e gestione utenti per ruolo.",
-    "create": "Crea utente",
-    "empty": "Nessun utente presente per questo ruolo.",
-    "fullName": "Nome e cognome",
-    "firstName": "Nome",
-    "lastName": "Cognome",
+    "title": "Utilisateurs",
+    "description": "Creation et gestion des utilisateurs par role.",
+    "create": "Creer utilisateur",
+    "empty": "Aucun utilisateur pour ce role.",
+    "fullName": "Nom complet",
+    "firstName": "Prenom",
+    "lastName": "Nom",
     "avatar": "Avatar",
     "login": "Login",
     "password": "Password",
-    "email": "Mail",
-    "age": "Eta",
-    "sector": "Settore",
-    "profession": "Professione",
-    "searchAllFields": "Cerca (tutti i campi)",
-    "allOption": "Tutti",
-    "invalidData": "Compila correttamente tutti i campi richiesti.",
-    "duplicateEmail": "Esiste gia un utente con questa mail.",
-    "duplicateLogin": "Esiste gia un utente con questo login.",
-    "notAllowedRole": "Non hai i permessi per gestire questo ruolo.",
-    "created": "Utente creato con successo.",
-    "updated": "Utente aggiornato con successo.",
-    "deleted": "Utente eliminato con successo.",
-    "confirmDelete": "Confermi eliminazione utente \"{{name}}\"?",
+    "email": "E-mail",
+    "age": "Age",
+    "sector": "Secteur",
+    "profession": "Profession",
+    "searchAllFields": "Rechercher (tous les champs)",
+    "allOption": "Tous",
+    "invalidData": "Remplissez correctement tous les champs requis.",
+    "duplicateEmail": "Un utilisateur avec cet e-mail existe deja.",
+    "duplicateLogin": "Un utilisateur avec ce login existe deja.",
+    "notAllowedRole": "Vous n'avez pas les autorisations pour gerer ce role.",
+    "created": "Utilisateur cree avec succes.",
+    "updated": "Utilisateur mis a jour avec succes.",
+    "deleted": "Utilisateur supprime avec succes.",
+    "confirmDelete": "Confirmer la suppression de l'utilisateur \"{{name}}\" ?",
     "permissions": {
-      "title": "Permessi",
-      "packagesManage": "Gestione pacchetti",
-      "usersRead": "Visualizzazione utenti",
-      "subscribersManage": "Gestione subscribers"
+      "title": "Autorisations",
+      "packagesManage": "Gestion des packs",
+      "usersRead": "Consultation des utilisateurs",
+      "subscribersManage": "Gestion des abonnes"
     }
   }
 }

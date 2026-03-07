@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { getCoreRowModel, useReactTable, type ColumnDef } from '@tanstack/react-table'
+import DataTable from '../components/DataTable'
 import { getPackages } from '../lib/package-catalog'
 import { getPublicClients, getPublicMinors } from '../lib/public-customer-records'
 import { getPublicDirectAthletes } from '../lib/public-direct-athletes'
@@ -220,6 +222,107 @@ function ActivitiesHistoryPage() {
     setClosureDateTo('')
   }
 
+  const historyColumns = useMemo<ColumnDef<HistoryRow>[]>(() => [
+    {
+      id: 'athlete',
+      header: t('activitiesPayments.table.athlete'),
+      cell: ({ row }) => {
+        const item = row.original
+        if (item.athleteType === 'minor') {
+          return (
+            <button type="button" className="link text-base-content text-left" onClick={() => navigate(`/app/atleti?athleteId=${item.key}`)}>
+              {item.athleteName}
+            </button>
+          )
+        }
+        if (item.clientId !== null) {
+          return (
+            <button type="button" className="link text-base-content text-left" onClick={() => navigate(`/app/clienti?clientId=${item.clientId}`)}>
+              {item.athleteName}
+            </button>
+          )
+        }
+        return <span>{item.athleteName}</span>
+      },
+      meta: { responsivePriority: 'high' },
+    },
+    {
+      id: 'athleteType',
+      header: t('activitiesPayments.table.athleteType'),
+      cell: ({ row }) => (
+        <span className={`badge ${row.original.athleteType === 'minor' ? 'badge-info' : 'badge-primary'}`}>
+          {row.original.athleteType === 'minor' ? t('activitiesPayments.types.minor') : t('athletes.adultType')}
+        </span>
+      ),
+      meta: { responsivePriority: 'high' },
+    },
+    { id: 'parent', header: t('activitiesPayments.table.parent'), cell: ({ row }) => row.original.parentLabel, meta: { responsivePriority: 'low' } },
+    {
+      id: 'package',
+      header: t('activitiesPayments.table.package'),
+      cell: ({ row }) => (
+        <button type="button" className="link text-base-content text-left" onClick={() => navigate(`/app/pacchetti?packageId=${row.original.packageId}`)}>
+          {row.original.packageName}
+        </button>
+      ),
+      meta: { responsivePriority: 'high' },
+    },
+    {
+      id: 'frequency',
+      header: t('activitiesPayments.table.frequency'),
+      cell: ({ row }) => {
+        const packageItem = packagesById.get(row.original.packageId)
+        return packageItem ? t(getFrequencyLabelKey(packageItem.paymentFrequency)) : '-'
+      },
+      meta: { responsivePriority: 'low' },
+    },
+    { id: 'period', header: t('activitiesPayments.table.period'), cell: ({ row }) => row.original.periodLabel, meta: { responsivePriority: 'low' } },
+    { id: 'closureDate', header: t('activitiesHistory.table.closureDate'), cell: ({ row }) => row.original.closureDate, meta: { responsivePriority: 'low' } },
+    { id: 'totalDue', header: t('activitiesHistory.table.totalDue'), cell: ({ row }) => row.original.totalDue.toFixed(2), meta: { responsivePriority: 'low' } },
+    { id: 'totalPaid', header: t('activitiesHistory.table.totalPaid'), cell: ({ row }) => row.original.totalPaid.toFixed(2), meta: { responsivePriority: 'low' } },
+    { id: 'residual', header: t('activitiesHistory.table.residual'), cell: ({ row }) => row.original.residual.toFixed(2), meta: { responsivePriority: 'low' } },
+    {
+      id: 'status',
+      header: t('activitiesHistory.table.status'),
+      cell: ({ row }) => {
+        const item = row.original
+        if (item.planInstallmentsCount === 0) {
+          return <span className="badge badge-ghost">{t('activitiesPayments.status.noPlan')}</span>
+        }
+        if (item.residual <= 0) {
+          return <span className="badge badge-success">{t('activitiesHistory.status.balanceOk')}</span>
+        }
+        if (item.overdueCount > 0) {
+          return <span className="badge badge-error">{t('activitiesHistory.status.withOverdue')}</span>
+        }
+        return <span className="badge badge-warning">{t('activitiesHistory.status.partial')}</span>
+      },
+      meta: { responsivePriority: 'high' },
+    },
+    {
+      id: 'plan',
+      header: t('activitiesPayments.table.plan'),
+      cell: ({ row }) => (
+        <button
+          type="button"
+          className={`btn btn-xs ${row.original.planInstallmentsCount > 0 ? 'btn-success' : 'btn-ghost'}`}
+          onClick={() => navigate(`/app/attivita-pagamenti?athleteId=${row.original.key}`)}
+        >
+          {row.original.planInstallmentsCount > 0
+            ? t('activitiesPayments.workflow.planGenerated', { count: row.original.planInstallmentsCount })
+            : t('activitiesPayments.status.noPlan')}
+        </button>
+      ),
+      meta: { responsivePriority: 'high' },
+    },
+  ], [navigate, packagesById, t])
+
+  const historyTable = useReactTable({
+    data: filteredRows,
+    columns: historyColumns,
+    getCoreRowModel: getCoreRowModel(),
+  })
+
   return (
     <section className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -303,96 +406,8 @@ function ActivitiesHistoryPage() {
         </label>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-base-300 bg-base-100">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>{t('activitiesPayments.table.athlete')}</th>
-              <th>{t('activitiesPayments.table.athleteType')}</th>
-              <th>{t('activitiesPayments.table.parent')}</th>
-              <th>{t('activitiesPayments.table.package')}</th>
-              <th>{t('activitiesPayments.table.frequency')}</th>
-              <th>{t('activitiesPayments.table.period')}</th>
-              <th>{t('activitiesHistory.table.closureDate')}</th>
-              <th>{t('activitiesHistory.table.totalDue')}</th>
-              <th>{t('activitiesHistory.table.totalPaid')}</th>
-              <th>{t('activitiesHistory.table.residual')}</th>
-              <th>{t('activitiesHistory.table.status')}</th>
-              <th>{t('activitiesPayments.table.plan')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredRows.length === 0 ? (
-              <tr>
-                <td colSpan={12} className="text-center text-sm opacity-70">
-                  {t('activitiesHistory.empty')}
-                </td>
-              </tr>
-            ) : (
-              filteredRows.map((row) => (
-                <tr key={row.key}>
-                  <td>
-                    {row.athleteType === 'minor' ? (
-                      <button type="button" className="link text-base-content text-left" onClick={() => navigate(`/app/atleti?athleteId=${row.key}`)}>
-                        {row.athleteName}
-                      </button>
-                    ) : row.clientId !== null ? (
-                      <button type="button" className="link text-base-content text-left" onClick={() => navigate(`/app/clienti?clientId=${row.clientId}`)}>
-                        {row.athleteName}
-                      </button>
-                    ) : (
-                      <span>{row.athleteName}</span>
-                    )}
-                  </td>
-                  <td>
-                    <span className={`badge ${row.athleteType === 'minor' ? 'badge-info' : 'badge-primary'}`}>
-                      {row.athleteType === 'minor' ? t('activitiesPayments.types.minor') : t('athletes.adultType')}
-                    </span>
-                  </td>
-                  <td>{row.parentLabel}</td>
-                  <td>
-                    <button type="button" className="link text-base-content text-left" onClick={() => navigate(`/app/pacchetti?packageId=${row.packageId}`)}>
-                      {row.packageName}
-                    </button>
-                  </td>
-                  <td>
-                    {(() => {
-                      const packageItem = packagesById.get(row.packageId)
-                      return packageItem ? t(getFrequencyLabelKey(packageItem.paymentFrequency)) : '-'
-                    })()}
-                  </td>
-                  <td>{row.periodLabel}</td>
-                  <td>{row.closureDate}</td>
-                  <td>{row.totalDue.toFixed(2)}</td>
-                  <td>{row.totalPaid.toFixed(2)}</td>
-                  <td>{row.residual.toFixed(2)}</td>
-                  <td>
-                    {row.planInstallmentsCount === 0 ? (
-                      <span className="badge badge-ghost">{t('activitiesPayments.status.noPlan')}</span>
-                    ) : row.residual <= 0 ? (
-                      <span className="badge badge-success">{t('activitiesHistory.status.balanceOk')}</span>
-                    ) : row.overdueCount > 0 ? (
-                      <span className="badge badge-error">{t('activitiesHistory.status.withOverdue')}</span>
-                    ) : (
-                      <span className="badge badge-warning">{t('activitiesHistory.status.partial')}</span>
-                    )}
-                  </td>
-                  <td>
-                    <button
-                      type="button"
-                      className={`btn btn-xs ${row.planInstallmentsCount > 0 ? 'btn-success' : 'btn-ghost'}`}
-                      onClick={() => navigate(`/app/attivita-pagamenti?athleteId=${row.key}`)}
-                    >
-                      {row.planInstallmentsCount > 0
-                        ? t('activitiesPayments.workflow.planGenerated', { count: row.planInstallmentsCount })
-                        : t('activitiesPayments.status.noPlan')}
-                    </button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+      <div className="rounded-lg border border-base-300 bg-base-100">
+        {filteredRows.length === 0 ? <p className="p-4 text-center text-sm opacity-70">{t('activitiesHistory.empty')}</p> : <DataTable table={historyTable} />}
       </div>
     </section>
   )

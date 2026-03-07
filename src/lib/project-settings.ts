@@ -25,6 +25,7 @@ export type ProjectSettings = {
   logoUrl: string
   googleMapsApiKey: string
   paymentCurrency: string
+  avatarDicebearStyle: string
   contractSubjectTemplate: string
   contractEconomicClausesTemplate: string
   contractServicesAdjustmentTemplate: string
@@ -77,6 +78,7 @@ export function getDefaultProjectSettings(): ProjectSettings {
     logoUrl: projectDefaults.defaultLogo,
     googleMapsApiKey: projectDefaults.defaultGoogleMapsApiKey ?? '',
     paymentCurrency: projectDefaults.defaultPaymentCurrency ?? 'EUR',
+    avatarDicebearStyle: 'initials',
     contractSubjectTemplate:
       projectDefaults.defaultContractSubjectTemplate ??
       '<p>Con il presente contratto {{company_title}} eroga il servizio sportivo relativo al pacchetto {{package_name}} (edizione {{package_edition_year}}), periodo {{package_period}}, presso {{training_address}}.</p>',
@@ -111,6 +113,10 @@ export function getProjectSettings(): ProjectSettings {
     paymentCurrency: typeof stored.paymentCurrency === 'string' && stored.paymentCurrency.trim()
       ? stored.paymentCurrency.trim().toUpperCase()
       : defaults.paymentCurrency,
+    avatarDicebearStyle:
+      typeof stored.avatarDicebearStyle === 'string' && stored.avatarDicebearStyle.trim()
+        ? stored.avatarDicebearStyle.trim()
+        : defaults.avatarDicebearStyle,
     contractSubjectTemplate:
       typeof stored.contractSubjectTemplate === 'string' && stored.contractSubjectTemplate.trim()
         ? stored.contractSubjectTemplate
@@ -237,6 +243,12 @@ export function setPaymentCurrency(currency: string): void {
   const normalized = currency.trim().toUpperCase() || 'EUR'
   const settings = getProjectSettings()
   writeSettings({ ...settings, paymentCurrency: normalized })
+}
+
+export function setAvatarDicebearStyle(style: string): void {
+  const normalized = style.trim() || 'initials'
+  const settings = getProjectSettings()
+  writeSettings({ ...settings, avatarDicebearStyle: normalized })
 }
 
 export function getProjectSettingsChangedEventName(): string {

@@ -808,6 +808,7 @@ function PublicEnrollmentForm({
 
       const clientRecord = createPublicClientRecord({
         userId: createdUserId,
+        avatarUrl: '',
         parentFirstName: draft.parentFirstName,
         parentLastName: draft.parentLastName,
         parentEmail: draft.parentEmail,
@@ -816,6 +817,7 @@ function PublicEnrollmentForm({
         parentBirthDate: draft.parentBirthDate,
         parentBirthPlace: draft.parentBirthPlace,
         parentRole: draft.parentRole,
+        parentGender: draft.parentGender,
         parentTaxCode: draft.parentTaxCode,
         residenceAddress: draft.parentResidenceAddress,
         consentEnrollmentAccepted: draft.consentEnrollmentAccepted,
@@ -831,9 +833,11 @@ function PublicEnrollmentForm({
       const createdMinor = createPublicMinorRecord({
         clientId: clientRecord.id,
         packageId: packageItem.id,
+        avatarUrl: '',
         firstName: draft.minorFirstName,
         lastName: draft.minorLastName,
         birthDate: draft.minorBirthDate,
+        gender: draft.minorGender,
         birthPlace: draft.minorBirthPlace,
         residenceAddress: draft.minorResidenceAddress,
         taxCode: draft.minorTaxCode,

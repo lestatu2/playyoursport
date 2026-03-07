@@ -8,9 +8,11 @@ export type PublicDirectAthleteRecord = {
   userId: number
   clientId: number | null
   packageId: string
+  avatarUrl: string
   firstName: string
   lastName: string
   birthDate: string
+  gender?: 'M' | 'F'
   birthPlace: string
   residenceAddress: string
   taxCode: string
@@ -25,6 +27,8 @@ export type PublicDirectAthleteRecord = {
 function normalize(items: PublicDirectAthleteRecord[]): PublicDirectAthleteRecord[] {
   return items.map((item) => ({
     ...item,
+    avatarUrl: (item.avatarUrl ?? '').trim(),
+    gender: item.gender === 'F' ? 'F' : item.gender === 'M' ? 'M' : undefined,
     clientId: Number.isFinite(item.clientId) ? Number(item.clientId) : null,
     medicalCertificateImageDataUrl: item.medicalCertificateImageDataUrl ?? '',
     medicalCertificateExpiryDate: item.medicalCertificateExpiryDate ?? '',
@@ -74,7 +78,7 @@ export function updatePublicDirectAthleteRecord(
     | 'phone'
     | 'medicalCertificateImageDataUrl'
     | 'medicalCertificateExpiryDate'
-  >,
+  > & Partial<Pick<PublicDirectAthleteRecord, 'avatarUrl'>>,
 ): PublicDirectAthleteRecord | null {
   const all = getPublicDirectAthletes()
   const current = all.find((item) => item.id === id) ?? null
@@ -91,6 +95,7 @@ export function updatePublicDirectAthleteRecord(
     taxCode: payload.taxCode.trim().toUpperCase(),
     email: payload.email.trim().toLowerCase(),
     phone: payload.phone.trim(),
+    avatarUrl: (payload.avatarUrl ?? current.avatarUrl).trim(),
     medicalCertificateImageDataUrl: payload.medicalCertificateImageDataUrl,
     medicalCertificateExpiryDate: payload.medicalCertificateExpiryDate.trim(),
   }
@@ -110,4 +115,14 @@ export function updatePublicDirectAthleteValidationStatus(
   const updated: PublicDirectAthleteRecord = { ...current, validationStatus }
   writeStorage(all.map((item) => (item.id === id ? updated : item)))
   return updated
+}
+
+export function removePublicDirectAthletesByClientId(clientId: number): PublicDirectAthleteRecord[] {
+  const all = getPublicDirectAthletes()
+  const removed = all.filter((item) => item.clientId === clientId)
+  if (removed.length === 0) {
+    return []
+  }
+  writeStorage(all.filter((item) => item.clientId !== clientId))
+  return removed
 }

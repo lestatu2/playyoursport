@@ -17,6 +17,8 @@ import {
   type RoleKey,
   type SaveUserPayload,
 } from '../lib/auth'
+import { resolveUserAvatarUrl } from '../lib/avatar'
+import { getProjectSettings } from '../lib/project-settings'
 
 type UsersPageProps = {
   session: AuthSession
@@ -39,11 +41,7 @@ function createInitialDraft(role: RoleKey): SaveUserPayload {
 }
 
 function getAvatarUrl(user: MockUser): string {
-  if (user.avatarUrl.trim()) {
-    return user.avatarUrl
-  }
-  const seed = encodeURIComponent(`${user.firstName} ${user.lastName}`.trim() || user.login || user.email)
-  return `https://api.dicebear.com/9.x/initials/svg?seed=${seed}`
+  return resolveUserAvatarUrl(user, getProjectSettings().avatarDicebearStyle)
 }
 
 function userToSearchBlob(user: MockUser): string {

@@ -1,7 +1,14 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { getCoreRowModel, useReactTable, type ColumnDef } from '@tanstack/react-table'
 import { Plus, Trash2 } from 'lucide-react'
+import ExcelJS from 'exceljs'
+import { saveAs } from 'file-saver'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
+import { Document, Packer, Paragraph, Table, TableCell, TableRow, TextRun } from 'docx'
+import DataTable from '../components/DataTable'
 import {
   getAdditionalServices,
   getCompanies,
@@ -31,6 +38,8 @@ import { getProjectSettings } from '../lib/project-settings'
 
 type ActivitiesPaymentsTab = 'activities' | 'deadlines' | 'expired' | 'collections' | 'overdue'
 type FrequencyFilter = 'all' | 'daily' | 'weekly' | 'monthly' | 'yearly'
+type ActivitiesExportFormat = 'xlsx' | 'pdf' | 'docx'
+type ActivitiesExportScope = 'activities' | 'payments'
 type AthleteSubjectType = 'minor' | 'direct_user'
 type AthleteActivityItem = {
   key: string
@@ -195,6 +204,9 @@ function ActivitiesPaymentsPage() {
   const [periodFromMonth, setPeriodFromMonth] = useState(currentPeriodMonth)
   const [periodToMonth, setPeriodToMonth] = useState(currentPeriodMonth)
   const [newServiceOptionKey, setNewServiceOptionKey] = useState('')
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false)
+  const [exportFormat, setExportFormat] = useState<ActivitiesExportFormat>('xlsx')
+  const [exportScope, setExportScope] = useState<ActivitiesExportScope>('activities')
 
   const minors = useMemo(() => getPublicMinors(), [])
   const directAthletes = useMemo(() => getPublicDirectAthletes(), [])
@@ -384,7 +396,7 @@ function ActivitiesPaymentsPage() {
     return Array.from(optionsMap.values())
   }, [activePlanPackage, additionalServicesById])
 
-  const exportContractPdf = async (item: AthleteActivityItem, packageItem: ReturnType<typeof getPackages>[number], plan: ActivityPaymentPlan) => {
+  const exportContractPdf = useCallback(async (item: AthleteActivityItem, packageItem: ReturnType<typeof getPackages>[number], plan: ActivityPaymentPlan) => {
     const company = companiesById.get(packageItem.companyId)
     if (!company) {
       window.alert(t('activitiesPayments.contract.companyNotFound'))
@@ -542,7 +554,7 @@ function ActivitiesPaymentsPage() {
     if (!result.ok) {
       window.alert(`${t('activitiesPayments.contract.downloadError')} (${result.error})`)
     }
-  }
+  }, [clientsById, companiesById, directAthletesById, minorsById, t])
   const addableServiceOptions = useMemo(() => {
     if (!planDraft) {
       return [] as PlanServiceOption[]
@@ -551,7 +563,7 @@ function ActivitiesPaymentsPage() {
     return activePlanServiceOptions.filter((item) => !used.has(item.key))
   }, [activePlanServiceOptions, planDraft])
 
-  const buildInstallments = (
+  const buildInstallments = useCallback((
     draft: Pick<PlanDraft, 'enrollmentFee' | 'recurringAmount' | 'services' | 'startDate' | 'endDate'>,
     packageItem: {
       recurringPaymentEnabled: boolean
@@ -572,7 +584,7 @@ function ActivitiesPaymentsPage() {
       recurringAmount: safeAmount(draft.recurringAmount),
       services: draft.services.map((item) => ({ ...item, amount: safeAmount(item.amount) })),
       selectedPaymentMethodCode,
-    })
+    }), [])
 
   const applyAutomaticRulesOnInstallments = (
     draft: Pick<PlanDraft, 'installments' | 'services' | 'enrollmentFee' | 'recurringAmount'>,
@@ -762,7 +774,282 @@ function ActivitiesPaymentsPage() {
     })
   }, [installmentRows, periodRange.start])
 
-  const openPlanModal = (item: AthleteActivityItem) => {
+  type ActivityStatusSummary =
+    | { kind: 'no_plan' }
+    | { kind: 'no_installment_in_period' }
+    | { kind: 'insoluti'; insolutiCount: number }
+    | { kind: 'scaduta'; insolutiCount: number }
+    | { kind: 'in_regola' }
+    | { kind: 'in_scadenza'; pendingCurrentCount: number; insolutiCount: number }
+
+  const resolveActivityStatusSummary = useCallback((item: AthleteActivityItem): ActivityStatusSummary => {
+    const plan = plansByActivityKey.get(item.key)
+    if (!plan) {
+      return { kind: 'no_plan' }
+    }
+    const periodStart = dateOnly(currentMonthRange.start)
+    const periodEnd = dateOnly(currentMonthRange.end)
+    const today = dateOnly(new Date())
+    const currentInstallments = plan.installments.filter((installment) => {
+      const due = parseIsoDate(installment.dueDate)
+      if (!due) {
+        return false
+      }
+      const value = dateOnly(due)
+      return value >= periodStart && value <= periodEnd
+    })
+    const insolutiCount = plan.installments.filter((installment) => {
+      if (installment.paymentStatus !== 'pending') {
+        return false
+      }
+      const due = parseIsoDate(installment.dueDate)
+      if (!due) {
+        return false
+      }
+      return dateOnly(due) < periodStart
+    }).length
+    if (currentInstallments.length === 0) {
+      return insolutiCount > 0
+        ? { kind: 'insoluti', insolutiCount }
+        : { kind: 'no_installment_in_period' }
+    }
+    const pendingCurrent = currentInstallments.filter((installment) => installment.paymentStatus === 'pending')
+    const expiredCurrentCount = pendingCurrent.filter((installment) => {
+      const due = parseIsoDate(installment.dueDate)
+      if (!due) {
+        return false
+      }
+      return dateOnly(due) < today
+    }).length
+    if (expiredCurrentCount > 0) {
+      return { kind: 'scaduta', insolutiCount }
+    }
+    if (pendingCurrent.length === 0) {
+      return { kind: 'in_regola' }
+    }
+    return {
+      kind: 'in_scadenza',
+      pendingCurrentCount: pendingCurrent.length,
+      insolutiCount,
+    }
+  }, [currentMonthRange.end, currentMonthRange.start, plansByActivityKey])
+
+  const getActivityStatusLabel = useCallback((item: AthleteActivityItem): string => {
+    const summary = resolveActivityStatusSummary(item)
+    if (summary.kind === 'no_plan') {
+      return t('activitiesPayments.status.noPlan')
+    }
+    if (summary.kind === 'no_installment_in_period') {
+      return t('activitiesPayments.status.noInstallmentInPeriod')
+    }
+    if (summary.kind === 'insoluti') {
+      return `${t('activitiesPayments.status.insoluti')} (${summary.insolutiCount})`
+    }
+    if (summary.kind === 'scaduta') {
+      return t('activitiesPayments.status.scaduta')
+    }
+    if (summary.kind === 'in_regola') {
+      return t('activitiesPayments.status.inRegola')
+    }
+    return `${t('activitiesPayments.status.toPay')} (${summary.pendingCurrentCount})`
+  }, [resolveActivityStatusSummary, t])
+
+  const activitiesExportRows = useMemo(() => {
+    return filteredActivitiesByPeriod.map((item) => {
+      const plan = plansByActivityKey.get(item.key) ?? null
+      const packageItem = packagesById.get(item.packageId) ?? null
+      const company = packageItem ? companiesById.get(packageItem.companyId) ?? null : null
+      const totalDue = plan ? plan.installments.reduce((sum, installment) => sum + safeAmount(installment.amount), 0) : 0
+      const totalPaid = plan
+        ? plan.installments
+            .filter((installment) => installment.paymentStatus === 'paid')
+            .reduce((sum, installment) => sum + safeAmount(installment.amount), 0)
+        : 0
+      const insoluti = plan
+        ? plan.installments.filter((installment) => {
+            if (installment.paymentStatus !== 'pending') {
+              return false
+            }
+            const due = parseIsoDate(installment.dueDate)
+            return Boolean(due && dateOnly(due) < dateOnly(new Date()))
+          }).length
+        : 0
+      const nextDueDate = plan
+        ? [...plan.installments]
+            .filter((installment) => installment.paymentStatus === 'pending')
+            .map((installment) => installment.dueDate)
+            .sort((left, right) => left.localeCompare(right))[0] ?? '-'
+        : '-'
+      return {
+        athlete: `${item.firstName} ${item.lastName}`.trim(),
+        parent: item.parentLabel,
+        packageName: packageItem?.name ?? item.packageId,
+        company: company?.title ?? '-',
+        frequency: packageItem ? t(getFrequencyLabelKey(packageItem.paymentFrequency)) : '-',
+        planStatus: plan ? t('activitiesPayments.filters.generatedPlan') : t('activitiesPayments.filters.notGeneratedPlan'),
+        paymentStatus: getActivityStatusLabel(item),
+        totalDue: totalDue.toFixed(2),
+        totalPaid: totalPaid.toFixed(2),
+        insoluti: String(insoluti),
+        nextDueDate,
+      }
+    })
+  }, [companiesById, filteredActivitiesByPeriod, getActivityStatusLabel, packagesById, plansByActivityKey, t])
+
+  const paymentsExportRows = useMemo(() => {
+    const today = dateOnly(new Date())
+    return installmentRows.map((row) => {
+      const due = parseIsoDate(row.installment.dueDate)
+      const dueDateOnly = due ? dateOnly(due) : null
+      const statusLabel = row.installment.paymentStatus === 'paid'
+        ? t('activitiesPayments.plan.paid')
+        : dueDateOnly && dueDateOnly < today
+          ? t('activitiesPayments.status.scaduta')
+          : t('activitiesPayments.status.toPay')
+      return {
+        athlete: `${row.activity.firstName} ${row.activity.lastName}`.trim(),
+        parent: row.activity.parentLabel,
+        packageName: row.packageName,
+        installmentLabel: row.installment.label,
+        dueDate: row.installment.dueDate,
+        amount: row.installment.amount.toFixed(2),
+        paymentMethod: t(`utility.paymentMethods.methods.${row.installment.paymentMethodCode || 'onsite_pos'}.label`),
+        paymentStatus: statusLabel,
+        paidAt: row.installment.paidAt ? row.installment.paidAt.slice(0, 10) : '-',
+      }
+    })
+  }, [installmentRows, t])
+
+  const exportHeaders = useMemo(() => {
+    if (exportScope === 'activities') {
+      return ['Atleta', 'Genitore', 'Pacchetto', 'Azienda', 'Frequenza', 'Stato piano', 'Stato pagamenti', 'Totale dovuto', 'Totale pagato', 'Insoluti', 'Prossima scadenza']
+    }
+    return ['Atleta', 'Genitore', 'Pacchetto', 'Rata', 'Scadenza', 'Importo', 'Metodo pagamento', 'Stato', 'Data pagamento']
+  }, [exportScope])
+
+  const exportBodyRows = useMemo(() => {
+    if (exportScope === 'activities') {
+      return activitiesExportRows.map((row) => [
+        row.athlete,
+        row.parent,
+        row.packageName,
+        row.company,
+        row.frequency,
+        row.planStatus,
+        row.paymentStatus,
+        row.totalDue,
+        row.totalPaid,
+        row.insoluti,
+        row.nextDueDate,
+      ])
+    }
+    return paymentsExportRows.map((row) => [
+      row.athlete,
+      row.parent,
+      row.packageName,
+      row.installmentLabel,
+      row.dueDate,
+      row.amount,
+      row.paymentMethod,
+      row.paymentStatus,
+      row.paidAt,
+    ])
+  }, [activitiesExportRows, exportScope, paymentsExportRows])
+
+  const exportLabelByScope = exportScope === 'activities'
+    ? t('activitiesPayments.export.fileActivities')
+    : t('activitiesPayments.export.filePayments')
+  const exportFilenameBase = `${exportLabelByScope}-${new Date().toISOString().slice(0, 10)}`
+
+  const handleExport = useCallback(async () => {
+    if (exportBodyRows.length === 0) {
+      return
+    }
+
+    if (exportFormat === 'xlsx') {
+      const workbook = new ExcelJS.Workbook()
+      const worksheet = workbook.addWorksheet(
+        exportScope === 'activities'
+          ? t('activitiesPayments.export.scopeActivities')
+          : t('activitiesPayments.export.scopePayments'),
+      )
+      worksheet.columns = exportHeaders.map((header) => ({ header, key: header }))
+      exportBodyRows.forEach((row) => {
+        const record: Record<string, string> = {}
+        exportHeaders.forEach((header, index) => {
+          record[header] = String(row[index] ?? '')
+        })
+        worksheet.addRow(record)
+      })
+      const buffer = await workbook.xlsx.writeBuffer()
+      saveAs(
+        new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+        `${exportFilenameBase}.xlsx`,
+      )
+      setIsExportModalOpen(false)
+      return
+    }
+
+    if (exportFormat === 'pdf') {
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' })
+      doc.setFontSize(11)
+      doc.text(
+        exportScope === 'activities'
+          ? t('activitiesPayments.export.titleActivities')
+          : t('activitiesPayments.export.titlePayments'),
+        40,
+        36,
+      )
+      autoTable(doc, {
+        head: [exportHeaders],
+        body: exportBodyRows,
+        startY: 50,
+        styles: { fontSize: 8, cellPadding: 3 },
+        headStyles: { fillColor: [33, 37, 41] },
+      })
+      doc.save(`${exportFilenameBase}.pdf`)
+      setIsExportModalOpen(false)
+      return
+    }
+
+    const tableRows = [
+      new TableRow({
+        children: exportHeaders.map((header) =>
+          new TableCell({
+            children: [new Paragraph({ children: [new TextRun({ text: header, bold: true })] })],
+          })),
+      }),
+      ...exportBodyRows.map((row) =>
+        new TableRow({
+          children: row.map((value) =>
+            new TableCell({
+              children: [new Paragraph(String(value ?? ''))],
+            })),
+        })),
+    ]
+    const doc = new Document({
+      sections: [{
+        children: [
+          new Paragraph({
+            children: [new TextRun({
+              text: exportScope === 'activities'
+                ? t('activitiesPayments.export.titleActivities')
+                : t('activitiesPayments.export.titlePayments'),
+              bold: true,
+            })],
+          }),
+          new Table({
+            rows: tableRows,
+          }),
+        ],
+      }],
+    })
+    const blob = await Packer.toBlob(doc)
+    saveAs(blob, `${exportFilenameBase}.docx`)
+    setIsExportModalOpen(false)
+  }, [exportBodyRows, exportFilenameBase, exportFormat, exportHeaders, exportScope, t])
+
+  const openPlanModal = useCallback((item: AthleteActivityItem) => {
     const packageItem = packagesById.get(item.packageId)
     if (!packageItem) {
       return
@@ -855,7 +1142,7 @@ function ActivitiesPaymentsPage() {
     setIsEnrollmentFeeCovered(enrollmentFeeDecision.isCovered && safeAmount(baseDraft.enrollmentFee) === 0)
     setNewServiceOptionKey('')
     setActivePlanItemKey(item.key)
-  }
+  }, [additionalServicesById, buildInstallments, packagesById, plansByActivityKey])
 
   const closePlanModal = () => {
     setActivePlanItemKey(null)
@@ -989,6 +1276,293 @@ function ActivitiesPaymentsPage() {
     closePlanModal()
   }
 
+  const activitiesColumns = useMemo<ColumnDef<AthleteActivityItem>[]>(() => [
+    {
+      id: 'athlete',
+      header: t('activitiesPayments.table.athlete'),
+      cell: ({ row }) => {
+        const item = row.original
+        if (item.type === 'direct_user' && item.clientId !== null) {
+          return (
+            <button
+              type="button"
+              className="link text-base-content text-left"
+              onClick={() => navigate(`/app/clienti?clientId=${item.clientId}`)}
+            >
+              {item.firstName} {item.lastName}
+            </button>
+          )
+        }
+        if (item.type === 'minor') {
+          return (
+            <button
+              type="button"
+              className="link text-base-content text-left"
+              onClick={() => navigate(`/app/atleti?athleteId=${item.key}`)}
+            >
+              {item.firstName} {item.lastName}
+            </button>
+          )
+        }
+        return <span>{item.firstName} {item.lastName}</span>
+      },
+      meta: { responsivePriority: 'high' },
+    },
+    {
+      id: 'athleteType',
+      header: t('activitiesPayments.table.athleteType'),
+      cell: ({ row }) => (
+        <span className={`badge ${row.original.type === 'minor' ? 'badge-info' : 'badge-primary'}`}>
+          {row.original.type === 'minor'
+            ? t('activitiesPayments.types.minor')
+            : t('activitiesPayments.types.directUser')}
+        </span>
+      ),
+      meta: { responsivePriority: 'high' },
+    },
+    {
+      id: 'parent',
+      header: t('activitiesPayments.table.parent'),
+      cell: ({ row }) => {
+        const item = row.original
+        if (item.type === 'minor' && item.clientId !== null) {
+          return (
+            <button
+              type="button"
+              className="link text-base-content text-left"
+              onClick={() => navigate(`/app/clienti?clientId=${item.clientId}`)}
+            >
+              {item.parentLabel}
+            </button>
+          )
+        }
+        return item.parentLabel
+      },
+      meta: { responsivePriority: 'low' },
+    },
+    {
+      id: 'package',
+      header: t('activitiesPayments.table.package'),
+      cell: ({ row }) => {
+        const item = row.original
+        const packageItem = packagesById.get(item.packageId)
+        return (
+          <button
+            type="button"
+            className="link text-base-content text-left"
+            onClick={() => navigate(`/app/pacchetti?packageId=${item.packageId}`)}
+          >
+            {packageItem?.name ?? item.packageId}
+          </button>
+        )
+      },
+      meta: { responsivePriority: 'high' },
+    },
+    {
+      id: 'frequency',
+      header: t('activitiesPayments.table.frequency'),
+      cell: ({ row }) => {
+        const packageItem = packagesById.get(row.original.packageId)
+        return packageItem ? t(getFrequencyLabelKey(packageItem.paymentFrequency)) : '-'
+      },
+      meta: { responsivePriority: 'low' },
+    },
+    {
+      id: 'period',
+      header: t('activitiesPayments.table.period'),
+      cell: ({ row }) => {
+        const item = row.original
+        const packageItem = packagesById.get(item.packageId)
+        const periodLabel = packageItem?.durationType === 'period'
+          ? `${packageItem.periodStartDate || '-'} - ${packageItem.periodEndDate || '-'}`
+          : packageItem?.eventDate || '-'
+        return (
+          <div className="text-sm">
+            <p><span className="font-medium">{t('activitiesPayments.period.current')}:</span> {periodMonthLabel}</p>
+            <p className="opacity-70"><span className="font-medium">{t('activitiesPayments.period.selected')}:</span> {periodFilterLabel}</p>
+            <p className="opacity-70"><span className="font-medium">{t('activitiesPayments.period.total')}:</span> {periodLabel}</p>
+          </div>
+        )
+      },
+      meta: { responsivePriority: 'low' },
+    },
+    {
+      id: 'paymentStatus',
+      header: t('activitiesPayments.table.paymentStatus'),
+      cell: ({ row }) => {
+        const summary = resolveActivityStatusSummary(row.original)
+        if (summary.kind === 'no_plan') {
+          return <span className="badge badge-ghost">{t('activitiesPayments.status.noPlan')}</span>
+        }
+        if (summary.kind === 'no_installment_in_period') {
+          return <span className="badge badge-ghost">{t('activitiesPayments.status.noInstallmentInPeriod')}</span>
+        }
+        if (summary.kind === 'insoluti') {
+          return (
+            <div className="space-y-1">
+              <span className="badge badge-error">{t('activitiesPayments.status.insoluti')}</span>
+              <p className="text-xs opacity-70">{t('activitiesPayments.status.insolutiCount', { count: summary.insolutiCount })}</p>
+            </div>
+          )
+        }
+        if (summary.kind === 'scaduta') {
+          return (
+            <div className="space-y-1">
+              <span className="badge badge-error">{t('activitiesPayments.status.scaduta')}</span>
+              {summary.insolutiCount > 0 ? (
+                <p className="text-xs opacity-70">{t('activitiesPayments.status.insolutiCount', { count: summary.insolutiCount })}</p>
+              ) : null}
+            </div>
+          )
+        }
+        if (summary.kind === 'in_regola') {
+          return (
+            <div className="space-y-1">
+              <span className="badge badge-success">{t('activitiesPayments.status.inRegola')}</span>
+              <p className="text-xs opacity-70">{t('activitiesPayments.status.currentPaid')}</p>
+            </div>
+          )
+        }
+        return (
+          <div className="space-y-1">
+            <span className="badge badge-warning">{t('activitiesPayments.status.toPay')}</span>
+            <p className="text-xs opacity-70">
+              {t('activitiesPayments.status.currentPendingCount', { count: summary.pendingCurrentCount })}
+            </p>
+            {summary.insolutiCount > 0 ? (
+              <p className="text-xs opacity-70">{t('activitiesPayments.status.insolutiCount', { count: summary.insolutiCount })}</p>
+            ) : null}
+          </div>
+        )
+      },
+      meta: { responsivePriority: 'high' },
+    },
+    {
+      id: 'plan',
+      header: t('activitiesPayments.table.plan'),
+      cell: ({ row }) => {
+        const item = row.original
+        const plan = plansByActivityKey.get(item.key) ?? null
+        const packageItem = packagesById.get(item.packageId)
+        return (
+          <div className="flex flex-wrap items-center gap-1">
+            <button
+              type="button"
+              className={`btn btn-xs ${plan ? 'btn-success' : 'btn-error'}`}
+              onClick={() => openPlanModal(item)}
+            >
+              {plan
+                ? t('activitiesPayments.workflow.planGenerated', { count: plan.installments.length })
+                : t('activitiesPayments.workflow.generatePlan')}
+            </button>
+            {plan && packageItem ? (
+              <button
+                type="button"
+                className={`btn btn-xs ${plan.config.contractSigned ? 'btn-success' : 'btn-error'}`}
+                onClick={() => {
+                  void exportContractPdf(item, packageItem, plan)
+                }}
+              >
+                {t('activitiesPayments.contract.download')}
+              </button>
+            ) : null}
+          </div>
+        )
+      },
+      meta: { responsivePriority: 'high' },
+    },
+  ], [exportContractPdf, navigate, openPlanModal, packagesById, periodFilterLabel, periodMonthLabel, plansByActivityKey, resolveActivityStatusSummary, t])
+
+  type InstallmentTabRow = {
+    id: string
+    athlete: string
+    parent: string
+    packageName: string
+    dueDate: string
+    paidAt: string
+    amount: string
+    paymentMethod: string
+    statusLabel: string
+    statusClass: string
+  }
+
+  const toInstallmentTabRows = useCallback((
+    rowsSource: Array<{ activity: AthleteActivityItem; installment: PaymentInstallment; packageName: string }>,
+    statusLabel: string,
+    statusClass: string,
+  ): InstallmentTabRow[] =>
+    rowsSource.map((row) => ({
+      id: `${row.activity.key}-${row.installment.id}`,
+      athlete: `${row.activity.firstName} ${row.activity.lastName}`,
+      parent: row.activity.parentLabel,
+      packageName: row.packageName,
+      dueDate: row.installment.dueDate,
+      paidAt: row.installment.paidAt ? row.installment.paidAt.slice(0, 10) : '-',
+      amount: row.installment.amount.toFixed(2),
+      paymentMethod: t(`utility.paymentMethods.methods.${row.installment.paymentMethodCode || 'onsite_pos'}.label`),
+      statusLabel,
+      statusClass,
+    })), [t])
+
+  const scadenzeTabRows = useMemo(
+    () => toInstallmentTabRows(periodScadenzeRows, t('activitiesPayments.status.toPay'), 'badge-warning'),
+    [periodScadenzeRows, t, toInstallmentTabRows],
+  )
+  const incassiTabRows = useMemo(
+    () => toInstallmentTabRows(periodIncassiRows, t('activitiesPayments.plan.paid'), 'badge-success'),
+    [periodIncassiRows, t, toInstallmentTabRows],
+  )
+  const scaduteTabRows = useMemo(
+    () => toInstallmentTabRows(periodScaduteRows, t('activitiesPayments.status.scaduta'), 'badge-error'),
+    [periodScaduteRows, t, toInstallmentTabRows],
+  )
+  const insolutiTabRows = useMemo(
+    () => toInstallmentTabRows(periodInsolutiRows, t('activitiesPayments.status.insoluti'), 'badge-error'),
+    [periodInsolutiRows, t, toInstallmentTabRows],
+  )
+
+  const installmentColumns = useMemo<ColumnDef<InstallmentTabRow>[]>(() => [
+    { id: 'athlete', header: t('activitiesPayments.table.athlete'), cell: ({ row }) => row.original.athlete, meta: { responsivePriority: 'high' } },
+    { id: 'parent', header: t('activitiesPayments.table.parent'), cell: ({ row }) => row.original.parent, meta: { responsivePriority: 'low' } },
+    { id: 'package', header: t('activitiesPayments.table.package'), cell: ({ row }) => row.original.packageName, meta: { responsivePriority: 'high' } },
+    { id: 'dueDate', header: t('activitiesPayments.plan.dueDate'), cell: ({ row }) => row.original.dueDate, meta: { responsivePriority: 'low' } },
+    { id: 'paidAt', header: 'Data pagamento', cell: ({ row }) => row.original.paidAt, meta: { responsivePriority: 'low' } },
+    { id: 'amount', header: t('activitiesPayments.plan.amount'), cell: ({ row }) => row.original.amount, meta: { responsivePriority: 'low' } },
+    { id: 'paymentMethod', header: t('activitiesPayments.plan.paymentMethod'), cell: ({ row }) => row.original.paymentMethod, meta: { responsivePriority: 'low' } },
+    {
+      id: 'status',
+      header: t('activitiesPayments.plan.paymentStatus'),
+      cell: ({ row }) => <span className={`badge ${row.original.statusClass}`}>{row.original.statusLabel}</span>,
+      meta: { responsivePriority: 'high' },
+    },
+  ], [t])
+
+  const activitiesTable = useReactTable({
+    data: filteredActivitiesByPeriod,
+    columns: activitiesColumns,
+    getCoreRowModel: getCoreRowModel(),
+  })
+  const scadenzeTable = useReactTable({
+    data: scadenzeTabRows,
+    columns: installmentColumns,
+    getCoreRowModel: getCoreRowModel(),
+  })
+  const incassiTable = useReactTable({
+    data: incassiTabRows,
+    columns: installmentColumns,
+    getCoreRowModel: getCoreRowModel(),
+  })
+  const scaduteTable = useReactTable({
+    data: scaduteTabRows,
+    columns: installmentColumns,
+    getCoreRowModel: getCoreRowModel(),
+  })
+  const insolutiTable = useReactTable({
+    data: insolutiTabRows,
+    columns: installmentColumns,
+    getCoreRowModel: getCoreRowModel(),
+  })
+
   return (
     <section className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -996,9 +1570,14 @@ function ActivitiesPaymentsPage() {
           <h2 className="text-2xl font-semibold">{t('activitiesPayments.title')}</h2>
           <p className="text-sm opacity-70">{t('activitiesPayments.description')}</p>
         </div>
-        <button type="button" className="btn btn-outline btn-sm" onClick={() => navigate('/app/storico-attivita')}>
-          {t('activitiesPayments.goToHistory')}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button type="button" className="btn btn-outline btn-sm" onClick={() => setIsExportModalOpen(true)}>
+            {t('activitiesPayments.export.button')}
+          </button>
+          <button type="button" className="btn btn-outline btn-sm" onClick={() => navigate('/app/storico-attivita')}>
+            {t('activitiesPayments.goToHistory')}
+          </button>
+        </div>
       </div>
 
       {lockedAthlete ? (
@@ -1117,346 +1696,87 @@ function ActivitiesPaymentsPage() {
       </div>
 
       {tab === 'activities' ? (
-        <div className="overflow-x-auto rounded-lg border border-base-300 bg-base-100">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>{t('activitiesPayments.table.athlete')}</th>
-                <th>{t('activitiesPayments.table.athleteType')}</th>
-                <th>{t('activitiesPayments.table.parent')}</th>
-                <th>{t('activitiesPayments.table.package')}</th>
-                <th>{t('activitiesPayments.table.frequency')}</th>
-                <th>{t('activitiesPayments.table.period')}</th>
-                <th>{t('activitiesPayments.table.paymentStatus')}</th>
-                <th>{t('activitiesPayments.table.plan')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredActivitiesByPeriod.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="text-center text-sm opacity-70">
-                    {t('activitiesPayments.empty')}
-                  </td>
-                </tr>
-              ) : (
-                filteredActivitiesByPeriod.map((item) => {
-                  const packageItem = packagesById.get(item.packageId)
-                  const plan = plansByActivityKey.get(item.key) ?? null
-                  const periodLabel = packageItem?.durationType === 'period'
-                    ? `${packageItem.periodStartDate || '-'} - ${packageItem.periodEndDate || '-'}`
-                    : packageItem?.eventDate || '-'
-                  return (
-                    <tr key={item.key}>
-                      <td>
-                        {item.type === 'direct_user' && item.clientId !== null ? (
-                          <button
-                            type="button"
-                            className="link text-base-content text-left"
-                            onClick={() => navigate(`/app/clienti?clientId=${item.clientId}`)}
-                          >
-                            {item.firstName} {item.lastName}
-                          </button>
-                        ) : item.type === 'minor' ? (
-                          <button
-                            type="button"
-                            className="link text-base-content text-left"
-                            onClick={() => navigate(`/app/atleti?athleteId=${item.key}`)}
-                          >
-                            {item.firstName} {item.lastName}
-                          </button>
-                        ) : (
-                          <span>{item.firstName} {item.lastName}</span>
-                        )}
-                      </td>
-                      <td>
-                        <span className={`badge ${item.type === 'minor' ? 'badge-info' : 'badge-primary'}`}>
-                          {item.type === 'minor'
-                            ? t('activitiesPayments.types.minor')
-                            : t('activitiesPayments.types.directUser')}
-                        </span>
-                      </td>
-                      <td>
-                        {item.type === 'minor' && item.clientId !== null ? (
-                          <button
-                            type="button"
-                            className="link text-base-content text-left"
-                            onClick={() => navigate(`/app/clienti?clientId=${item.clientId}`)}
-                          >
-                            {item.parentLabel}
-                          </button>
-                        ) : (
-                          item.parentLabel
-                        )}
-                      </td>
-                      <td>
-                        <button
-                          type="button"
-                          className="link text-base-content text-left"
-                          onClick={() => navigate(`/app/pacchetti?packageId=${item.packageId}`)}
-                        >
-                          {packageItem?.name ?? item.packageId}
-                        </button>
-                      </td>
-                      <td>{packageItem ? t(getFrequencyLabelKey(packageItem.paymentFrequency)) : '-'}</td>
-                      <td>
-                        <div className="text-sm">
-                          <p><span className="font-medium">{t('activitiesPayments.period.current')}:</span> {periodMonthLabel}</p>
-                          <p className="opacity-70"><span className="font-medium">{t('activitiesPayments.period.selected')}:</span> {periodFilterLabel}</p>
-                          <p className="opacity-70"><span className="font-medium">{t('activitiesPayments.period.total')}:</span> {periodLabel}</p>
-                        </div>
-                      </td>
-                      <td>
-                        {(() => {
-                          const plan = plansByActivityKey.get(item.key)
-                          if (!plan) {
-                            return <span className="badge badge-ghost">{t('activitiesPayments.status.noPlan')}</span>
-                          }
-                          const periodStart = dateOnly(currentMonthRange.start)
-                          const periodEnd = dateOnly(currentMonthRange.end)
-                          const today = dateOnly(new Date())
-                          const currentInstallments = plan.installments.filter((installment) => {
-                            const due = parseIsoDate(installment.dueDate)
-                            if (!due) {
-                              return false
-                            }
-                            const value = dateOnly(due)
-                            return value >= periodStart && value <= periodEnd
-                          })
-                          const insolutiCount = plan.installments.filter((installment) => {
-                            if (installment.paymentStatus !== 'pending') {
-                              return false
-                            }
-                            const due = parseIsoDate(installment.dueDate)
-                            if (!due) {
-                              return false
-                            }
-                            return dateOnly(due) < periodStart
-                          }).length
-                          if (currentInstallments.length === 0) {
-                            if (insolutiCount > 0) {
-                              return (
-                                <div className="space-y-1">
-                                  <span className="badge badge-error">{t('activitiesPayments.status.insoluti')}</span>
-                                  <p className="text-xs opacity-70">{t('activitiesPayments.status.insolutiCount', { count: insolutiCount })}</p>
-                                </div>
-                              )
-                            }
-                            return <span className="badge badge-ghost">{t('activitiesPayments.status.noInstallmentInPeriod')}</span>
-                          }
-
-                          const pendingCurrent = currentInstallments.filter((installment) => installment.paymentStatus === 'pending')
-                          const expiredCurrentCount = pendingCurrent.filter((installment) => {
-                            const due = parseIsoDate(installment.dueDate)
-                            if (!due) {
-                              return false
-                            }
-                            return dateOnly(due) < today
-                          }).length
-
-                          if (expiredCurrentCount > 0) {
-                            return (
-                              <div className="space-y-1">
-                                <span className="badge badge-error">{t('activitiesPayments.status.scaduta')}</span>
-                                {insolutiCount > 0 ? (
-                                  <p className="text-xs opacity-70">{t('activitiesPayments.status.insolutiCount', { count: insolutiCount })}</p>
-                                ) : null}
-                              </div>
-                            )
-                          }
-
-                          if (pendingCurrent.length === 0) {
-                            return (
-                              <div className="space-y-1">
-                                <span className="badge badge-success">{t('activitiesPayments.status.inRegola')}</span>
-                                <p className="text-xs opacity-70">{t('activitiesPayments.status.currentPaid')}</p>
-                              </div>
-                            )
-                          }
-
-                          return (
-                            <div className="space-y-1">
-                              <span className="badge badge-warning">{t('activitiesPayments.status.inScadenza')}</span>
-                              <p className="text-xs opacity-70">
-                                {t('activitiesPayments.status.currentPendingCount', { count: pendingCurrent.length })}
-                              </p>
-                              {insolutiCount > 0 ? (
-                                <p className="text-xs opacity-70">{t('activitiesPayments.status.insolutiCount', { count: insolutiCount })}</p>
-                              ) : null}
-                            </div>
-                          )
-                        })()}
-                      </td>
-                      <td>
-                        <div className="flex flex-wrap items-center gap-1">
-                          <button
-                            type="button"
-                            className={`btn btn-xs ${plan ? 'btn-success' : 'btn-error'}`}
-                            onClick={() => openPlanModal(item)}
-                          >
-                            {plan
-                              ? t('activitiesPayments.workflow.planGenerated', { count: plan.installments.length })
-                              : t('activitiesPayments.workflow.generatePlan')}
-                          </button>
-                          {plan && packageItem ? (
-                            <button
-                              type="button"
-                              className={`btn btn-xs ${plan.config.contractSigned ? 'btn-success' : 'btn-error'}`}
-                              onClick={() => {
-                                void exportContractPdf(item, packageItem, plan)
-                              }}
-                            >
-                              {t('activitiesPayments.contract.download')}
-                            </button>
-                          ) : null}
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })
-              )}
-            </tbody>
-          </table>
+        <div className="rounded-lg border border-base-300 bg-base-100">
+          {filteredActivitiesByPeriod.length === 0 ? <p className="p-4 text-center text-sm opacity-70">{t('activitiesPayments.empty')}</p> : <DataTable table={activitiesTable} />}
         </div>
       ) : null}
 
       {tab === 'deadlines' ? (
-        <div className="overflow-x-auto rounded-lg border border-base-300 bg-base-100">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>{t('activitiesPayments.table.athlete')}</th>
-                <th>{t('activitiesPayments.table.package')}</th>
-                <th>{t('activitiesPayments.plan.dueDate')}</th>
-                <th>{t('activitiesPayments.plan.amount')}</th>
-                <th>{t('activitiesPayments.plan.paymentMethod')}</th>
-                <th>{t('activitiesPayments.plan.paymentStatus')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {periodScadenzeRows.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="text-center text-sm opacity-70">{t('activitiesPayments.empty')}</td>
-                </tr>
-              ) : (
-                periodScadenzeRows.map((row) => (
-                  <tr key={`deadline-${row.activity.key}-${row.installment.id}`}>
-                    <td>{row.activity.firstName} {row.activity.lastName}</td>
-                    <td>{row.packageName}</td>
-                    <td>{row.installment.dueDate}</td>
-                    <td>{row.installment.amount.toFixed(2)}</td>
-                    <td>{t(`utility.paymentMethods.methods.${row.installment.paymentMethodCode || 'onsite_pos'}.label`)}</td>
-                    <td><span className="badge badge-warning">{t('activitiesPayments.status.inScadenza')}</span></td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+        <div className="rounded-lg border border-base-300 bg-base-100">
+          {scadenzeTabRows.length === 0 ? <p className="p-4 text-center text-sm opacity-70">{t('activitiesPayments.empty')}</p> : <DataTable table={scadenzeTable} />}
         </div>
       ) : null}
 
       {tab === 'collections' ? (
-        <div className="overflow-x-auto rounded-lg border border-base-300 bg-base-100">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>{t('activitiesPayments.table.athlete')}</th>
-                <th>{t('activitiesPayments.table.package')}</th>
-                <th>{t('activitiesPayments.plan.dueDate')}</th>
-                <th>{t('activitiesPayments.plan.amount')}</th>
-                <th>{t('activitiesPayments.plan.paymentMethod')}</th>
-                <th>{t('activitiesPayments.plan.paymentStatus')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {periodIncassiRows.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="text-center text-sm opacity-70">{t('activitiesPayments.empty')}</td>
-                </tr>
-              ) : (
-                periodIncassiRows.map((row) => (
-                  <tr key={`collection-${row.activity.key}-${row.installment.id}`}>
-                    <td>{row.activity.firstName} {row.activity.lastName}</td>
-                    <td>{row.packageName}</td>
-                    <td>{row.installment.dueDate}</td>
-                    <td>{row.installment.amount.toFixed(2)}</td>
-                    <td>{t(`utility.paymentMethods.methods.${row.installment.paymentMethodCode || 'onsite_pos'}.label`)}</td>
-                    <td><span className="badge badge-success">{t('activitiesPayments.plan.paid')}</span></td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+        <div className="rounded-lg border border-base-300 bg-base-100">
+          {incassiTabRows.length === 0 ? <p className="p-4 text-center text-sm opacity-70">{t('activitiesPayments.empty')}</p> : <DataTable table={incassiTable} />}
         </div>
       ) : null}
 
       {tab === 'expired' ? (
-        <div className="overflow-x-auto rounded-lg border border-base-300 bg-base-100">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>{t('activitiesPayments.table.athlete')}</th>
-                <th>{t('activitiesPayments.table.package')}</th>
-                <th>{t('activitiesPayments.plan.dueDate')}</th>
-                <th>{t('activitiesPayments.plan.amount')}</th>
-                <th>{t('activitiesPayments.plan.paymentMethod')}</th>
-                <th>{t('activitiesPayments.plan.paymentStatus')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {periodScaduteRows.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="text-center text-sm opacity-70">{t('activitiesPayments.empty')}</td>
-                </tr>
-              ) : (
-                periodScaduteRows.map((row) => (
-                  <tr key={`expired-${row.activity.key}-${row.installment.id}`}>
-                    <td>{row.activity.firstName} {row.activity.lastName}</td>
-                    <td>{row.packageName}</td>
-                    <td>{row.installment.dueDate}</td>
-                    <td>{row.installment.amount.toFixed(2)}</td>
-                    <td>{t(`utility.paymentMethods.methods.${row.installment.paymentMethodCode || 'onsite_pos'}.label`)}</td>
-                    <td><span className="badge badge-error">{t('activitiesPayments.status.scaduta')}</span></td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+        <div className="rounded-lg border border-base-300 bg-base-100">
+          {scaduteTabRows.length === 0 ? <p className="p-4 text-center text-sm opacity-70">{t('activitiesPayments.empty')}</p> : <DataTable table={scaduteTable} />}
         </div>
       ) : null}
 
       {tab === 'overdue' ? (
-        <div className="overflow-x-auto rounded-lg border border-base-300 bg-base-100">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>{t('activitiesPayments.table.athlete')}</th>
-                <th>{t('activitiesPayments.table.package')}</th>
-                <th>{t('activitiesPayments.plan.dueDate')}</th>
-                <th>{t('activitiesPayments.plan.amount')}</th>
-                <th>{t('activitiesPayments.plan.paymentMethod')}</th>
-                <th>{t('activitiesPayments.plan.paymentStatus')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {periodInsolutiRows.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="text-center text-sm opacity-70">{t('activitiesPayments.empty')}</td>
-                </tr>
-              ) : (
-                periodInsolutiRows.map((row) => (
-                  <tr key={`overdue-${row.activity.key}-${row.installment.id}`}>
-                    <td>{row.activity.firstName} {row.activity.lastName}</td>
-                    <td>{row.packageName}</td>
-                    <td>{row.installment.dueDate}</td>
-                    <td>{row.installment.amount.toFixed(2)}</td>
-                    <td>{t(`utility.paymentMethods.methods.${row.installment.paymentMethodCode || 'onsite_pos'}.label`)}</td>
-                    <td><span className="badge badge-error">{t('activitiesPayments.status.insoluti')}</span></td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+        <div className="rounded-lg border border-base-300 bg-base-100">
+          {insolutiTabRows.length === 0 ? <p className="p-4 text-center text-sm opacity-70">{t('activitiesPayments.empty')}</p> : <DataTable table={insolutiTable} />}
         </div>
+      ) : null}
+
+      {isExportModalOpen ? (
+        <dialog className="modal modal-open">
+          <div className="modal-box max-w-xl space-y-4">
+            <h3 className="text-lg font-semibold">{t('activitiesPayments.export.modalTitle')}</h3>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <label className="form-control">
+                <span className="label-text mb-1 text-xs">{t('activitiesPayments.export.scopeLabel')}</span>
+                <select
+                  className="select select-bordered w-full"
+                  value={exportScope}
+                  onChange={(event) => setExportScope(event.target.value as ActivitiesExportScope)}
+                >
+                  <option value="activities">{t('activitiesPayments.export.scopeActivities')}</option>
+                  <option value="payments">{t('activitiesPayments.export.scopePayments')}</option>
+                </select>
+              </label>
+              <label className="form-control">
+                <span className="label-text mb-1 text-xs">{t('activitiesPayments.export.formatLabel')}</span>
+                <select
+                  className="select select-bordered w-full"
+                  value={exportFormat}
+                  onChange={(event) => setExportFormat(event.target.value as ActivitiesExportFormat)}
+                >
+                  <option value="xlsx">{t('activitiesPayments.export.formats.xlsx')}</option>
+                  <option value="pdf">{t('activitiesPayments.export.formats.pdf')}</option>
+                  <option value="docx">{t('activitiesPayments.export.formats.docx')}</option>
+                </select>
+              </label>
+            </div>
+            <p className="text-xs opacity-70">
+              {t('activitiesPayments.export.rowsCount', {
+                count: exportScope === 'activities' ? activitiesExportRows.length : paymentsExportRows.length,
+              })}
+            </p>
+            <div className="modal-action">
+              <button type="button" className="btn btn-ghost" onClick={() => setIsExportModalOpen(false)}>
+                {t('utility.categories.cancelEdit')}
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={(exportScope === 'activities' ? activitiesExportRows : paymentsExportRows).length === 0}
+                onClick={() => {
+                  void handleExport()
+                }}
+              >
+                {t('activitiesPayments.export.download')}
+              </button>
+            </div>
+          </div>
+          <button type="button" className="modal-backdrop" onClick={() => setIsExportModalOpen(false)} />
+        </dialog>
       ) : null}
 
       {activePlanItem && activePlanPackage && planDraft ? (

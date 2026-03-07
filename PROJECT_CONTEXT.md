@@ -226,6 +226,16 @@ Sezioni utility implementate con pattern table + modale:
 - Mantenere UI coerente con richieste puntuali di spacing e ordine tab.
 - Aggiornare questo file a ogni blocco funzionale importante.
 - Non introdurre scorciatoie non richieste: seguire la specifica testuale dell'utente in ordine stretto.
+- Regola globale tabelle (DataTable condivisa):
+  - paginazione standard obbligatoria con default 20 righe per pagina
+  - selettore righe per pagina con opzioni 10, 20, 50, 100
+  - responsive con gestione colonne centralizzata nel dropdown `Colonne` (niente modali pagina-specifiche)
+  - per ogni colonna devono essere disponibili:
+    - switch `Visibile` (visibilita globale desktop/mobile)
+    - switch `Visibile mobile` (inclusione/esclusione su viewport piccoli)
+    - ordinamento priorita tramite controlli `Su`/`Giu`
+    - switch `Mobile prioritaria` per decidere se mostrare in riga o solo nei dettagli espandibili
+  - colonne non prioritarie su mobile restano accessibili nell'espansione riga
 
 ## Dominio Pubblico (nuove regole funzionali)
 - Distinzione utenti frontend:

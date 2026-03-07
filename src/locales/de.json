@@ -6,6 +6,24 @@
     "logout": "Abmelden",
     "accessDenied": "Zugriff verweigert"
   },
+  "dataTable": {
+    "columns": "Spalten",
+    "rowsPerPage": "Zeilen pro Seite",
+    "pageSizeOption": "{{size}} / Seite",
+    "columnsManagement": "Spaltenverwaltung",
+    "visible": "Sichtbar",
+    "mobileVisible": "Mobil sichtbar",
+    "mobilePriority": "Mobile Prioritaet",
+    "up": "Hoch",
+    "down": "Runter",
+    "close": "Schliessen",
+    "showDetails": "Details anzeigen",
+    "hideDetails": "Details ausblenden",
+    "pageOf": "Seite {{page}} / {{total}}",
+    "totalRows": "Gesamtzeilen: {{total}}",
+    "previous": "Zuruck",
+    "next": "Weiter"
+  },
   "editor": {
     "bold": "Fett",
     "italic": "Kursiv",
@@ -33,7 +51,7 @@
     "de": "Deutsch"
   },
   "nav": {
-    "dashboard": "Dashboard",
+    "dashboard": "Uebersicht",
     "users": "Benutzer",
     "clients": "Kunden",
     "athletes": "Athleten",
@@ -98,29 +116,72 @@
     "confirmValidateWithUnvalidatedMinors": "Es gibt verknuepfte Minderjaehrige ohne Validierung. Elternteil trotzdem validieren?",
     "updated": "Kundenstatus aktualisiert.",
     "empty": "Keine Kunden registriert.",
-    "create": "Crea cliente",
-    "createTitle": "Crea cliente",
-    "createModeLabel": "Tipo creazione",
-    "createAsParent": "Cliente come genitore",
-    "createAsAthlete": "Cliente come atleta",
-    "createPackageLabel": "Pacchetto",
-    "createNoPackages": "Nessun pacchetto ragazzi disponibile",
-    "createRequired": "Compila tutti i campi obbligatori.",
-    "createSelectPackage": "Seleziona un pacchetto valido.",
-    "minorAgeNotCompatible": "Età del minore non compatibile con il pacchetto selezionato ({{min}}-{{max}} anni).",
-    "createAthleteNotImplemented": "Creazione cliente come atleta non ancora disponibile.",
-    "addMinor": "Aggiungi minore",
-    "addMinorTitle": "Aggiungi minore",
-    "createAthlete": "Crea atleta",
-    "minor": "Minore",
-    "gender": "Sesso",
-    "genderMale": "Maschio",
-    "genderFemale": "Femmina",
-    "created": "Cliente e minore creati e validati.",
-    "minorCreated": "Minore creato e validato.",
-    "paymentMethod": "Metodo di pagamento",
-    "noPaymentMethods": "Nessun metodo disponibile",
-    "selectPaymentMethod": "Seleziona un metodo di pagamento."
+    "create": "Kunde erstellen",
+    "createTitle": "Kunde erstellen",
+    "createModeLabel": "Erstellungstyp",
+    "createAsParent": "Kunde als Elternteil",
+    "createAsAthlete": "Kunde als Athlet",
+    "createPackageLabel": "Paket",
+    "createNoPackages": "Kein Jugendpaket verfuegbar",
+    "createRequired": "Bitte alle Pflichtfelder ausfuellen.",
+    "createSelectPackage": "Ein gueltiges Paket auswaehlen.",
+    "minorAgeNotCompatible": "Das Alter des Minderjaehrigen ist mit dem ausgewaehlten Paket nicht kompatibel ({{min}}-{{max}} Jahre).",
+    "createAthleteNotImplemented": "Kundenerstellung als Athlet ist noch nicht verfuegbar.",
+    "addMinor": "Minderjaehrigen hinzufuegen",
+    "addMinorTitle": "Minderjaehrigen hinzufuegen",
+    "createAthlete": "Athlet erstellen",
+    "minor": "Minderjaehriger",
+    "gender": "Geschlecht",
+    "genderMale": "Maennlich",
+    "genderFemale": "Weiblich",
+    "created": "Kunde und Minderjaehriger erstellt und validiert.",
+    "minorCreated": "Minderjaehriger erstellt und validiert.",
+    "paymentMethod": "Zahlungsmethode",
+    "noPaymentMethods": "Keine Methode verfuegbar",
+    "selectPaymentMethod": "Eine Zahlungsmethode auswaehlen.",
+    "openDocument": "Dokument oeffnen",
+    "avatar": "Avatar",
+    "removeAvatar": "Entfernen",
+    "deleteClient": "Kunde loeschen",
+    "parentRoleLabel": "Rolle des Unterzeichners",
+    "parentRoleOptions": {
+      "genitore": "Elternteil",
+      "tutore": "Vormund",
+      "esercente_responsabilita": "Inhaber der elterlichen Verantwortung"
+    },
+    "export": {
+      "button": "Profile exportieren",
+      "title": "Kundenprofile exportieren",
+      "description": "Waehle die Felder des Kundenprofils und das Dateiformat aus.",
+      "formatLabel": "Exportformat",
+      "formats": {
+        "xlsx": "Excel (.xlsx)",
+        "pdf": "PDF (.pdf)",
+        "docx": "Word (.docx)"
+      },
+      "selectAll": "Alle auswaehlen",
+      "deselectAll": "Alle abwaehlen",
+      "selectedCount": "Ausgewaehlte Felder: {{count}}",
+      "exportAction": "Exportieren",
+      "yes": "Ja",
+      "no": "Nein",
+      "package": "Paket",
+      "fields": {
+        "clientId": "Kunden-ID",
+        "createdAt": "Erstellungsdatum",
+        "privacyPolicySigned": "Datenschutzrichtlinie unterschrieben",
+        "consentEnrollmentAccepted": "Einschreibungszustimmung",
+        "consentInformationAccepted": "Informationshinweis bestaetigt",
+        "consentDataProcessingAccepted": "Zustimmung zur Datenverarbeitung",
+        "consentDataProcessingSignaturePresent": "Unterschrift Datenverarbeitung vorhanden",
+        "enrollmentConfirmationSignaturePresent": "Unterschrift Einschreibebestaetigung vorhanden",
+        "parentTaxCodeDocumentPresent": "Steuercode-Dokument vorhanden",
+        "parentIdentityDocumentPresent": "Ausweisdokument vorhanden",
+        "linkedMinorsSummary": "Details verknuepfter Minderjaehriger",
+        "linkedMinorsValidation": "Validierungsstatus verknuepfter Minderjaehriger",
+        "linkedDirectAthletes": "Verknuepfte erwachsene Athleten"
+      }
+    }
   },
   "athletes": {
     "title": "Athleten",
@@ -172,6 +233,31 @@
     "enrollmentsCoverageInsurance": "Versicherung",
     "enrollmentsCoverageValidFrom": "Gueltig ab",
     "enrollmentsCoverageValidTo": "Gueltig bis",
+    "openDocument": "Dokument oeffnen",
+    "export": {
+      "button": "Athletenprofile exportieren",
+      "title": "Athletenprofile exportieren",
+      "description": "Export basierend auf Athletenprofildaten und aktuellen Filtern.",
+      "formatLabel": "Exportformat",
+      "formats": {
+        "xlsx": "Excel (.xlsx)",
+        "pdf": "PDF (.pdf)",
+        "docx": "Word (.docx)"
+      },
+      "splitResidenceColumns": "Getrennte Wohnsitzdaten (nur Excel): Strasse/Platz, Stadt, Provinz, PLZ",
+      "exportAction": "Exportieren",
+      "yes": "Ja",
+      "no": "Nein",
+      "fields": {
+        "athleteId": "Athleten-ID",
+        "parentTaxCode": "Steuercode Elternteil",
+        "medicalCertificateDocumentPresent": "Zertifikatsdokument vorhanden",
+        "residenceStreet": "Strasse/Platz",
+        "residenceCity": "Stadt",
+        "residenceProvince": "Provinz",
+        "residencePostalCode": "PLZ"
+      }
+    },
     "status": "Validierungsstatus",
     "actions": "Aktionen",
     "validated": "Validiert",
@@ -225,11 +311,11 @@
       "period": "Zeitraum",
       "workflow": "Workflow",
       "plan": "Plan",
-      "paymentStatus": "Stato pagamenti"
+      "paymentStatus": "Zahlungsstatus"
     },
     "types": {
       "minor": "Minderjaehrig",
-      "directUser": "Direktathlet"
+      "directUser": "Erwachsen"
     },
     "period": {
       "current": "Aktuell",
@@ -243,6 +329,25 @@
       "generatePlan": "Plan erstellen",
       "savePlan": "Plan speichern",
       "planGenerated": "Plan ({{count}} Raten)"
+    },
+    "export": {
+      "button": "Exportieren",
+      "modalTitle": "Bericht exportieren",
+      "scopeLabel": "Bereich",
+      "scopeActivities": "Aktivitaeten",
+      "scopePayments": "Zahlungen",
+      "formatLabel": "Format",
+      "formats": {
+        "xlsx": "Excel (.xlsx)",
+        "pdf": "PDF (.pdf)",
+        "docx": "Word (.docx)"
+      },
+      "rowsCount": "Zu exportierende Zeilen: {{count}}",
+      "download": "Herunterladen",
+      "titleActivities": "Aktivitaeten-Export",
+      "titlePayments": "Zahlungen-Export",
+      "fileActivities": "aktivitaeten",
+      "filePayments": "zahlungen"
     },
     "plan": {
       "enrollmentFee": "Anmeldegebuehr",
@@ -278,21 +383,22 @@
       "lockInstallment": "Blocca rata"
     },
     "status": {
-      "noPlan": "Nessun piano",
-      "inRegola": "In regola",
-      "inScadenza": "In scadenza",
-      "scaduta": "Scaduta",
-      "insoluti": "Insoluti",
-      "insolutiCount": "Insoluti: {{count}}",
-      "currentPaid": "Rata periodo pagata",
-      "currentPendingCount": "Rate periodo da pagare: {{count}}",
-      "noInstallmentInPeriod": "Nessuna rata nel periodo"
+      "noPlan": "Kein Plan",
+      "inRegola": "In Ordnung",
+      "inScadenza": "Bald faellig",
+      "toPay": "Zu zahlen",
+      "scaduta": "Ueberfaellig",
+      "insoluti": "Rueckstaende",
+      "insolutiCount": "Rueckstaende: {{count}}",
+      "currentPaid": "Rate des Zeitraums bezahlt",
+      "currentPendingCount": "Raten des Zeitraums zu zahlen: {{count}}",
+      "noInstallmentInPeriod": "Keine Rate im Zeitraum"
     },
     "contract": {
-      "download": "Contratto PDF",
-      "companyNotFound": "Azienda del pacchetto non trovata.",
-      "subjectDataMissing": "Dati soggetto mancanti per generare il contratto.",
-      "downloadError": "Errore durante la generazione del contratto PDF."
+      "download": "Vertrag PDF",
+      "companyNotFound": "Paketunternehmen nicht gefunden.",
+      "subjectDataMissing": "Subjektdaten fehlen fuer die Vertragserstellung.",
+      "downloadError": "Fehler bei der Erstellung des Vertrags-PDF."
     },
     "consents": {
       "download": "Consensi PDF",
@@ -318,7 +424,7 @@
     "demoUser": "Admin-Testbenutzer"
   },
   "dashboard": {
-    "title": "Dashboard",
+    "title": "Uebersicht",
     "subtitle": "Administrative Uebersicht."
   },
   "configuration": {
@@ -588,7 +694,7 @@
       "updated": "Paket erfolgreich aktualisiert.",
       "deleted": "Paket erfolgreich geloescht.",
       "confirmDelete": "Loeschen des Pakets \"{{title}}\" bestaetigen?",
-      "audienceLabel": "Tipologia età"
+      "audienceLabel": "Alterskategorie"
     },
     "companies": {
       "title": "Unternehmen",
@@ -1012,35 +1118,35 @@
     }
   },
   "users": {
-    "title": "Utenti",
-    "description": "Creazione e gestione utenti per ruolo.",
-    "create": "Crea utente",
-    "empty": "Nessun utente presente per questo ruolo.",
-    "fullName": "Nome e cognome",
-    "firstName": "Nome",
-    "lastName": "Cognome",
+    "title": "Benutzer",
+    "description": "Benutzer nach Rolle erstellen und verwalten.",
+    "create": "Benutzer erstellen",
+    "empty": "Keine Benutzer fuer diese Rolle.",
+    "fullName": "Vollstaendiger Name",
+    "firstName": "Vorname",
+    "lastName": "Nachname",
     "avatar": "Avatar",
     "login": "Login",
     "password": "Password",
-    "email": "Mail",
-    "age": "Eta",
-    "sector": "Settore",
-    "profession": "Professione",
-    "searchAllFields": "Cerca (tutti i campi)",
-    "allOption": "Tutti",
-    "invalidData": "Compila correttamente tutti i campi richiesti.",
-    "duplicateEmail": "Esiste gia un utente con questa mail.",
-    "duplicateLogin": "Esiste gia un utente con questo login.",
-    "notAllowedRole": "Non hai i permessi per gestire questo ruolo.",
-    "created": "Utente creato con successo.",
-    "updated": "Utente aggiornato con successo.",
-    "deleted": "Utente eliminato con successo.",
-    "confirmDelete": "Confermi eliminazione utente \"{{name}}\"?",
+    "email": "E-Mail",
+    "age": "Alter",
+    "sector": "Bereich",
+    "profession": "Beruf",
+    "searchAllFields": "Suchen (alle Felder)",
+    "allOption": "Alle",
+    "invalidData": "Bitte alle erforderlichen Felder korrekt ausfuellen.",
+    "duplicateEmail": "Es existiert bereits ein Benutzer mit dieser E-Mail.",
+    "duplicateLogin": "Es existiert bereits ein Benutzer mit diesem Login.",
+    "notAllowedRole": "Keine Berechtigung, diese Rolle zu verwalten.",
+    "created": "Benutzer erfolgreich erstellt.",
+    "updated": "Benutzer erfolgreich aktualisiert.",
+    "deleted": "Benutzer erfolgreich geloescht.",
+    "confirmDelete": "Loeschen von Benutzer \"{{name}}\" bestaetigen?",
     "permissions": {
-      "title": "Permessi",
-      "packagesManage": "Gestione pacchetti",
-      "usersRead": "Visualizzazione utenti",
-      "subscribersManage": "Gestione subscribers"
+      "title": "Berechtigungen",
+      "packagesManage": "Paketverwaltung",
+      "usersRead": "Benutzeranzeige",
+      "subscribersManage": "Abonnentenverwaltung"
     }
   }
 }
