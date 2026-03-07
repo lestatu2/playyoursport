@@ -60,6 +60,27 @@ function getFrequencyLabelKey(frequency: 'daily' | 'weekly' | 'monthly' | 'yearl
   return `utility.packages.paymentFrequency${frequency[0].toUpperCase()}${frequency.slice(1)}`
 }
 
+function summarizePlan(plan: ReturnType<typeof getActivityPaymentPlans>[number] | null, today: Date) {
+  const installments = plan?.installments ?? []
+  const totalDue = installments.reduce((sum, item) => sum + safeAmount(item.amount), 0)
+  const totalPaid = installments
+    .filter((item) => item.paymentStatus === 'paid')
+    .reduce((sum, item) => sum + safeAmount(item.amount), 0)
+  const overdueCount = installments.filter((item) => {
+    if (item.paymentStatus !== 'pending') {
+      return false
+    }
+    const due = parseIsoDate(item.dueDate)
+    return Boolean(due && dateOnly(due) < today)
+  }).length
+  return {
+    totalDue,
+    totalPaid,
+    overdueCount,
+    installmentsCount: installments.length,
+  }
+}
+
 function ActivitiesHistoryPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -92,17 +113,7 @@ function ActivitiesHistoryPage() {
       const parent = clientsById.get(minor.clientId)
       const activityKey = `minor-${minor.id}`
       const plan = plansByActivityKey.get(activityKey) ?? null
-      const totalDue = (plan?.installments ?? []).reduce((sum, item) => sum + safeAmount(item.amount), 0)
-      const totalPaid = (plan?.installments ?? [])
-        .filter((item) => item.paymentStatus === 'paid')
-        .reduce((sum, item) => sum + safeAmount(item.amount), 0)
-      const overdueCount = (plan?.installments ?? []).filter((item) => {
-        if (item.paymentStatus !== 'pending') {
-          return false
-        }
-        const due = parseIsoDate(item.dueDate)
-        return Boolean(due && dateOnly(due) < today)
-      }).length
+      const summary = summarizePlan(plan, today)
       mappedRows.push({
         key: activityKey,
         athleteId: String(minor.id),
@@ -117,11 +128,11 @@ function ActivitiesHistoryPage() {
             ? `${packageItem.periodStartDate || '-'} - ${packageItem.periodEndDate || '-'}`
             : packageItem.eventDate || '-',
         closureDate: packageItem.durationType === 'period' ? (packageItem.periodEndDate || '-') : (packageItem.eventDate || '-'),
-        totalDue,
-        totalPaid,
-        residual: Math.max(0, totalDue - totalPaid),
-        overdueCount,
-        planInstallmentsCount: plan?.installments.length ?? 0,
+        totalDue: summary.totalDue,
+        totalPaid: summary.totalPaid,
+        residual: Math.max(0, summary.totalDue - summary.totalPaid),
+        overdueCount: summary.overdueCount,
+        planInstallmentsCount: summary.installmentsCount,
       })
     })
 
@@ -132,17 +143,7 @@ function ActivitiesHistoryPage() {
       }
       const activityKey = `direct-${athlete.id}`
       const plan = plansByActivityKey.get(activityKey) ?? null
-      const totalDue = (plan?.installments ?? []).reduce((sum, item) => sum + safeAmount(item.amount), 0)
-      const totalPaid = (plan?.installments ?? [])
-        .filter((item) => item.paymentStatus === 'paid')
-        .reduce((sum, item) => sum + safeAmount(item.amount), 0)
-      const overdueCount = (plan?.installments ?? []).filter((item) => {
-        if (item.paymentStatus !== 'pending') {
-          return false
-        }
-        const due = parseIsoDate(item.dueDate)
-        return Boolean(due && dateOnly(due) < today)
-      }).length
+      const summary = summarizePlan(plan, today)
       mappedRows.push({
         key: activityKey,
         athleteId: athlete.id,
@@ -157,11 +158,11 @@ function ActivitiesHistoryPage() {
             ? `${packageItem.periodStartDate || '-'} - ${packageItem.periodEndDate || '-'}`
             : packageItem.eventDate || '-',
         closureDate: packageItem.durationType === 'period' ? (packageItem.periodEndDate || '-') : (packageItem.eventDate || '-'),
-        totalDue,
-        totalPaid,
-        residual: Math.max(0, totalDue - totalPaid),
-        overdueCount,
-        planInstallmentsCount: plan?.installments.length ?? 0,
+        totalDue: summary.totalDue,
+        totalPaid: summary.totalPaid,
+        residual: Math.max(0, summary.totalDue - summary.totalPaid),
+        overdueCount: summary.overdueCount,
+        planInstallmentsCount: summary.installmentsCount,
       })
     })
 
@@ -205,10 +206,7 @@ function ActivitiesHistoryPage() {
       if (balanceFilter === 'partial' && (row.totalPaid <= 0 || row.residual <= 0)) {
         return false
       }
-      if (balanceFilter === 'overdue' && row.overdueCount === 0) {
-        return false
-      }
-      return true
+      return balanceFilter !== 'overdue' || row.overdueCount > 0
     })
   }, [balanceFilter, closureDateFrom, closureDateTo, frequencyFilter, globalSearch, lockedAthleteId, packageFilter, packagesById, rows, typeFilter])
 

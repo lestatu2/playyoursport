@@ -1,7 +1,12 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AlertTriangle, FileText, Wallet } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import ExcelJS from 'exceljs'
+import { saveAs } from 'file-saver'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
+import { Document, Packer, Paragraph, Table, TableCell, TableRow, TextRun, WidthType } from 'docx'
 import {
   getPublicClients,
   getPublicMinors,
@@ -19,6 +24,9 @@ import { getEnrollmentInsurances, getEnrollments, getPackages } from '../lib/pac
 import { getAthleteEnrollmentCoverages } from '../lib/athlete-enrollment-coverages'
 import { createAthleteActivity, getAthleteActivitiesByAthleteKey } from '../lib/athlete-activities'
 import { getAthleteActivities } from '../lib/athlete-activities'
+import { getSession } from '../lib/auth'
+import { getAgeFromBirthDate } from '../lib/date-utils'
+import { readFileAsDataUrl } from '../lib/file-utils'
 
 type MinorDraft = Pick<
   PublicMinorRecord,
@@ -52,6 +60,15 @@ type DirectDraft = Pick<
   | 'medicalCertificateExpiryDate'
 >
 
+type AthleteExportFormat = 'xlsx' | 'pdf' | 'docx'
+
+type ParsedResidence = {
+  street: string
+  city: string
+  province: string
+  postalCode: string
+}
+
 function AthleteDocumentPreview({ dataUrl }: { dataUrl: string }) {
   if (!dataUrl) {
     return <p className="text-sm opacity-70">-</p>
@@ -64,15 +81,6 @@ function AthleteDocumentPreview({ dataUrl }: { dataUrl: string }) {
       Apri documento
     </a>
   )
-}
-
-function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '')
-    reader.onerror = () => reject(new Error('file_read_error'))
-    reader.readAsDataURL(file)
-  })
 }
 
 function isCertificateValid(expiryDate: string): boolean {
@@ -89,20 +97,6 @@ function isEnrollmentCoverageValid(validTo: string): boolean {
   return validTo >= new Date().toISOString().slice(0, 10)
 }
 
-function getAgeFromBirthDate(birthDate: string): number | null {
-  const value = new Date(birthDate)
-  if (Number.isNaN(value.getTime())) {
-    return null
-  }
-  const now = new Date()
-  let age = now.getFullYear() - value.getFullYear()
-  const monthDiff = now.getMonth() - value.getMonth()
-  if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < value.getDate())) {
-    age -= 1
-  }
-  return age
-}
-
 function isPackageEditionClosed(input: { durationType: string; periodEndDate?: string; eventDate?: string }): boolean {
   const today = new Date()
   const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate())
@@ -114,6 +108,60 @@ function isPackageEditionClosed(input: { durationType: string; periodEndDate?: s
   return Boolean(eventDate && !Number.isNaN(eventDate.getTime()) && eventDate < todayDate)
 }
 
+function parseResidenceAddress(value: string): ParsedResidence {
+  const raw = value.trim()
+  if (!raw) {
+    return { street: '', city: '', province: '', postalCode: '' }
+  }
+  const normalized = raw.replace(/\s+/g, ' ').trim()
+  const parts = normalized.split(',').map((item) => item.trim()).filter(Boolean)
+  const street = (parts[0] ?? normalized).replace(/^[/\-\s]+/, '').trim()
+  const locationParts = parts
+    .slice(1)
+    .filter((item) => !/^(italia|italy)$/i.test(item))
+  const locationSource = (locationParts.join(' ') || normalized).trim()
+
+  const capMatch = locationSource.match(/\b\d{5}\b/) ?? normalized.match(/\b\d{5}\b/)
+  const postalCode = capMatch?.[0] ?? ''
+
+  let province = ''
+  const provinceParenMatch = locationSource.match(/\(([A-Za-z]{2})\)/) ?? normalized.match(/\(([A-Za-z]{2})\)/)
+  if (provinceParenMatch?.[1]) {
+    province = provinceParenMatch[1].toUpperCase()
+  } else {
+    const provinceTailMatch = locationSource.match(/\b([A-Za-z]{2})\b\s*$/) ?? normalized.match(/\b([A-Za-z]{2})\b\s*$/)
+    if (provinceTailMatch?.[1]) {
+      const candidate = provinceTailMatch[1].toUpperCase()
+      if (!['IT', 'ITA'].includes(candidate)) {
+        province = candidate
+      }
+    }
+  }
+
+  let city = locationSource
+    .replace(/\b\d{5}\b/g, '')
+    .replace(/\(([A-Za-z]{2})\)/g, '')
+    .replace(/\b([A-Za-z]{2})\b\s*$/g, '')
+    .replace(/\s+/g, ' ')
+    .replace(/^[,\s]+|[,\s]+$/g, '')
+
+  let normalizedStreet = street
+  const leadingCivicMatch = city.match(/^(\d+[A-Za-z]?(?:[/-]\d+[A-Za-z]?)?)\s+(.+)$/)
+  if (leadingCivicMatch) {
+    const civic = leadingCivicMatch[1]
+    const cityWithoutCivic = leadingCivicMatch[2].trim()
+    normalizedStreet = `${street} ${civic}`.replace(/\s+/g, ' ').trim()
+    city = cityWithoutCivic
+  }
+
+  return {
+    street: normalizedStreet,
+    city,
+    province,
+    postalCode,
+  }
+}
+
 function AthletesPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -121,7 +169,6 @@ function AthletesPage() {
   const [minors, setMinors] = useState<PublicMinorRecord[]>(() => getPublicMinors())
   const [directAthletes, setDirectAthletes] = useState<PublicDirectAthleteRecord[]>(() => getPublicDirectAthletes())
   const [message, setMessage] = useState('')
-  const [activitiesVersion, setActivitiesVersion] = useState(0)
   const [activeMinorId, setActiveMinorId] = useState<number | null>(null)
   const [minorDraft, setMinorDraft] = useState<MinorDraft | null>(null)
   const [activeDirectId, setActiveDirectId] = useState<string | null>(null)
@@ -138,9 +185,14 @@ function AthletesPage() {
   const [enrollmentStatusFilter, setEnrollmentStatusFilter] = useState<'all' | 'expired' | 'valid'>('all')
   const [enrollmentExpiryFrom, setEnrollmentExpiryFrom] = useState('')
   const [enrollmentExpiryTo, setEnrollmentExpiryTo] = useState('')
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false)
+  const [exportFormat, setExportFormat] = useState<AthleteExportFormat>('xlsx')
+  const [splitResidenceColumns, setSplitResidenceColumns] = useState(false)
+  const session = useMemo(() => getSession(), [])
+  const isSuperAdministrator = session?.role === 'super-administrator'
   const lockedAthleteId = searchParams.get('athleteId')
 
-  const clientsById = useMemo(() => new Map(getPublicClients().map((client) => [client.id, client])), [minors])
+  const clientsById = useMemo(() => new Map(getPublicClients().map((client) => [client.id, client])), [])
   const packages = useMemo(() => getPackages(), [])
   const packagesById = useMemo(() => new Map(packages.map((item) => [item.id, item])), [packages])
   const athleteActivitiesByAthleteKey = useMemo(() => {
@@ -152,7 +204,7 @@ function AthletesPage() {
       }
     })
     return map
-  }, [activitiesVersion])
+  }, [])
   const enrollmentLabelById = useMemo(() => new Map(getEnrollments().map((item) => [item.id, item.title])), [])
   const insuranceLabelById = useMemo(() => new Map(getEnrollmentInsurances().map((item) => [item.id, item.title])), [])
   const enrollmentCoveragesByAthleteKey = useMemo(() => {
@@ -254,13 +306,8 @@ function AthletesPage() {
           if (!item.validTo) {
             return false
           }
-          if (enrollmentExpiryFrom && item.validTo < enrollmentExpiryFrom) {
-            return false
-          }
-          if (enrollmentExpiryTo && item.validTo > enrollmentExpiryTo) {
-            return false
-          }
-          return true
+          return (!enrollmentExpiryFrom || item.validTo >= enrollmentExpiryFrom)
+            && (!enrollmentExpiryTo || item.validTo <= enrollmentExpiryTo)
         })
         if (!hasMatchingEnrollmentDate) {
           return false
@@ -269,6 +316,187 @@ function AthletesPage() {
       return true
     })
   }, [certificateFilter, clientsById, directAthletes, enrollmentCoveragesByAthleteKey, enrollmentExpiryFrom, enrollmentExpiryTo, enrollmentStatusFilter, expiryFrom, expiryTo, globalSearch, lockedAthleteId, minors, packageFilter, packagesById, typeFilter, validationFilter])
+
+  const athleteExportRows = useMemo(() => {
+    const yesNo = (value: boolean) => (value ? 'Si' : 'No')
+    return filteredAthletes
+      .filter((row) => {
+        const validationStatus = row.type === 'minor' ? row.minor.validationStatus : row.direct.validationStatus
+        return validationStatus === 'validated'
+      })
+      .map((row) => {
+      const isMinor = row.type === 'minor'
+      const athlete = isMinor ? row.minor : row.direct
+      const athleteKey = isMinor ? `minor-${row.minor.id}` : `direct-${row.direct.id}`
+      const packageItem = packagesById.get(athlete.packageId)
+      const parent = isMinor ? clientsById.get(row.minor.clientId) : null
+      const enrollments = enrollmentCoveragesByAthleteKey.get(athleteKey) ?? []
+      const enrollmentSummary = enrollments.length
+        ? enrollments
+            .map((item) => {
+              const enrollmentLabel = enrollmentLabelById.get(item.sourceEnrollmentId) ?? item.sourceEnrollmentId
+              const insuranceLabel = insuranceLabelById.get(item.insuranceId) ?? item.insuranceId
+              return `${enrollmentLabel} / ${insuranceLabel} (${item.validFrom} - ${item.validTo})`
+            })
+            .join(' | ')
+        : '-'
+      const residence = parseResidenceAddress(athlete.residenceAddress || '')
+      return {
+        athleteId: row.id,
+        athleteType: isMinor ? t('athletes.minorType') : t('athletes.adultType'),
+        firstName: athlete.firstName,
+        lastName: athlete.lastName,
+        birthDate: athlete.birthDate,
+        birthPlace: athlete.birthPlace,
+        taxCode: athlete.taxCode,
+        residenceAddress: athlete.residenceAddress,
+        residenceStreet: residence.street,
+        residenceCity: residence.city,
+        residenceProvince: residence.province,
+        residencePostalCode: residence.postalCode,
+        packageName: packageItem?.name ?? athlete.packageId,
+        parentFullName: parent ? `${parent.parentFirstName} ${parent.parentLastName}` : '-',
+        parentTaxCode: parent?.parentTaxCode ?? '-',
+        email: isMinor ? (parent?.parentEmail ?? '-') : row.direct.email,
+        phone: isMinor ? (parent?.parentPhone ?? '-') : row.direct.phone,
+        medicalCertificateExpiryDate: athlete.medicalCertificateExpiryDate || '-',
+        medicalCertificateDocumentPresent: yesNo(Boolean(athlete.medicalCertificateImageDataUrl)),
+        enrollmentsSummary: enrollmentSummary,
+      }
+    })
+  }, [clientsById, enrollmentCoveragesByAthleteKey, enrollmentLabelById, filteredAthletes, insuranceLabelById, packagesById, t])
+
+  const exportAthletes = async () => {
+    const headersBase = [
+      ...(isSuperAdministrator ? ['ID atleta'] : []),
+      'Tipo',
+      t('athletes.firstName'),
+      t('athletes.lastName'),
+      t('athletes.birthDate'),
+      t('athletes.birthPlace'),
+      t('athletes.taxCode'),
+      t('athletes.residence'),
+      t('athletes.package'),
+      t('athletes.parent'),
+      'CF genitore',
+      t('clients.email'),
+      t('clients.phone'),
+      t('athletes.certificateExpiry'),
+      'Documento certificato presente',
+      t('athletes.enrollmentsCoverageTitle'),
+    ]
+    const rowsBase = athleteExportRows.map((item) => [
+      ...(isSuperAdministrator ? [item.athleteId] : []),
+      item.athleteType,
+      item.firstName,
+      item.lastName,
+      item.birthDate,
+      item.birthPlace,
+      item.taxCode,
+      item.residenceAddress,
+      item.packageName,
+      item.parentFullName,
+      item.parentTaxCode,
+      item.email,
+      item.phone,
+      item.medicalCertificateExpiryDate,
+      item.medicalCertificateDocumentPresent,
+      item.enrollmentsSummary,
+    ])
+    const filenameBase = `atleti-schede-${new Date().toISOString().slice(0, 10)}`
+
+    if (exportFormat === 'xlsx') {
+      const records = athleteExportRows.map((item) => {
+        const record: Record<string, string> = {
+          ...(isSuperAdministrator ? { 'ID atleta': item.athleteId } : {}),
+          Tipo: item.athleteType,
+          [t('athletes.firstName')]: item.firstName,
+          [t('athletes.lastName')]: item.lastName,
+          [t('athletes.birthDate')]: item.birthDate,
+          [t('athletes.birthPlace')]: item.birthPlace,
+          [t('athletes.taxCode')]: item.taxCode,
+        }
+        if (splitResidenceColumns) {
+          record['Via/Piazza'] = item.residenceStreet
+          record['Citta'] = item.residenceCity
+          record['Provincia'] = item.residenceProvince
+          record['CAP'] = item.residencePostalCode
+        } else {
+          record[t('athletes.residence')] = item.residenceAddress
+        }
+        record[t('athletes.package')] = item.packageName
+        record[t('athletes.parent')] = item.parentFullName
+        record['CF genitore'] = item.parentTaxCode
+        record[t('clients.email')] = item.email
+        record[t('clients.phone')] = item.phone
+        record[t('athletes.certificateExpiry')] = item.medicalCertificateExpiryDate
+        record['Documento certificato presente'] = item.medicalCertificateDocumentPresent
+        record[t('athletes.enrollmentsCoverageTitle')] = item.enrollmentsSummary
+        return record
+      })
+      const workbook = new ExcelJS.Workbook()
+      const worksheet = workbook.addWorksheet('Atleti')
+      const columns = records.length > 0 ? Object.keys(records[0]) : headersBase
+      worksheet.columns = columns.map((header) => ({ header, key: header }))
+      records.forEach((record) => {
+        worksheet.addRow(record)
+      })
+      const buffer = await workbook.xlsx.writeBuffer()
+      saveAs(
+        new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+        `${filenameBase}.xlsx`,
+      )
+      setIsExportModalOpen(false)
+      return
+    }
+
+    if (exportFormat === 'pdf') {
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' })
+      doc.setFontSize(11)
+      doc.text('Export schede atleti', 40, 36)
+      autoTable(doc, {
+        head: [headersBase],
+        body: rowsBase,
+        startY: 50,
+        styles: { fontSize: 7, cellPadding: 2.5 },
+        headStyles: { fillColor: [33, 37, 41] },
+      })
+      doc.save(`${filenameBase}.pdf`)
+      setIsExportModalOpen(false)
+      return
+    }
+
+    const tableRows = [
+      new TableRow({
+        children: headersBase.map((header) =>
+          new TableCell({
+            children: [new Paragraph({ children: [new TextRun({ text: header, bold: true })] })],
+          })),
+      }),
+      ...rowsBase.map((row) =>
+        new TableRow({
+          children: row.map((value) =>
+            new TableCell({
+              children: [new Paragraph(String(value ?? ''))],
+            })),
+        })),
+    ]
+    const doc = new Document({
+      sections: [{
+        children: [
+          new Paragraph({ children: [new TextRun({ text: 'Export schede atleti', bold: true })] }),
+          new Paragraph(''),
+          new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            rows: tableRows,
+          }),
+        ],
+      }],
+    })
+    const blob = await Packer.toBlob(doc)
+    saveAs(blob, `${filenameBase}.docx`)
+    setIsExportModalOpen(false)
+  }
   const activeMinor = useMemo(
     () => (activeMinorId === null ? null : minors.find((item) => item.id === activeMinorId) ?? null),
     [activeMinorId, minors],
@@ -287,12 +515,20 @@ function AthletesPage() {
   )
   const activeMinorActivities = useMemo(
     () => (activeMinor ? getAthleteActivitiesByAthleteKey(`minor-${activeMinor.id}`) : []),
-    [activeMinor, activitiesVersion],
+    [activeMinor],
   )
   const activeDirectActivities = useMemo(
     () => (activeDirect ? getAthleteActivitiesByAthleteKey(`direct-${activeDirect.id}`) : []),
-    [activeDirect, activitiesVersion],
+    [activeDirect],
   )
+  const getActivityPackageLabel = useCallback((packageId: string): string => {
+    const packageItem = packagesById.get(packageId)
+    if (!packageItem) {
+      return packageId
+    }
+    const frequencyKey = `utility.packages.paymentFrequency${packageItem.paymentFrequency[0].toUpperCase()}${packageItem.paymentFrequency.slice(1)}`
+    return `${packageItem.name} - ${t(frequencyKey)}`
+  }, [packagesById, t])
   const availableMinorPackages = useMemo(() => {
     if (!activeMinor) {
       return []
@@ -423,7 +659,6 @@ function AthletesPage() {
       packageId: newMinorPackageId,
       selectedPaymentMethodCode: '',
     })
-    setActivitiesVersion((prev) => prev + 1)
     closeModal()
     navigate(`/app/attivita-pagamenti?athleteId=${encodeURIComponent(createdActivity.key)}`)
   }
@@ -439,7 +674,6 @@ function AthletesPage() {
       packageId: newDirectPackageId,
       selectedPaymentMethodCode: '',
     })
-    setActivitiesVersion((prev) => prev + 1)
     closeModal()
     navigate(`/app/attivita-pagamenti?athleteId=${encodeURIComponent(createdActivity.key)}`)
   }
@@ -509,6 +743,16 @@ function AthletesPage() {
         <p className="text-sm opacity-70">{t('athletes.description')}</p>
       </div>
       {message ? <p className="rounded-lg bg-success/15 px-3 py-2 text-sm text-success">{message}</p> : null}
+      <div className="flex justify-start">
+        <button
+          type="button"
+          className="btn btn-outline btn-sm"
+          onClick={() => setIsExportModalOpen(true)}
+          disabled={athleteExportRows.length === 0}
+        >
+          Esporta schede atleta
+        </button>
+      </div>
       <div className="grid grid-cols-1 gap-3 rounded-lg border border-base-300 bg-base-100 p-3 md:grid-cols-2 lg:grid-cols-12">
         <label className="form-control lg:col-span-2">
           <span className="label-text mb-1 text-xs">{t('athletes.searchLabel')}</span>
@@ -564,7 +808,7 @@ function AthletesPage() {
             <option value="expired">{t('athletes.certificateExpired')}</option>
           </select>
         </label>
-        <div className="grid grid-cols-2 gap-2 lg:col-span-2">
+        <div className="grid grid-cols-2 gap-2 lg:col-span-3">
           <label className="form-control">
             <span className="label-text mb-1 text-xs">{t('athletes.expiryFrom')}</span>
             <input type="date" className="input input-bordered w-full" value={expiryFrom} onChange={(event) => setExpiryFrom(event.target.value)} />
@@ -586,7 +830,7 @@ function AthletesPage() {
             <option value="expired">{t('athletes.enrollmentExpired')}</option>
           </select>
         </label>
-        <div className="grid grid-cols-2 gap-2 lg:col-span-2">
+        <div className="grid grid-cols-2 gap-2 lg:col-span-3">
           <label className="form-control">
             <span className="label-text mb-1 text-xs">{t('athletes.enrollmentExpiryFrom')}</span>
             <input type="date" className="input input-bordered w-full" value={enrollmentExpiryFrom} onChange={(event) => setEnrollmentExpiryFrom(event.target.value)} />
@@ -627,7 +871,6 @@ function AthletesPage() {
                 const minor = row.type === 'minor' ? row.minor : null
                 const direct = row.type === 'direct' ? row.direct : null
                 const client = minor ? clientsById.get(minor.clientId) : null
-                const packageItem = packagesById.get(minor ? minor.packageId : (direct?.packageId ?? ''))
                 const isValidated = (minor ? minor.validationStatus : direct?.validationStatus) === 'validated'
                 return (
                   <tr key={row.id}>
@@ -752,6 +995,57 @@ function AthletesPage() {
         </table>
       </div>
 
+      {isExportModalOpen ? (
+        <dialog className="modal modal-open">
+          <div className="modal-box w-11/12 max-w-2xl">
+            <h3 className="text-lg font-semibold">Esporta schede atleta</h3>
+            <p className="mt-1 text-sm opacity-70">
+              Export basato sui dati della scheda atleta e sui filtri correnti.
+            </p>
+            <div className="mt-4 space-y-4">
+              <label className="form-control max-w-xs">
+                <span className="label-text mb-1 text-xs">Formato export</span>
+                <select
+                  className="select select-bordered w-full"
+                  value={exportFormat}
+                  onChange={(event) => setExportFormat(event.target.value as AthleteExportFormat)}
+                >
+                  <option value="xlsx">Excel (.xlsx)</option>
+                  <option value="pdf">PDF (.pdf)</option>
+                  <option value="docx">Word (.docx)</option>
+                </select>
+              </label>
+              <label className="label cursor-pointer justify-start gap-2">
+                <input
+                  type="checkbox"
+                  className="checkbox checkbox-sm checkbox-primary"
+                  checked={splitResidenceColumns}
+                  onChange={(event) => setSplitResidenceColumns(event.target.checked)}
+                  disabled={exportFormat !== 'xlsx'}
+                />
+                <span className="label-text">
+                  Dati residenza separati (solo Excel): Via/Piazza, Citta, Provincia, CAP
+                </span>
+              </label>
+            </div>
+            <div className="modal-action">
+              <button type="button" className="btn btn-ghost" onClick={() => setIsExportModalOpen(false)}>
+                {t('public.common.close')}
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => void exportAthletes()}
+                disabled={athleteExportRows.length === 0}
+              >
+                Esporta
+              </button>
+            </div>
+          </div>
+          <button type="button" className="modal-backdrop" onClick={() => setIsExportModalOpen(false)} />
+        </dialog>
+      ) : null}
+
       {activeMinor && minorDraft ? (
         <dialog className="modal modal-open">
           <div className="modal-box w-11/12 max-w-3xl">
@@ -832,14 +1126,7 @@ function AthletesPage() {
                       className="badge badge-outline text-base-content"
                       onClick={() => navigate(`/app/pacchetti?packageId=${activity.packageId}`)}
                     >
-                      {(() => {
-                        const packageItem = packagesById.get(activity.packageId)
-                        if (!packageItem) {
-                          return activity.packageId
-                        }
-                        const frequencyKey = `utility.packages.paymentFrequency${packageItem.paymentFrequency[0].toUpperCase()}${packageItem.paymentFrequency.slice(1)}`
-                        return `${packageItem.name} - ${t(frequencyKey)}`
-                      })()}
+                      {getActivityPackageLabel(activity.packageId)}
                     </button>
                   ))}
                 </div>
@@ -1008,14 +1295,7 @@ function AthletesPage() {
                       className="badge badge-outline text-base-content"
                       onClick={() => navigate(`/app/pacchetti?packageId=${activity.packageId}`)}
                     >
-                      {(() => {
-                        const packageItem = packagesById.get(activity.packageId)
-                        if (!packageItem) {
-                          return activity.packageId
-                        }
-                        const frequencyKey = `utility.packages.paymentFrequency${packageItem.paymentFrequency[0].toUpperCase()}${packageItem.paymentFrequency.slice(1)}`
-                        return `${packageItem.name} - ${t(frequencyKey)}`
-                      })()}
+                      {getActivityPackageLabel(activity.packageId)}
                     </button>
                   ))}
                 </div>

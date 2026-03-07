@@ -2,6 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AlertTriangle, FileSignature, FileText, ShieldCheck, ShieldX, Wallet } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import ExcelJS from 'exceljs'
+import { saveAs } from 'file-saver'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
+import { Document, Packer, Paragraph, Table, TableCell, TableRow, TextRun, WidthType } from 'docx'
 import {
   createPublicClientRecord,
   createPublicMinorRecord,
@@ -21,10 +26,11 @@ import {
 import { getCompanies, getEnrollmentById, getPackages, type SportPackage } from '../lib/package-catalog'
 import { getProjectSettings, getProjectSettingsChangedEventName } from '../lib/project-settings'
 import { computeItalianTaxCode, findBirthPlaceCodeByName } from '../lib/tax-code'
-import { getAvailablePaymentMethodsForCompany } from '../lib/payment-methods'
+import { getAvailablePaymentMethodsForCompany, type PaymentMethodCode } from '../lib/payment-methods'
 import { upsertCoverageFromEnrollmentPurchase } from '../lib/athlete-enrollment-coverages'
 import { downloadConsentsPdf, type ConsentPdfPayload } from '../lib/contract-pdf'
 import { getPublicDirectAthletes, type PublicDirectAthleteRecord } from '../lib/public-direct-athletes'
+import { getSession } from '../lib/auth'
 
 const GOOGLE_PLACES_SCRIPT_ID = 'pys-google-places-script'
 
@@ -127,7 +133,7 @@ type MinorDraft = Pick<
 type CreateClientMode = 'parent' | 'athlete'
 type CreateParentMinorDraft = {
   packageId: string
-  paymentMethodCode: string
+  paymentMethodCode: PaymentMethodCode | ''
   parentFirstName: string
   parentLastName: string
   parentEmail: string
@@ -149,7 +155,7 @@ type CreateParentMinorDraft = {
 }
 type AddMinorDraft = {
   packageId: string
-  paymentMethodCode: string
+  paymentMethodCode: PaymentMethodCode | ''
   firstName: string
   lastName: string
   birthDate: string
@@ -199,6 +205,63 @@ const PARENT_ROLE_OPTIONS: Array<{ value: ParentRole; label: string }> = [
   { value: 'esercente_responsabilita', label: 'Esercente responsabilita' },
 ]
 
+type ClientExportFormat = 'xlsx' | 'pdf' | 'docx'
+
+type ClientExportFieldKey =
+  | 'clientId'
+  | 'createdAt'
+  | 'parentFirstName'
+  | 'parentLastName'
+  | 'parentEmail'
+  | 'parentPhone'
+  | 'parentSecondaryPhone'
+  | 'parentBirthDate'
+  | 'parentBirthPlace'
+  | 'parentRole'
+  | 'parentTaxCode'
+  | 'residenceAddress'
+  | 'validationStatus'
+  | 'privacyPolicySigned'
+  | 'consentEnrollmentAccepted'
+  | 'consentInformationAccepted'
+  | 'consentDataProcessingAccepted'
+  | 'consentDataProcessingSignaturePresent'
+  | 'enrollmentConfirmationSignaturePresent'
+  | 'parentTaxCodeDocumentPresent'
+  | 'parentIdentityDocumentPresent'
+  | 'linkedMinorsCount'
+  | 'linkedMinorsSummary'
+  | 'linkedMinorsValidation'
+  | 'linkedDirectAthletes'
+
+const CLIENT_EXPORT_FIELDS: ClientExportFieldKey[] = [
+  'clientId',
+  'createdAt',
+  'parentFirstName',
+  'parentLastName',
+  'parentEmail',
+  'parentPhone',
+  'parentSecondaryPhone',
+  'parentBirthDate',
+  'parentBirthPlace',
+  'parentRole',
+  'parentTaxCode',
+  'residenceAddress',
+  'validationStatus',
+  'privacyPolicySigned',
+  'consentEnrollmentAccepted',
+  'consentInformationAccepted',
+  'consentDataProcessingAccepted',
+  'consentDataProcessingSignaturePresent',
+  'enrollmentConfirmationSignaturePresent',
+  'parentTaxCodeDocumentPresent',
+  'parentIdentityDocumentPresent',
+  'linkedMinorsCount',
+  'linkedMinorsSummary',
+  'linkedMinorsValidation',
+  'linkedDirectAthletes',
+]
+
 function ClientDocumentPreview({ dataUrl }: { dataUrl: string }) {
   if (!dataUrl) {
     return <p className="text-sm opacity-70">-</p>
@@ -215,6 +278,16 @@ function ClientDocumentPreview({ dataUrl }: { dataUrl: string }) {
 
 function isClientPrivacyPolicySigned(client: PublicClientRecord): boolean {
   return Boolean(client.privacyPolicySigned)
+}
+
+function resolveValidPaymentMethodCode(
+  requested: PaymentMethodCode | '',
+  available: Array<{ code: PaymentMethodCode }>,
+): PaymentMethodCode | '' {
+  if (requested && available.some((item) => item.code === requested)) {
+    return requested
+  }
+  return available[0]?.code ?? ''
 }
 
 function ClientsPage() {
@@ -234,6 +307,10 @@ function ClientsPage() {
   const [minorDrafts, setMinorDrafts] = useState<Record<number, MinorDraft>>({})
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'validated' | 'not_validated'>('all')
+  const [privacyFilter, setPrivacyFilter] = useState<'all' | 'signed' | 'not_signed'>('all')
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false)
+  const [exportFormat, setExportFormat] = useState<ClientExportFormat>('xlsx')
+  const [selectedExportFields, setSelectedExportFields] = useState<ClientExportFieldKey[]>(CLIENT_EXPORT_FIELDS)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [createMode, setCreateMode] = useState<CreateClientMode>('parent')
   const [createDraft, setCreateDraft] = useState<CreateParentMinorDraft>(emptyCreateParentMinorDraft)
@@ -254,6 +331,16 @@ function ClientsPage() {
   const minorResidenceInitializedRef = useRef(false)
   const addMinorBirthPlaceInitializedRef = useRef(false)
   const addMinorResidenceInitializedRef = useRef(false)
+  const session = useMemo(() => getSession(), [])
+  const isSuperAdministrator = session?.role === 'super-administrator'
+  const availableClientExportFields = useMemo(
+    () => (isSuperAdministrator ? CLIENT_EXPORT_FIELDS : CLIENT_EXPORT_FIELDS.filter((field) => field !== 'clientId')),
+    [isSuperAdministrator],
+  )
+  const effectiveSelectedExportFields = useMemo(
+    () => selectedExportFields.filter((field) => isSuperAdministrator || field !== 'clientId'),
+    [isSuperAdministrator, selectedExportFields],
+  )
 
   const youthPackages = useMemo(
     () =>
@@ -280,6 +367,27 @@ function ClientsPage() {
     }
     return getAvailablePaymentMethodsForCompany(selectedAddMinorPackage.companyId)
   }, [selectedAddMinorPackage])
+  const resolvePaymentMethodForPackage = useCallback(
+    (packageId: string, currentCode: PaymentMethodCode | ''): PaymentMethodCode | '' => {
+      const packageItem = youthPackages.find((item) => item.id === packageId) ?? null
+      const methods = packageItem ? getAvailablePaymentMethodsForCompany(packageItem.companyId) : []
+      return resolveValidPaymentMethodCode(currentCode, methods)
+    },
+    [youthPackages],
+  )
+  const renderPaymentMethodOptions = useCallback(
+    (methods: ReturnType<typeof getAvailablePaymentMethodsForCompany>) => {
+      if (methods.length === 0) {
+        return <option value="">{t('clients.noPaymentMethods')}</option>
+      }
+      return methods.map((item) => (
+        <option key={item.code} value={item.code}>
+          {t(`utility.paymentMethods.methods.${item.code}.label`)}
+        </option>
+      ))
+    },
+    [t],
+  )
 
   useEffect(() => {
     const settingsEvent = getProjectSettingsChangedEventName()
@@ -446,34 +554,6 @@ function ClientsPage() {
     )
   }, [initializeAutocomplete])
 
-  useEffect(() => {
-    if (!isCreateModalOpen) {
-      return
-    }
-    const availableCodes = new Set(createPaymentMethods.map((item) => item.code))
-    if (createDraft.paymentMethodCode && availableCodes.has(createDraft.paymentMethodCode)) {
-      return
-    }
-    setCreateDraft((prev) => ({
-      ...prev,
-      paymentMethodCode: createPaymentMethods[0]?.code ?? '',
-    }))
-  }, [createDraft.paymentMethodCode, createPaymentMethods, isCreateModalOpen])
-
-  useEffect(() => {
-    if (!isAddMinorModalOpen) {
-      return
-    }
-    const availableCodes = new Set(addMinorPaymentMethods.map((item) => item.code))
-    if (addMinorDraft.paymentMethodCode && availableCodes.has(addMinorDraft.paymentMethodCode)) {
-      return
-    }
-    setAddMinorDraft((prev) => ({
-      ...prev,
-      paymentMethodCode: addMinorPaymentMethods[0]?.code ?? '',
-    }))
-  }, [addMinorDraft.paymentMethodCode, addMinorPaymentMethods, isAddMinorModalOpen])
-
   const initializeParentResidenceAutocomplete = useCallback(() => {
     initializeAutocomplete(parentResidenceRef.current, parentResidenceInitializedRef, ['address'], (value) =>
       setCreateDraft((prev) => ({ ...prev, parentResidenceAddress: value })),
@@ -552,9 +632,219 @@ function ClientsPage() {
       if (statusFilter !== 'all' && client.validationStatus !== statusFilter) {
         return false
       }
-      return true
+      const isPrivacySigned = isClientPrivacyPolicySigned(client)
+      if (privacyFilter === 'signed' && !isPrivacySigned) {
+        return false
+      }
+      return privacyFilter !== 'not_signed' || !isPrivacySigned
     })
-  }, [minorsByClientId, searchTerm, statusFilter, visibleClients])
+  }, [minorsByClientId, privacyFilter, searchTerm, statusFilter, visibleClients])
+
+  const exportFieldLabel = useCallback((field: ClientExportFieldKey): string => {
+    switch (field) {
+      case 'clientId':
+        return 'ID cliente'
+      case 'createdAt':
+        return 'Data creazione'
+      case 'parentFirstName':
+        return t('clients.parentFirstName')
+      case 'parentLastName':
+        return t('clients.parentLastName')
+      case 'parentEmail':
+        return t('clients.email')
+      case 'parentPhone':
+        return t('clients.phone')
+      case 'parentSecondaryPhone':
+        return t('clients.secondaryPhone')
+      case 'parentBirthDate':
+        return t('clients.birthDate')
+      case 'parentBirthPlace':
+        return t('clients.birthPlace')
+      case 'parentRole':
+        return 'Ruolo firmatario'
+      case 'parentTaxCode':
+        return t('clients.taxCode')
+      case 'residenceAddress':
+        return t('clients.residence')
+      case 'validationStatus':
+        return t('clients.status')
+      case 'privacyPolicySigned':
+        return 'Privacy policy firmata'
+      case 'consentEnrollmentAccepted':
+        return 'Consenso iscrizione'
+      case 'consentInformationAccepted':
+        return 'Presa visione informativa'
+      case 'consentDataProcessingAccepted':
+        return 'Consenso trattamento dati'
+      case 'consentDataProcessingSignaturePresent':
+        return 'Firma trattamento dati presente'
+      case 'enrollmentConfirmationSignaturePresent':
+        return 'Firma conferma iscrizione presente'
+      case 'parentTaxCodeDocumentPresent':
+        return 'Documento CF presente'
+      case 'parentIdentityDocumentPresent':
+        return 'Documento identita presente'
+      case 'linkedMinorsCount':
+        return t('clients.minorsCount')
+      case 'linkedMinorsSummary':
+        return 'Dettaglio minori collegati'
+      case 'linkedMinorsValidation':
+        return 'Stato validazione minori'
+      case 'linkedDirectAthletes':
+        return 'Atleti adulti collegati'
+      default:
+        return field
+    }
+  }, [t])
+
+  const exportRows = useMemo(() => {
+    const boolLabel = (value: boolean) => (value ? 'Si' : 'No')
+    const roleLabel = (role: ParentRole) => {
+      const found = PARENT_ROLE_OPTIONS.find((item) => item.value === role)
+      return found?.label ?? role
+    }
+    const clientStatusLabel = (status: PublicClientRecord['validationStatus']) =>
+      status === 'validated' ? t('clients.validated') : t('clients.notValidated')
+    const minorStatusLabel = (status: PublicMinorRecord['validationStatus']) =>
+      status === 'validated' ? t('clients.validated') : t('clients.notValidated')
+
+    return filteredClients.map((client) => {
+      const linkedMinors = minorsByClientId.get(client.id) ?? []
+      const linkedDirectAthletes = directAthletesByClientId.get(client.id) ?? []
+      const linkedMinorsSummary = linkedMinors.length
+        ? linkedMinors
+            .map((minor) => {
+              const packageItem = packagesById.get(minor.packageId)
+              const packageName = packageItem?.name ?? minor.packageId
+              return `${minor.firstName} ${minor.lastName} | CF ${minor.taxCode} | Pacchetto ${packageName}`
+            })
+            .join(' || ')
+        : '-'
+      const linkedMinorsValidation = linkedMinors.length
+        ? linkedMinors
+            .map((minor) => `${minor.firstName} ${minor.lastName}: ${minorStatusLabel(minor.validationStatus)}`)
+            .join(' | ')
+        : '-'
+      const linkedDirectAthletesLabel = linkedDirectAthletes.length
+        ? linkedDirectAthletes.map((athlete) => `${athlete.firstName} ${athlete.lastName}`).join(' | ')
+        : '-'
+
+      const row: Record<ClientExportFieldKey, string> = {
+        clientId: String(client.id),
+        createdAt: (client.createdAt || '').slice(0, 10),
+        parentFirstName: client.parentFirstName,
+        parentLastName: client.parentLastName,
+        parentEmail: client.parentEmail,
+        parentPhone: client.parentPhone,
+        parentSecondaryPhone: client.parentSecondaryPhone,
+        parentBirthDate: client.parentBirthDate,
+        parentBirthPlace: client.parentBirthPlace,
+        parentRole: roleLabel(client.parentRole),
+        parentTaxCode: client.parentTaxCode,
+        residenceAddress: client.residenceAddress,
+        validationStatus: clientStatusLabel(client.validationStatus),
+        privacyPolicySigned: boolLabel(Boolean(client.privacyPolicySigned)),
+        consentEnrollmentAccepted: boolLabel(Boolean(client.consentEnrollmentAccepted)),
+        consentInformationAccepted: boolLabel(Boolean(client.consentInformationAccepted)),
+        consentDataProcessingAccepted: boolLabel(Boolean(client.consentDataProcessingAccepted)),
+        consentDataProcessingSignaturePresent: boolLabel(Boolean(client.consentDataProcessingSignatureDataUrl)),
+        enrollmentConfirmationSignaturePresent: boolLabel(Boolean(client.enrollmentConfirmationSignatureDataUrl)),
+        parentTaxCodeDocumentPresent: boolLabel(Boolean(client.parentTaxCodeImageDataUrl)),
+        parentIdentityDocumentPresent: boolLabel(Boolean(client.parentIdentityDocumentImageDataUrl)),
+        linkedMinorsCount: String(linkedMinors.length),
+        linkedMinorsSummary,
+        linkedMinorsValidation,
+        linkedDirectAthletes: linkedDirectAthletesLabel,
+      }
+      return row
+    })
+  }, [directAthletesByClientId, filteredClients, minorsByClientId, packagesById, t])
+
+  const toggleExportField = (field: ClientExportFieldKey) => {
+    setSelectedExportFields((prev) => (
+      prev.includes(field) ? prev.filter((item) => item !== field) : [...prev, field]
+    ))
+  }
+
+  const exportClientProfiles = async () => {
+    if (effectiveSelectedExportFields.length === 0) {
+      return
+    }
+    const headers = effectiveSelectedExportFields.map((field) => exportFieldLabel(field))
+    const bodyRows = exportRows.map((row) => effectiveSelectedExportFields.map((field) => row[field]))
+    const filenameBase = `clienti-schede-${new Date().toISOString().slice(0, 10)}`
+
+    if (exportFormat === 'xlsx') {
+      const records = exportRows.map((row) => {
+        const item: Record<string, string> = {}
+        effectiveSelectedExportFields.forEach((field, index) => {
+          item[headers[index]] = row[field]
+        })
+        return item
+      })
+      const workbook = new ExcelJS.Workbook()
+      const worksheet = workbook.addWorksheet('Clienti')
+      worksheet.columns = headers.map((header) => ({ header, key: header }))
+      records.forEach((record) => {
+        worksheet.addRow(record)
+      })
+      const buffer = await workbook.xlsx.writeBuffer()
+      saveAs(
+        new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+        `${filenameBase}.xlsx`,
+      )
+      setIsExportModalOpen(false)
+      return
+    }
+
+    if (exportFormat === 'pdf') {
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' })
+      doc.setFontSize(11)
+      doc.text('Export schede clienti', 40, 36)
+      autoTable(doc, {
+        head: [headers],
+        body: bodyRows,
+        startY: 50,
+        styles: { fontSize: 8, cellPadding: 3 },
+        headStyles: { fillColor: [33, 37, 41] },
+      })
+      doc.save(`${filenameBase}.pdf`)
+      setIsExportModalOpen(false)
+      return
+    }
+
+    const tableRows = [
+      new TableRow({
+        children: headers.map((header) =>
+          new TableCell({
+            children: [new Paragraph({ children: [new TextRun({ text: header, bold: true })] })],
+          })),
+      }),
+      ...bodyRows.map((row) =>
+        new TableRow({
+          children: row.map((value) =>
+            new TableCell({
+              children: [new Paragraph(String(value ?? ''))],
+            })),
+        })),
+    ]
+
+    const doc = new Document({
+      sections: [{
+        children: [
+          new Paragraph({ children: [new TextRun({ text: 'Export schede clienti', bold: true })] }),
+          new Paragraph(''),
+          new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            rows: tableRows,
+          }),
+        ],
+      }],
+    })
+    const blob = await Packer.toBlob(doc)
+    saveAs(blob, `${filenameBase}.docx`)
+    setIsExportModalOpen(false)
+  }
 
   const activeClient = useMemo(
     () => (activeClientId === null ? null : clients.find((item) => item.id === activeClientId) ?? null),
@@ -675,7 +965,10 @@ function ClientsPage() {
     setCreateDraft({
       ...emptyCreateParentMinorDraft,
       packageId: youthPackages[0]?.id ?? '',
-      paymentMethodCode: getAvailablePaymentMethodsForCompany(youthPackages[0]?.companyId ?? '')[0]?.code ?? '',
+      paymentMethodCode: resolveValidPaymentMethodCode(
+        '',
+        getAvailablePaymentMethodsForCompany(youthPackages[0]?.companyId ?? ''),
+      ),
     })
     setIsCreateModalOpen(true)
   }
@@ -696,7 +989,10 @@ function ClientsPage() {
     setAddMinorDraft({
       ...emptyAddMinorDraft,
       packageId: youthPackages[0]?.id ?? '',
-      paymentMethodCode: getAvailablePaymentMethodsForCompany(youthPackages[0]?.companyId ?? '')[0]?.code ?? '',
+      paymentMethodCode: resolveValidPaymentMethodCode(
+        '',
+        getAvailablePaymentMethodsForCompany(youthPackages[0]?.companyId ?? ''),
+      ),
     })
     setIsAddMinorModalOpen(true)
   }
@@ -720,6 +1016,11 @@ function ClientsPage() {
       return
     }
     if (!createDraft.paymentMethodCode) {
+      setCreateError(t('clients.selectPaymentMethod'))
+      return
+    }
+    const selectedCreatePaymentMethodCode = resolveValidPaymentMethodCode(createDraft.paymentMethodCode, createPaymentMethods)
+    if (!selectedCreatePaymentMethodCode) {
       setCreateError(t('clients.selectPaymentMethod'))
       return
     }
@@ -801,7 +1102,7 @@ function ClientsPage() {
       residenceAddress: createDraft.minorResidenceAddress,
       taxCode: createDraft.minorTaxCode,
       taxCodeImageDataUrl: '',
-      selectedPaymentMethodCode: createDraft.paymentMethodCode,
+      selectedPaymentMethodCode: selectedCreatePaymentMethodCode,
     })
     const selectedEnrollment = getEnrollmentById(selectedPackage.enrollmentId)
     if (selectedEnrollment) {
@@ -831,6 +1132,11 @@ function ClientsPage() {
       return
     }
     if (!addMinorDraft.paymentMethodCode) {
+      setAddMinorError(t('clients.selectPaymentMethod'))
+      return
+    }
+    const selectedAddMinorPaymentMethodCode = resolveValidPaymentMethodCode(addMinorDraft.paymentMethodCode, addMinorPaymentMethods)
+    if (!selectedAddMinorPaymentMethodCode) {
       setAddMinorError(t('clients.selectPaymentMethod'))
       return
     }
@@ -875,7 +1181,7 @@ function ClientsPage() {
       residenceAddress: addMinorDraft.residenceAddress,
       taxCode: addMinorDraft.taxCode,
       taxCodeImageDataUrl: '',
-      selectedPaymentMethodCode: addMinorDraft.paymentMethodCode,
+      selectedPaymentMethodCode: selectedAddMinorPaymentMethodCode,
     })
     const selectedEnrollment = getEnrollmentById(selectedPackage.enrollmentId)
     if (selectedEnrollment) {
@@ -992,6 +1298,7 @@ function ClientsPage() {
   const resetFilters = () => {
     setSearchTerm('')
     setStatusFilter('all')
+    setPrivacyFilter('all')
   }
 
   return (
@@ -1000,14 +1307,22 @@ function ClientsPage() {
         <h2 className="text-2xl font-semibold">{t('clients.title')}</h2>
         <p className="text-sm opacity-70">{t('clients.description')}</p>
       </div>
-      <div className="flex justify-end">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <button
+          type="button"
+          className="btn btn-outline btn-sm"
+          onClick={() => setIsExportModalOpen(true)}
+          disabled={filteredClients.length === 0}
+        >
+          Esporta schede
+        </button>
         <button type="button" className="btn btn-primary btn-sm" onClick={openCreateModal}>
           {t('clients.create')}
         </button>
       </div>
       {message ? <p className="rounded-lg bg-success/15 px-3 py-2 text-sm text-success">{message}</p> : null}
-      <div className="grid grid-cols-1 gap-3 rounded-lg border border-base-300 bg-base-100 p-3 md:grid-cols-3">
-        <label className="form-control md:col-span-2">
+      <div className="flex flex-wrap items-end gap-3 rounded-lg border border-base-300 bg-base-100 p-3">
+        <label className="form-control min-w-[240px] flex-[2_1_360px]">
           <span className="label-text mb-1 text-xs">{t('clients.searchLabel')}</span>
           <input
             className="input input-bordered w-full"
@@ -1016,7 +1331,7 @@ function ClientsPage() {
             placeholder={t('clients.searchPlaceholder')}
           />
         </label>
-        <label className="form-control">
+        <label className="form-control min-w-[180px] flex-[1_1_220px]">
           <span className="label-text mb-1 text-xs">{t('clients.validationFilter')}</span>
           <select
             className="select select-bordered w-full"
@@ -1028,7 +1343,19 @@ function ClientsPage() {
             <option value="not_validated">{t('clients.notValidated')}</option>
           </select>
         </label>
-        <div className="md:col-span-3">
+        <label className="form-control min-w-[180px] flex-[1_1_220px]">
+          <span className="label-text mb-1 text-xs">{t('clients.privacyFilter')}</span>
+          <select
+            className="select select-bordered w-full"
+            value={privacyFilter}
+            onChange={(event) => setPrivacyFilter(event.target.value as 'all' | 'signed' | 'not_signed')}
+          >
+            <option value="all">{t('clients.allPrivacyStatuses')}</option>
+            <option value="signed">{t('clients.privacySigned')}</option>
+            <option value="not_signed">{t('clients.privacyNotSigned')}</option>
+          </select>
+        </label>
+        <div className="ml-auto flex-[0_0_auto]">
           <button type="button" className="btn btn-outline btn-sm" onClick={resetFilters}>
             {t('common.resetFilters')}
           </button>
@@ -1121,6 +1448,81 @@ function ClientsPage() {
           </tbody>
         </table>
       </div>
+
+      {isExportModalOpen ? (
+        <dialog className="modal modal-open">
+          <div className="modal-box w-11/12 max-w-5xl">
+            <h3 className="text-lg font-semibold">Esporta schede clienti</h3>
+            <p className="mt-1 text-sm opacity-70">
+              Seleziona i campi della scheda cliente da includere e il formato del file.
+            </p>
+
+            <div className="mt-4 space-y-4">
+              <label className="form-control max-w-xs">
+                <span className="label-text mb-1 text-xs">Formato export</span>
+                <select
+                  className="select select-bordered w-full"
+                  value={exportFormat}
+                  onChange={(event) => setExportFormat(event.target.value as ClientExportFormat)}
+                >
+                  <option value="xlsx">Excel (.xlsx)</option>
+                  <option value="pdf">PDF (.pdf)</option>
+                  <option value="docx">Word (.docx)</option>
+                </select>
+              </label>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  className="btn btn-xs btn-outline"
+                  onClick={() => setSelectedExportFields(availableClientExportFields)}
+                >
+                  Seleziona tutto
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-xs btn-outline"
+                  onClick={() => setSelectedExportFields([])}
+                >
+                  Deseleziona tutto
+                </button>
+                <span className="text-xs opacity-70">
+                  Campi selezionati: {effectiveSelectedExportFields.length}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                {availableClientExportFields.map((field) => (
+                  <label key={field} className="label cursor-pointer justify-start gap-2 rounded border border-base-300 px-3 py-2">
+                    <input
+                      type="checkbox"
+                      className="checkbox checkbox-sm checkbox-primary"
+                      checked={effectiveSelectedExportFields.includes(field)}
+                      onChange={() => toggleExportField(field)}
+                    />
+                    <span className="label-text">{exportFieldLabel(field)}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="modal-action">
+              <button type="button" className="btn btn-ghost" onClick={() => setIsExportModalOpen(false)}>
+                {t('public.common.close')}
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => void exportClientProfiles()}
+                disabled={effectiveSelectedExportFields.length === 0 || filteredClients.length === 0}
+              >
+                Esporta
+              </button>
+            </div>
+          </div>
+          <button type="button" className="modal-backdrop" onClick={() => setIsExportModalOpen(false)} />
+        </dialog>
+      ) : null}
 
       {activeClient && clientDraft ? (
         <dialog className="modal modal-open">
@@ -1343,7 +1745,14 @@ function ClientsPage() {
                 <select
                   className="select select-bordered w-full"
                   value={addMinorDraft.packageId}
-                  onChange={(event) => setAddMinorDraft((prev) => ({ ...prev, packageId: event.target.value }))}
+                  onChange={(event) => {
+                    const packageId = event.target.value
+                    setAddMinorDraft((prev) => ({
+                      ...prev,
+                      packageId,
+                      paymentMethodCode: resolvePaymentMethodForPackage(packageId, prev.paymentMethodCode),
+                    }))
+                  }}
                 >
                   {youthPackages.length === 0 ? (
                     <option value="">{t('clients.createNoPackages')}</option>
@@ -1361,17 +1770,11 @@ function ClientsPage() {
                 <select
                   className="select select-bordered w-full"
                   value={addMinorDraft.paymentMethodCode}
-                  onChange={(event) => setAddMinorDraft((prev) => ({ ...prev, paymentMethodCode: event.target.value }))}
+                  onChange={(event) =>
+                    setAddMinorDraft((prev) => ({ ...prev, paymentMethodCode: event.target.value as PaymentMethodCode | '' }))
+                  }
                 >
-                  {addMinorPaymentMethods.length === 0 ? (
-                    <option value="">{t('clients.noPaymentMethods')}</option>
-                  ) : (
-                    addMinorPaymentMethods.map((item) => (
-                      <option key={item.code} value={item.code}>
-                        {t(`utility.paymentMethods.methods.${item.code}.label`)}
-                      </option>
-                    ))
-                  )}
+                  {renderPaymentMethodOptions(addMinorPaymentMethods)}
                 </select>
               </label>
               <label className="form-control">
@@ -1458,7 +1861,14 @@ function ClientsPage() {
                 <select
                   className="select select-bordered w-full"
                   value={createDraft.packageId}
-                  onChange={(event) => setCreateDraft((prev) => ({ ...prev, packageId: event.target.value }))}
+                  onChange={(event) => {
+                    const packageId = event.target.value
+                    setCreateDraft((prev) => ({
+                      ...prev,
+                      packageId,
+                      paymentMethodCode: resolvePaymentMethodForPackage(packageId, prev.paymentMethodCode),
+                    }))
+                  }}
                 >
                   {youthPackages.length === 0 ? (
                     <option value="">{t('clients.createNoPackages')}</option>
@@ -1476,17 +1886,11 @@ function ClientsPage() {
                 <select
                   className="select select-bordered w-full"
                   value={createDraft.paymentMethodCode}
-                  onChange={(event) => setCreateDraft((prev) => ({ ...prev, paymentMethodCode: event.target.value }))}
+                  onChange={(event) =>
+                    setCreateDraft((prev) => ({ ...prev, paymentMethodCode: event.target.value as PaymentMethodCode | '' }))
+                  }
                 >
-                  {createPaymentMethods.length === 0 ? (
-                    <option value="">{t('clients.noPaymentMethods')}</option>
-                  ) : (
-                    createPaymentMethods.map((item) => (
-                      <option key={item.code} value={item.code}>
-                        {t(`utility.paymentMethods.methods.${item.code}.label`)}
-                      </option>
-                    ))
-                  )}
+                  {renderPaymentMethodOptions(createPaymentMethods)}
                 </select>
               </label>
             </div>

@@ -1,4 +1,4 @@
-﻿{
+{
   "common": {
     "save": "Speichern",
     "resetDefault": "Zurucksetzen",
@@ -83,6 +83,10 @@
     "searchPlaceholder": "Suche nach Name, E-Mail, Telefon, Steuercode, Minderjaehrig",
     "validationFilter": "Validierungsfilter",
     "allStatuses": "Alle Status",
+    "privacyFilter": "Datenschutzfilter",
+    "allPrivacyStatuses": "Alle",
+    "privacySigned": "Unterschrieben",
+    "privacyNotSigned": "Nicht unterschrieben",
     "actions": "Aktionen",
     "downloadConsents": "Einwilligungen herunterladen",
     "consentsNoLinkedMinor": "Kein verknuepfter Minderjaehriger zur Erstellung der Einwilligungen verfuegbar.",
@@ -103,7 +107,7 @@
     "createNoPackages": "Nessun pacchetto ragazzi disponibile",
     "createRequired": "Compila tutti i campi obbligatori.",
     "createSelectPackage": "Seleziona un pacchetto valido.",
-    "minorAgeNotCompatible": "EtÃ  del minore non compatibile con il pacchetto selezionato ({{min}}-{{max}} anni).",
+    "minorAgeNotCompatible": "Età del minore non compatibile con il pacchetto selezionato ({{min}}-{{max}} anni).",
     "createAthleteNotImplemented": "Creazione cliente come atleta non ancora disponibile.",
     "addMinor": "Aggiungi minore",
     "addMinorTitle": "Aggiungi minore",
@@ -293,10 +297,6 @@
     "consents": {
       "download": "Consensi PDF",
       "downloadError": "Errore durante la generazione del PDF consensi."
-    },
-    "period": {
-      "current": "Corrente",
-      "total": "Totale"
     }
   },
   "layout": {
@@ -588,7 +588,7 @@
       "updated": "Paket erfolgreich aktualisiert.",
       "deleted": "Paket erfolgreich geloescht.",
       "confirmDelete": "Loeschen des Pakets \"{{title}}\" bestaetigen?",
-      "audienceLabel": "Tipologia etÃ "
+      "audienceLabel": "Tipologia età"
     },
     "companies": {
       "title": "Unternehmen",
@@ -1044,6 +1044,7 @@
     }
   }
 }
+
 
 
 

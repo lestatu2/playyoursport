@@ -563,20 +563,17 @@ function getStoredCatalog(): {
       title: normalizeInsuranceTitle(insurance.title, insurance.id),
       description: insurance.description ?? '',
       coverageText:
-        (typeof (insurance as { coverageText?: string }).coverageText === 'string' &&
-        (insurance as { coverageText?: string }).coverageText?.trim())
+        ((insurance as { coverageText?: string }).coverageText?.trim())
           ? ((insurance as { coverageText?: string }).coverageText as string)
           : (defaultInsuranceById.get(insurance.id)?.coverageText ??
             `<p>Copertura assicurativa prevista dalla polizza associata a ${normalizeInsuranceTitle(insurance.title, insurance.id)}.</p>`),
       exclusionsText:
-        (typeof (insurance as { exclusionsText?: string }).exclusionsText === 'string' &&
-        (insurance as { exclusionsText?: string }).exclusionsText?.trim())
+        ((insurance as { exclusionsText?: string }).exclusionsText?.trim())
           ? ((insurance as { exclusionsText?: string }).exclusionsText as string)
           : (defaultInsuranceById.get(insurance.id)?.exclusionsText ??
             '<p>Sono escluse le fattispecie non previste dalla polizza e dal regolamento assicurativo vigente.</p>'),
       durationText:
-        (typeof (insurance as { durationText?: string }).durationText === 'string' &&
-        (insurance as { durationText?: string }).durationText?.trim())
+        ((insurance as { durationText?: string }).durationText?.trim())
           ? ((insurance as { durationText?: string }).durationText as string)
           : (defaultInsuranceById.get(insurance.id)?.durationText ??
             "<p>Validità secondo condizioni della polizza e dell'iscrizione associata.</p>"),
@@ -594,7 +591,7 @@ function getStoredCatalog(): {
           [
             enrollment.id,
             ...(Array.isArray(enrollment.coveredEnrollmentIds) ? enrollment.coveredEnrollmentIds : []),
-          ].filter((item): item is string => typeof item === 'string' && item.trim().length > 0),
+          ].filter((item): item is string => item.trim().length > 0),
         ),
       ),
       alwaysRequirePurchase: Boolean(enrollment.alwaysRequirePurchase),
@@ -684,7 +681,7 @@ function getStoredCatalog(): {
         }),
         ...item,
         productId:
-          typeof item.productId === 'string' && item.productId.trim().length > 0
+          item.productId.trim().length > 0
             ? item.productId.trim()
             : `product-${normalizeCode(item.name ?? item.id ?? '').slice(0, 40) || item.id}`,
         editionYear:
@@ -724,7 +721,7 @@ function getStoredCatalog(): {
         contractSpecialClauseIds: Array.from(
           new Set(
             (((item as { contractSpecialClauseIds?: string[] }).contractSpecialClauseIds ?? []) as string[])
-              .map((value) => (typeof value === 'string' ? value.trim() : ''))
+              .map((value) => value.trim())
               .filter((value) => value.length > 0),
           ),
         ),
@@ -964,6 +961,30 @@ function nextInsuranceId(): string {
     return `insurance-${crypto.randomUUID()}`
   }
   return `insurance-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+}
+
+function normalizeInsurancePayload(payload: SaveInsurancePayload): {
+  title: string
+  description: string
+  coverageText: string
+  exclusionsText: string
+  durationText: string
+} | null {
+  const title = payload.title.trim()
+  const description = payload.description.trim()
+  const coverageText = payload.coverageText.trim()
+  const exclusionsText = payload.exclusionsText.trim()
+  const durationText = payload.durationText.trim()
+  if (!title || !description || !coverageText || !exclusionsText || !durationText) {
+    return null
+  }
+  return {
+    title,
+    description,
+    coverageText,
+    exclusionsText,
+    durationText,
+  }
 }
 
 function nextWhatsAppAccountId(): string {
@@ -1720,22 +1741,18 @@ export function removeGroup(id: string): SaveGroupResult {
 }
 
 export function createEnrollmentInsurance(payload: SaveInsurancePayload): SaveInsuranceResult {
-  const title = payload.title.trim()
-  const description = payload.description.trim()
-  const coverageText = payload.coverageText.trim()
-  const exclusionsText = payload.exclusionsText.trim()
-  const durationText = payload.durationText.trim()
-  if (!title || !description || !coverageText || !exclusionsText || !durationText) {
+  const normalized = normalizeInsurancePayload(payload)
+  if (!normalized) {
     return { ok: false, error: 'invalid' }
   }
   const catalog = getStoredCatalog()
   const insurance: EnrollmentInsurance = {
     id: nextInsuranceId(),
-    title,
-    description,
-    coverageText,
-    exclusionsText,
-    durationText,
+    title: normalized.title,
+    description: normalized.description,
+    coverageText: normalized.coverageText,
+    exclusionsText: normalized.exclusionsText,
+    durationText: normalized.durationText,
     isActive: Boolean(payload.isActive),
   }
   writeStoredCatalog({
@@ -1746,12 +1763,8 @@ export function createEnrollmentInsurance(payload: SaveInsurancePayload): SaveIn
 }
 
 export function updateEnrollmentInsurance(id: string, payload: SaveInsurancePayload): SaveInsuranceResult {
-  const title = payload.title.trim()
-  const description = payload.description.trim()
-  const coverageText = payload.coverageText.trim()
-  const exclusionsText = payload.exclusionsText.trim()
-  const durationText = payload.durationText.trim()
-  if (!title || !description || !coverageText || !exclusionsText || !durationText) {
+  const normalized = normalizeInsurancePayload(payload)
+  if (!normalized) {
     return { ok: false, error: 'invalid' }
   }
   const catalog = getStoredCatalog()
@@ -1761,11 +1774,11 @@ export function updateEnrollmentInsurance(id: string, payload: SaveInsurancePayl
   }
   const insurance: EnrollmentInsurance = {
     ...current,
-    title,
-    description,
-    coverageText,
-    exclusionsText,
-    durationText,
+    title: normalized.title,
+    description: normalized.description,
+    coverageText: normalized.coverageText,
+    exclusionsText: normalized.exclusionsText,
+    durationText: normalized.durationText,
     isActive: Boolean(payload.isActive),
   }
   writeStoredCatalog({
@@ -1794,7 +1807,7 @@ export function removeEnrollmentInsurance(id: string): SaveInsuranceResult {
 
 function normalizeEnrollmentCoverageIds(input: string[], selfId: string): string[] {
   const filtered = input
-    .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+    .filter((item): item is string => item.trim().length > 0)
     .map((item) => item.trim())
   return Array.from(new Set([selfId, ...filtered]))
 }
@@ -2550,3 +2563,4 @@ export function removeSportPackage(id: string): RemovePackageResult {
 
   return { ok: true, item: target }
 }
+

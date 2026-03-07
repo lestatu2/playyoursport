@@ -35,9 +35,9 @@ function readStorage(): AthleteActivityRecord[] {
     return parsed.filter(
       (item) =>
         item &&
-        typeof item.key === 'string' &&
-        typeof item.athleteKey === 'string' &&
-        typeof item.packageId === 'string',
+        item.key?.trim() &&
+        item.athleteKey?.trim() &&
+        item.packageId?.trim(),
     )
   } catch {
     return []

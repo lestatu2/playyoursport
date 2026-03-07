@@ -1,4 +1,4 @@
-﻿{
+{
   "common": {
     "save": "Save",
     "resetDefault": "Reset default",
@@ -115,6 +115,10 @@
     "searchPlaceholder": "Search by name, email, phone, tax code, minor",
     "validationFilter": "Validation filter",
     "allStatuses": "All statuses",
+    "privacyFilter": "Privacy filter",
+    "allPrivacyStatuses": "All",
+    "privacySigned": "Signed",
+    "privacyNotSigned": "Not signed",
     "actions": "Actions",
     "downloadConsents": "Download consents",
     "consentsNoLinkedMinor": "No linked minor available to generate consents.",
@@ -135,7 +139,7 @@
     "createNoPackages": "Nessun pacchetto ragazzi disponibile",
     "createRequired": "Compila tutti i campi obbligatori.",
     "createSelectPackage": "Seleziona un pacchetto valido.",
-    "minorAgeNotCompatible": "EtÃ  del minore non compatibile con il pacchetto selezionato ({{min}}-{{max}} anni).",
+    "minorAgeNotCompatible": "Età del minore non compatibile con il pacchetto selezionato ({{min}}-{{max}} anni).",
     "createAthleteNotImplemented": "Creazione cliente come atleta non ancora disponibile.",
     "addMinor": "Aggiungi minore",
     "addMinorTitle": "Aggiungi minore",
@@ -325,10 +329,6 @@
     "consents": {
       "download": "Consents PDF",
       "downloadError": "Error while generating the consents PDF."
-    },
-    "period": {
-      "current": "Corrente",
-      "total": "Totale"
     }
   },
   "activitiesHistory": {
@@ -650,7 +650,7 @@
       "updated": "Package updated successfully.",
       "deleted": "Package deleted successfully.",
       "confirmDelete": "Confirm deletion of package \"{{title}}\"?",
-      "audienceLabel": "Tipologia etÃ "
+      "audienceLabel": "Tipologia età"
     },
     "companies": {
       "title": "Companies",
@@ -1044,6 +1044,7 @@
     }
   }
 }
+
 
 
 

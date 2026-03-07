@@ -12,7 +12,7 @@ type PublicPackageDetailPageProps = {
   onLogout: () => void
 }
 
-function PublicPackageDetailPage({ session, onLogin, onLogout }: PublicPackageDetailPageProps) {
+function PublicPackageDetailPage({ session, onLogin: _onLogin, onLogout }: PublicPackageDetailPageProps) {
   const { packageId } = useParams<{ packageId: string }>()
   const item = getPackages().find((pkg) => pkg.id === packageId)
   const [isWizardOpen, setIsWizardOpen] = useState(false)

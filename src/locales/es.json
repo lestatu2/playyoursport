@@ -1,4 +1,4 @@
-﻿{
+{
   "common": {
     "save": "Guardar",
     "resetDefault": "Restablecer",
@@ -83,6 +83,10 @@
     "searchPlaceholder": "Buscar por nombre, email, telefono, codigo fiscal, menor",
     "validationFilter": "Filtro validacion",
     "allStatuses": "Todos los estados",
+    "privacyFilter": "Filtro privacidad",
+    "allPrivacyStatuses": "Todos",
+    "privacySigned": "Firmada",
+    "privacyNotSigned": "No firmada",
     "actions": "Acciones",
     "downloadConsents": "Descargar consentimientos",
     "consentsNoLinkedMinor": "No hay menor vinculado disponible para generar consentimientos.",
@@ -103,7 +107,7 @@
     "createNoPackages": "Nessun pacchetto ragazzi disponibile",
     "createRequired": "Compila tutti i campi obbligatori.",
     "createSelectPackage": "Seleziona un pacchetto valido.",
-    "minorAgeNotCompatible": "EtÃ  del minore non compatibile con il pacchetto selezionato ({{min}}-{{max}} anni).",
+    "minorAgeNotCompatible": "Età del minore non compatibile con il pacchetto selezionato ({{min}}-{{max}} anni).",
     "createAthleteNotImplemented": "Creazione cliente come atleta non ancora disponibile.",
     "addMinor": "Aggiungi minore",
     "addMinorTitle": "Aggiungi minore",
@@ -293,10 +297,6 @@
     "consents": {
       "download": "Consensi PDF",
       "downloadError": "Errore durante la generazione del PDF consensi."
-    },
-    "period": {
-      "current": "Corrente",
-      "total": "Totale"
     }
   },
   "layout": {
@@ -588,7 +588,7 @@
       "updated": "Paquete actualizado correctamente.",
       "deleted": "Paquete eliminado correctamente.",
       "confirmDelete": "Confirmar eliminacion del paquete \"{{title}}\"?",
-      "audienceLabel": "Tipologia etÃ "
+      "audienceLabel": "Tipologia età"
     },
     "companies": {
       "title": "Empresas",
@@ -1044,6 +1044,7 @@
     }
   }
 }
+
 
 
 

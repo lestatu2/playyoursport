@@ -19,33 +19,12 @@ import {
 import { getProjectSettings, getProjectSettingsChangedEventName } from '../lib/project-settings'
 import { computeItalianTaxCode, findBirthPlaceCodeByName } from '../lib/tax-code'
 import { getAvailablePaymentMethodsForCompany, type PaymentMethodCode } from '../lib/payment-methods'
+import { getAgeFromBirthDate } from '../lib/date-utils'
+import { readFileAsDataUrl } from '../lib/file-utils'
+import { initializeGooglePlacesAutocomplete } from '../lib/google-places'
 import SignaturePadField from './SignaturePadField'
 
 const GOOGLE_PLACES_SCRIPT_ID = 'pys-google-places-script'
-
-declare global {
-  interface Window {
-    google?: {
-      maps?: {
-        places?: {
-          Autocomplete: new (
-            inputField: HTMLInputElement,
-            options?: {
-              fields?: string[]
-              types?: string[]
-            },
-          ) => {
-            addListener: (eventName: string, handler: () => void) => void
-            getPlace: () => {
-              formatted_address?: string
-              name?: string
-            }
-          }
-        }
-      }
-    }
-  }
-}
 
 type YouthDraft = {
   minorFirstName: string
@@ -172,20 +151,6 @@ type PublicEnrollmentFormProps = {
   enabledStepIds?: StepId[]
 }
 
-function getAgeFromBirthDate(birthDate: string): number | null {
-  const value = new Date(birthDate)
-  if (Number.isNaN(value.getTime())) {
-    return null
-  }
-  const now = new Date()
-  let age = now.getFullYear() - value.getFullYear()
-  const monthDiff = now.getMonth() - value.getMonth()
-  if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < value.getDate())) {
-    age -= 1
-  }
-  return age
-}
-
 function normalizeLoginChunk(value: string): string {
   return value
     .trim()
@@ -226,54 +191,6 @@ function buildAutoLogin(firstName: string, lastName: string, birthDate: string, 
     counter += 1
   }
   return `${withMonthInitial}${counter}`
-}
-
-function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '')
-    reader.onerror = () => reject(new Error('file_read_error'))
-    reader.readAsDataURL(file)
-  })
-}
-
-function loadGooglePlacesScript(apiKey: string): Promise<void> {
-  if (!apiKey.trim()) {
-    return Promise.reject(new Error('missing-api-key'))
-  }
-  if (window.google?.maps?.places) {
-    return Promise.resolve()
-  }
-
-  const existingScript = document.getElementById(GOOGLE_PLACES_SCRIPT_ID) as HTMLScriptElement | null
-  if (existingScript) {
-    if (existingScript.dataset.loaded === 'true') {
-      if (window.google?.maps?.places) {
-        return Promise.resolve()
-      }
-      return Promise.reject(new Error('google-places-not-available'))
-    }
-    return new Promise((resolve, reject) => {
-      const onLoad = () => resolve()
-      const onError = () => reject(new Error('google-places-load-error'))
-      existingScript.addEventListener('load', onLoad, { once: true })
-      existingScript.addEventListener('error', onError, { once: true })
-    })
-  }
-
-  return new Promise((resolve, reject) => {
-    const script = document.createElement('script')
-    script.id = GOOGLE_PLACES_SCRIPT_ID
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey.trim())}&libraries=places`
-    script.async = true
-    script.defer = true
-    script.onload = () => {
-      script.dataset.loaded = 'true'
-      resolve()
-    }
-    script.onerror = () => reject(new Error('google-places-load-error'))
-    document.head.appendChild(script)
-  })
 }
 
 function PublicEnrollmentForm({
@@ -568,31 +485,15 @@ function PublicEnrollmentForm({
       types: string[],
       onPlaceResolved: (value: string) => void,
     ) => {
-      if (!isOpen || initializedRef.current || !inputElement || !googleMapsApiKey.trim()) {
-        return
-      }
-      loadGooglePlacesScript(googleMapsApiKey)
-        .then(() => {
-          if (!window.google?.maps?.places || initializedRef.current) {
-            return
-          }
-          const autocomplete = new window.google.maps.places.Autocomplete(inputElement, {
-            fields: ['formatted_address', 'name'],
-            types,
-          })
-          autocomplete.addListener('place_changed', () => {
-            const place = autocomplete.getPlace()
-            const value = (place.formatted_address ?? place.name ?? inputElement.value ?? '').trim()
-            if (!value) {
-              return
-            }
-            onPlaceResolved(value)
-          })
-          initializedRef.current = true
-        })
-        .catch(() => {
-          initializedRef.current = false
-        })
+      initializeGooglePlacesAutocomplete({
+        isOpen,
+        initializedRef,
+        inputElement,
+        apiKey: googleMapsApiKey,
+        scriptId: GOOGLE_PLACES_SCRIPT_ID,
+        types,
+        onPlaceResolved,
+      })
     },
     [googleMapsApiKey, isOpen],
   )

@@ -157,10 +157,6 @@ export function getActivityPaymentPlans(): ActivityPaymentPlan[] {
   return readPlans().map((item) => normalizePlan(item))
 }
 
-export function getActivityPaymentPlan(activityKey: string): ActivityPaymentPlan | null {
-  return getActivityPaymentPlans().find((item) => item.activityKey === activityKey) ?? null
-}
-
 export function saveActivityPaymentPlan(plan: ActivityPaymentPlan): ActivityPaymentPlan {
   const normalizedPlan = normalizePlan(plan)
   const all = getActivityPaymentPlans()

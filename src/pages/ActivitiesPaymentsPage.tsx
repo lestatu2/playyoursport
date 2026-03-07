@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Plus, Trash2 } from 'lucide-react'
@@ -26,6 +26,7 @@ import {
   ensureContractHeaderImage,
   type ContractPdfPayload,
 } from '../lib/contract-pdf'
+import { readFileAsDataUrl } from '../lib/file-utils'
 import { getProjectSettings } from '../lib/project-settings'
 
 type ActivitiesPaymentsTab = 'activities' | 'deadlines' | 'expired' | 'collections' | 'overdue'
@@ -90,15 +91,6 @@ function safeAmount(value: number): number {
   return Number.isFinite(value) ? Math.max(0, value) : 0
 }
 
-function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '')
-    reader.onerror = () => reject(new Error('file_read_error'))
-    reader.readAsDataURL(file)
-  })
-}
-
 function isEligibleInstallmentForAutomaticChanges(dueDate: string, paymentStatus: 'pending' | 'paid'): boolean {
   if (paymentStatus !== 'pending') {
     return false
@@ -115,10 +107,7 @@ function isEligibleInstallmentForAutomaticChanges(dueDate: string, paymentStatus
   if (dueYear > currentYear) {
     return true
   }
-  if (dueYear === currentYear && dueMonth >= currentMonth) {
-    return true
-  }
-  return false
+  return dueYear === currentYear && dueMonth >= currentMonth
 }
 
 function normalizeCreatedAtToIsoDate(createdAt: string): string {
@@ -132,6 +121,10 @@ function normalizeCreatedAtToIsoDate(createdAt: string): string {
 function getCurrentPeriodMonthValue(): string {
   const now = new Date()
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+}
+
+function buildPlansByActivityKey(): Map<string, ActivityPaymentPlan> {
+  return new Map(getActivityPaymentPlans().map((item) => [item.activityKey, item]))
 }
 
 function getPeriodRange(periodMonth: string): { start: Date; end: Date } {
@@ -194,7 +187,6 @@ function ActivitiesPaymentsPage() {
   const [packageFilter, setPackageFilter] = useState('all')
   const [frequencyFilter, setFrequencyFilter] = useState<FrequencyFilter>('all')
   const [planFilter, setPlanFilter] = useState<'all' | 'generated' | 'not_generated'>('all')
-  const [plansVersion, setPlansVersion] = useState(0)
   const [activePlanItemKey, setActivePlanItemKey] = useState<string | null>(null)
   const [planDraft, setPlanDraft] = useState<PlanDraft | null>(null)
   const [isEnrollmentFeeCovered, setIsEnrollmentFeeCovered] = useState(false)
@@ -219,10 +211,7 @@ function ActivitiesPaymentsPage() {
     () => new Map(getAdditionalServices().map((service) => [service.id, service])),
     [],
   )
-  const plansByActivityKey = useMemo(() => {
-    const items = getActivityPaymentPlans()
-    return new Map(items.map((item) => [item.activityKey, item]))
-  }, [plansVersion])
+  const [plansByActivityKey, setPlansByActivityKey] = useState<Map<string, ActivityPaymentPlan>>(buildPlansByActivityKey)
   const periodFromRange = useMemo(() => getPeriodRange(periodFromMonth), [periodFromMonth])
   const periodToRange = useMemo(() => getPeriodRange(periodToMonth), [periodToMonth])
   const periodRange = useMemo(() => {
@@ -622,36 +611,40 @@ function ActivitiesPaymentsPage() {
     })
   }
 
+  const matchesActivityBaseFilters = useCallback((item: AthleteActivityItem): boolean => {
+    const isLegacyMinorIdMatch = lockedAthleteId === item.athleteId
+    const isAthleteKeyMatch = lockedAthleteId === item.key.split('::')[0]
+    if (lockedAthleteId && lockedAthleteId !== item.key && !isLegacyMinorIdMatch && !isAthleteKeyMatch) {
+      return false
+    }
+    if (lockedClientId) {
+      const targetClientId = Number(lockedClientId)
+      if (!Number.isFinite(targetClientId) || item.clientId !== targetClientId) {
+        return false
+      }
+    }
+    const packageItem = packagesById.get(item.packageId)
+    const searchHaystack = [
+      item.firstName,
+      item.lastName,
+      item.parentLabel,
+      item.packageId,
+      packageItem?.name ?? '',
+    ]
+      .join(' ')
+      .toLowerCase()
+    if (globalSearch.trim() && !searchHaystack.includes(globalSearch.trim().toLowerCase())) {
+      return false
+    }
+    if (packageFilter !== 'all' && item.packageId !== packageFilter) {
+      return false
+    }
+    return frequencyFilter === 'all' || packageItem?.paymentFrequency === frequencyFilter
+  }, [frequencyFilter, globalSearch, lockedAthleteId, lockedClientId, packageFilter, packagesById])
+
   const filteredActivities = useMemo(() => {
     return activityItems.filter((item) => {
-      const isLegacyMinorIdMatch = lockedAthleteId === item.athleteId
-      const isAthleteKeyMatch = lockedAthleteId === item.key.split('::')[0]
-      if (lockedAthleteId && lockedAthleteId !== item.key && !isLegacyMinorIdMatch && !isAthleteKeyMatch) {
-        return false
-      }
-      if (lockedClientId) {
-        const targetClientId = Number(lockedClientId)
-        if (!Number.isFinite(targetClientId) || item.clientId !== targetClientId) {
-          return false
-        }
-      }
-      const packageItem = packagesById.get(item.packageId)
-      const searchHaystack = [
-        item.firstName,
-        item.lastName,
-        item.parentLabel,
-        item.packageId,
-        packageItem?.name ?? '',
-      ]
-        .join(' ')
-        .toLowerCase()
-      if (globalSearch.trim() && !searchHaystack.includes(globalSearch.trim().toLowerCase())) {
-        return false
-      }
-      if (packageFilter !== 'all' && item.packageId !== packageFilter) {
-        return false
-      }
-      if (frequencyFilter !== 'all' && packageItem?.paymentFrequency !== frequencyFilter) {
+      if (!matchesActivityBaseFilters(item)) {
         return false
       }
       if (planFilter !== 'all') {
@@ -665,43 +658,11 @@ function ActivitiesPaymentsPage() {
       }
       return true
     })
-  }, [activityItems, frequencyFilter, globalSearch, lockedAthleteId, lockedClientId, packageFilter, packagesById, planFilter, plansByActivityKey])
+  }, [activityItems, matchesActivityBaseFilters, planFilter, plansByActivityKey])
 
   const activityItemsByBaseFilters = useMemo(() => {
-    return activityItems.filter((item) => {
-      const isLegacyMinorIdMatch = lockedAthleteId === item.athleteId
-      const isAthleteKeyMatch = lockedAthleteId === item.key.split('::')[0]
-      if (lockedAthleteId && lockedAthleteId !== item.key && !isLegacyMinorIdMatch && !isAthleteKeyMatch) {
-        return false
-      }
-      if (lockedClientId) {
-        const targetClientId = Number(lockedClientId)
-        if (!Number.isFinite(targetClientId) || item.clientId !== targetClientId) {
-          return false
-        }
-      }
-      const packageItem = packagesById.get(item.packageId)
-      const searchHaystack = [
-        item.firstName,
-        item.lastName,
-        item.parentLabel,
-        item.packageId,
-        packageItem?.name ?? '',
-      ]
-        .join(' ')
-        .toLowerCase()
-      if (globalSearch.trim() && !searchHaystack.includes(globalSearch.trim().toLowerCase())) {
-        return false
-      }
-      if (packageFilter !== 'all' && item.packageId !== packageFilter) {
-        return false
-      }
-      if (frequencyFilter !== 'all' && packageItem?.paymentFrequency !== frequencyFilter) {
-        return false
-      }
-      return true
-    })
-  }, [activityItems, frequencyFilter, globalSearch, lockedAthleteId, lockedClientId, packageFilter, packagesById])
+    return activityItems.filter(matchesActivityBaseFilters)
+  }, [activityItems, matchesActivityBaseFilters])
 
   const resetFilters = () => {
     setGlobalSearch('')
@@ -716,31 +677,7 @@ function ActivitiesPaymentsPage() {
     setSearchParams(next, { replace: true })
   }
 
-  const filteredActivitiesByPeriod = useMemo(() => {
-    const periodStart = dateOnly(periodRange.start)
-    const periodEnd = dateOnly(periodRange.end)
-    return filteredActivities.filter((item) => {
-      const plan = plansByActivityKey.get(item.key)
-      if (!plan) {
-        return true
-      }
-      const hasPendingInPeriod = plan.installments.some((installment) => {
-        if (installment.paymentStatus !== 'pending') {
-          return false
-        }
-        const due = parseIsoDate(installment.dueDate)
-        if (!due) {
-          return false
-        }
-        const value = dateOnly(due)
-        return value >= periodStart && value <= periodEnd
-      })
-      if (!hasPendingInPeriod) {
-        return false
-      }
-      return true
-    })
-  }, [filteredActivities, periodRange.end, periodRange.start, plansByActivityKey])
+  const filteredActivitiesByPeriod = useMemo(() => filteredActivities, [filteredActivities])
 
   const installmentRows = useMemo(() => {
     const rows: Array<{
@@ -1048,7 +985,7 @@ function ActivitiesPaymentsPage() {
         enrollment: selectedEnrollment,
       })
     }
-    setPlansVersion((prev) => prev + 1)
+    setPlansByActivityKey(buildPlansByActivityKey())
     closePlanModal()
   }
 
@@ -1576,35 +1513,35 @@ function ActivitiesPaymentsPage() {
               </label>
             </div>
 
-            {planDraft.services.length > 0 ? (
-              <div className="mt-4 rounded border border-base-300 p-3">
-                <p className="text-sm font-semibold">{t('activitiesPayments.plan.services')}</p>
-                <div className="mt-2 flex flex-col gap-2 md:flex-row">
-                  <select
-                    className="select select-bordered w-full"
-                    value={newServiceOptionKey || addableServiceOptions[0]?.key || ''}
-                    onChange={(event) => setNewServiceOptionKey(event.target.value)}
-                  >
-                    {addableServiceOptions.length === 0 ? (
-                      <option value="">{t('activitiesPayments.plan.noServiceAvailable')}</option>
-                    ) : (
-                      addableServiceOptions.map((item) => (
-                        <option key={item.key} value={item.key}>
-                          {item.title} ({item.kind === 'fixed' ? t('activitiesPayments.plan.fixedService') : t('activitiesPayments.plan.variableService')})
-                        </option>
-                      ))
-                    )}
-                  </select>
-                  <button
-                    type="button"
-                    className="btn btn-outline"
-                    onClick={addServiceToDraft}
-                    disabled={addableServiceOptions.length === 0}
-                  >
-                    <Plus className="h-4 w-4" />
-                    {t('activitiesPayments.plan.addService')}
-                  </button>
-                </div>
+            <div className="mt-4 rounded border border-base-300 p-3">
+              <p className="text-sm font-semibold">{t('activitiesPayments.plan.services')}</p>
+              <div className="mt-2 flex flex-col gap-2 md:flex-row">
+                <select
+                  className="select select-bordered w-full"
+                  value={newServiceOptionKey || addableServiceOptions[0]?.key || ''}
+                  onChange={(event) => setNewServiceOptionKey(event.target.value)}
+                >
+                  {addableServiceOptions.length === 0 ? (
+                    <option value="">{t('activitiesPayments.plan.noServiceAvailable')}</option>
+                  ) : (
+                    addableServiceOptions.map((item) => (
+                      <option key={item.key} value={item.key}>
+                        {item.title} ({item.kind === 'fixed' ? t('activitiesPayments.plan.fixedService') : t('activitiesPayments.plan.variableService')})
+                      </option>
+                    ))
+                  )}
+                </select>
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  onClick={addServiceToDraft}
+                  disabled={addableServiceOptions.length === 0}
+                >
+                  <Plus className="h-4 w-4" />
+                  {t('activitiesPayments.plan.addService')}
+                </button>
+              </div>
+              {planDraft.services.length > 0 ? (
                 <div className="mt-2 space-y-2">
                   {planDraft.services.map((itemService, index) => (
                     <div key={itemService.serviceId} className="grid grid-cols-1 gap-2 rounded border border-base-300 p-2 md:grid-cols-3">
@@ -1658,38 +1595,8 @@ function ActivitiesPaymentsPage() {
                     </div>
                   ))}
                 </div>
-              </div>
-            ) : (
-              <div className="mt-4 rounded border border-base-300 p-3">
-                <p className="text-sm font-semibold">{t('activitiesPayments.plan.services')}</p>
-                <div className="mt-2 flex flex-col gap-2 md:flex-row">
-                  <select
-                    className="select select-bordered w-full"
-                    value={newServiceOptionKey || addableServiceOptions[0]?.key || ''}
-                    onChange={(event) => setNewServiceOptionKey(event.target.value)}
-                  >
-                    {addableServiceOptions.length === 0 ? (
-                      <option value="">{t('activitiesPayments.plan.noServiceAvailable')}</option>
-                    ) : (
-                      addableServiceOptions.map((item) => (
-                        <option key={item.key} value={item.key}>
-                          {item.title} ({item.kind === 'fixed' ? t('activitiesPayments.plan.fixedService') : t('activitiesPayments.plan.variableService')})
-                        </option>
-                      ))
-                    )}
-                  </select>
-                  <button
-                    type="button"
-                    className="btn btn-outline"
-                    onClick={addServiceToDraft}
-                    disabled={addableServiceOptions.length === 0}
-                  >
-                    <Plus className="h-4 w-4" />
-                    {t('activitiesPayments.plan.addService')}
-                  </button>
-                </div>
-              </div>
-            )}
+              ) : null}
+            </div>
 
             <div className="mt-4 rounded border border-base-300 p-3">
               <p className="text-sm">{t('activitiesPayments.plan.servicesTotal')}: <span className="font-semibold">{activePlanServicesTotal.toFixed(2)}</span></p>

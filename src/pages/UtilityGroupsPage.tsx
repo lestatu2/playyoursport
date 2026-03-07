@@ -127,7 +127,7 @@ function UtilityGroupsPage() {
     [applyError, t],
   )
 
-  const genderLabel = (value: GroupGender) => {
+  const genderLabel = useCallback((value: GroupGender) => {
     if (value === 'male') {
       return t('utility.groups.genderMale')
     }
@@ -135,7 +135,7 @@ function UtilityGroupsPage() {
       return t('utility.groups.genderFemale')
     }
     return t('utility.groups.genderMixed')
-  }
+  }, [t])
 
   const columns = useMemo<ColumnDef<UtilityGroup>[]>(
     () => [
@@ -190,7 +190,7 @@ function UtilityGroupsPage() {
         ),
       },
     ],
-    [handleDelete, openEditModal, t],
+    [genderLabel, handleDelete, openEditModal, t],
   )
 
   const table = useReactTable({

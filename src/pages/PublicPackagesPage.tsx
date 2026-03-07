@@ -13,7 +13,7 @@ type PublicPackagesPageProps = {
   onLogout: () => void
 }
 
-function PublicPackagesPage({ session, onLogin, onLogout }: PublicPackagesPageProps) {
+function PublicPackagesPage({ session, onLogin: _onLogin, onLogout }: PublicPackagesPageProps) {
   const packages = getCurrentPublicPackageEditions()
   const [guestYouthPackageId, setGuestYouthPackageId] = useState<string | null>(null)
   const [error, setError] = useState('')

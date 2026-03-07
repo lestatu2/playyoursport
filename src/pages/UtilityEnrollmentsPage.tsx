@@ -209,7 +209,7 @@ function UtilityEnrollmentsPage() {
     }
   }
 
-  const deleteInsurance = (insurance: EnrollmentInsurance) => {
+  const deleteInsurance = useCallback((insurance: EnrollmentInsurance) => {
     const confirmed = window.confirm(t('utility.insurances.confirmDelete', { title: insurance.title }))
     if (!confirmed) {
       return
@@ -226,9 +226,9 @@ function UtilityEnrollmentsPage() {
     refresh()
     setIsError(false)
     setMessage(t('utility.insurances.deleted'))
-  }
+  }, [applyError, refresh, t])
 
-  const deleteEnrollment = (enrollment: EnrollmentType) => {
+  const deleteEnrollment = useCallback((enrollment: EnrollmentType) => {
     const confirmed = window.confirm(t('utility.enrollments.confirmDelete', { title: enrollment.title }))
     if (!confirmed) {
       return
@@ -241,7 +241,7 @@ function UtilityEnrollmentsPage() {
     refresh()
     setIsError(false)
     setMessage(t('utility.enrollments.deleted'))
-  }
+  }, [applyError, refresh, t])
 
   const insuranceColumns = useMemo<ColumnDef<EnrollmentInsurance>[]>(
     () => [
@@ -309,7 +309,7 @@ function UtilityEnrollmentsPage() {
         ),
       },
     ],
-    [t],
+    [deleteInsurance, t],
   )
 
   const enrollmentColumns = useMemo<ColumnDef<EnrollmentType>[]>(
@@ -370,7 +370,7 @@ function UtilityEnrollmentsPage() {
         ),
       },
     ],
-    [enrollmentLabelById, insuranceLabelById, t],
+    [deleteEnrollment, enrollmentLabelById, insuranceLabelById, t],
   )
 
   const insuranceTable = useReactTable({

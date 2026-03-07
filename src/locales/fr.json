@@ -1,4 +1,4 @@
-﻿{
+{
   "common": {
     "save": "Enregistrer",
     "resetDefault": "Reinitialiser",
@@ -83,6 +83,10 @@
     "searchPlaceholder": "Rechercher par nom, email, telephone, code fiscal, mineur",
     "validationFilter": "Filtre validation",
     "allStatuses": "Tous les statuts",
+    "privacyFilter": "Filtre confidentialite",
+    "allPrivacyStatuses": "Tous",
+    "privacySigned": "Signee",
+    "privacyNotSigned": "Non signee",
     "actions": "Actions",
     "downloadConsents": "Telecharger les consentements",
     "consentsNoLinkedMinor": "Aucun mineur lie disponible pour generer les consentements.",
@@ -94,29 +98,29 @@
     "confirmValidateWithUnvalidatedMinors": "Il y a des mineurs lies non valides. Valider le parent quand meme ?",
     "updated": "Statut client mis a jour.",
     "empty": "Aucun client enregistre.",
-    "create": "Crea cliente",
-    "createTitle": "Crea cliente",
-    "createModeLabel": "Tipo creazione",
-    "createAsParent": "Cliente come genitore",
-    "createAsAthlete": "Cliente come atleta",
-    "createPackageLabel": "Pacchetto",
-    "createNoPackages": "Nessun pacchetto ragazzi disponibile",
-    "createRequired": "Compila tutti i campi obbligatori.",
-    "createSelectPackage": "Seleziona un pacchetto valido.",
-    "minorAgeNotCompatible": "EtÃ  del minore non compatibile con il pacchetto selezionato ({{min}}-{{max}} anni).",
-    "createAthleteNotImplemented": "Creazione cliente come atleta non ancora disponibile.",
-    "addMinor": "Aggiungi minore",
-    "addMinorTitle": "Aggiungi minore",
-    "createAthlete": "Crea atleta",
-    "minor": "Minore",
-    "gender": "Sesso",
-    "genderMale": "Maschio",
-    "genderFemale": "Femmina",
-    "created": "Cliente e minore creati e validati.",
-    "minorCreated": "Minore creato e validato.",
-    "paymentMethod": "Metodo di pagamento",
-    "noPaymentMethods": "Nessun metodo disponibile",
-    "selectPaymentMethod": "Seleziona un metodo di pagamento."
+    "create": "Creer client",
+    "createTitle": "Creer client",
+    "createModeLabel": "Type de creation",
+    "createAsParent": "Client comme parent",
+    "createAsAthlete": "Client comme athlete",
+    "createPackageLabel": "Pack",
+    "createNoPackages": "Aucun pack jeunes disponible",
+    "createRequired": "Renseigner tous les champs obligatoires.",
+    "createSelectPackage": "Selectionner un pack valide.",
+    "minorAgeNotCompatible": "Age du mineur non compatible avec le pack selectionne ({{min}}-{{max}} ans).",
+    "createAthleteNotImplemented": "Creation client comme athlete pas encore disponible.",
+    "addMinor": "Ajouter mineur",
+    "addMinorTitle": "Ajouter mineur",
+    "createAthlete": "Creer athlete",
+    "minor": "Mineur",
+    "gender": "Sexe",
+    "genderMale": "Homme",
+    "genderFemale": "Femme",
+    "created": "Client et mineur crees et valides.",
+    "minorCreated": "Mineur cree et valide.",
+    "paymentMethod": "Methode de paiement",
+    "noPaymentMethods": "Aucune methode disponible",
+    "selectPaymentMethod": "Selectionner une methode de paiement."
   },
   "athletes": {
     "title": "Athletes",
@@ -293,10 +297,6 @@
     "consents": {
       "download": "Consensi PDF",
       "downloadError": "Errore durante la generazione del PDF consensi."
-    },
-    "period": {
-      "current": "Corrente",
-      "total": "Totale"
     }
   },
   "layout": {
@@ -581,7 +581,7 @@
       "deleted": "Package supprime avec succes.",
       "confirmDelete": "Confirmer la suppression du package \"{{title}}\"?",
       "contractTab": "Contratto",
-      "audienceLabel": "Tipologia etÃ ",
+      "audienceLabel": "Tipologia età",
       "contractHeaderImageLabel": "Immagine intestazione",
       "contractHeaderImageRemove": "Rimuovi immagine",
       "contractHeaderImageUploadError": "Errore durante il caricamento immagine intestazione.",
@@ -1044,6 +1044,7 @@
     }
   }
 }
+
 
 
 

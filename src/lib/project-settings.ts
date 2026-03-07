@@ -51,22 +51,6 @@ export type HomepageSliderItem = {
   sortOrder: number
 }
 
-export type ContractTemplateVariable = {
-  token: string
-  descriptionKey: string
-}
-
-export const CONTRACT_SUBJECT_TEMPLATE_VARIABLES: ContractTemplateVariable[] = [
-  { token: '{{package_name}}', descriptionKey: 'configuration.contract.variables.packageName' },
-  { token: '{{package_edition_year}}', descriptionKey: 'configuration.contract.variables.packageEditionYear' },
-  { token: '{{package_period}}', descriptionKey: 'configuration.contract.variables.packagePeriod' },
-  { token: '{{training_address}}', descriptionKey: 'configuration.contract.variables.trainingAddress' },
-  { token: '{{company_title}}', descriptionKey: 'configuration.contract.variables.companyTitle' },
-  { token: '{{athlete_full_name}}', descriptionKey: 'configuration.contract.variables.athleteFullName' },
-  { token: '{{athlete_birth_date}}', descriptionKey: 'configuration.contract.variables.athleteBirthDate' },
-  { token: '{{guardian_full_name}}', descriptionKey: 'configuration.contract.variables.guardianFullName' },
-]
-
 const projectDefaults = mockProject as MockProject
 
 function emitProjectSettingsChanged(): void {
@@ -253,53 +237,6 @@ export function setPaymentCurrency(currency: string): void {
   const normalized = currency.trim().toUpperCase() || 'EUR'
   const settings = getProjectSettings()
   writeSettings({ ...settings, paymentCurrency: normalized })
-}
-
-export function setContractSubjectTemplate(template: string): void {
-  const settings = getProjectSettings()
-  writeSettings({
-    ...settings,
-    contractSubjectTemplate: template.trim(),
-  })
-}
-
-export function setContractEconomicClausesTemplate(template: string): void {
-  const settings = getProjectSettings()
-  writeSettings({
-    ...settings,
-    contractEconomicClausesTemplate: template.trim(),
-  })
-}
-
-export function setContractServicesAdjustmentTemplate(template: string): void {
-  const settings = getProjectSettings()
-  writeSettings({
-    ...settings,
-    contractServicesAdjustmentTemplate: template.trim(),
-  })
-}
-
-export function setContractSpecialClausesFormula(template: string): void {
-  const settings = getProjectSettings()
-  writeSettings({
-    ...settings,
-    contractSpecialClausesFormula: template.trim(),
-  })
-}
-
-export function setContractSpecialClauses(items: ContractSpecialClause[]): void {
-  const settings = getProjectSettings()
-  writeSettings({
-    ...settings,
-    contractSpecialClauses: items
-      .map((item) => ({
-        id: item.id.trim(),
-        title: item.title.trim(),
-        text: item.text.trim(),
-        isActive: item.isActive ?? true,
-      }))
-      .filter((item) => item.id.length > 0 && item.title.length > 0 && item.text.length > 0),
-  })
 }
 
 export function getProjectSettingsChangedEventName(): string {

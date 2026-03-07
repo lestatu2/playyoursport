@@ -70,29 +70,33 @@ function normalizeTaxCode(value: string): string {
   return value.trim().toUpperCase().replace(/\s+/g, '')
 }
 
+function normalizeParentRole(role: string): ParentRole {
+  if (role === 'tutore' || role === 'esercente_responsabilita') {
+    return role
+  }
+  return 'genitore'
+}
+
+function normalizeClientValidationStatus(status: string): PublicValidationStatus {
+  return status === 'validated' ? 'validated' : 'not_validated'
+}
+
+function normalizeClientRecord(item: PublicClientRecord): PublicClientRecord {
+  return {
+    ...item,
+    parentRole: normalizeParentRole(item.parentRole),
+    privacyPolicySigned: Boolean(item.privacyPolicySigned),
+    validationStatus: normalizeClientValidationStatus(item.validationStatus),
+  }
+}
+
 function nextId(items: Array<{ id: number }>): number {
   return Math.max(0, ...items.map((item) => item.id)) + 1
 }
 
 export function getPublicClients(): PublicClientRecord[] {
-  const stored = readJson<PublicClientRecord>(PUBLIC_CLIENTS_KEY).map((item) => ({
-    ...item,
-    parentRole:
-      item.parentRole === 'tutore' || item.parentRole === 'esercente_responsabilita'
-        ? item.parentRole
-        : 'genitore',
-    privacyPolicySigned: Boolean(item.privacyPolicySigned),
-    validationStatus: item.validationStatus === 'validated' ? 'validated' : 'not_validated',
-  }))
-  const seeds = (mockPublicClients as PublicClientRecord[]).map((item) => ({
-    ...item,
-    parentRole:
-      item.parentRole === 'tutore' || item.parentRole === 'esercente_responsabilita'
-        ? item.parentRole
-        : 'genitore',
-    privacyPolicySigned: Boolean(item.privacyPolicySigned),
-    validationStatus: item.validationStatus === 'validated' ? 'validated' : 'not_validated',
-  }))
+  const stored = readJson<PublicClientRecord>(PUBLIC_CLIENTS_KEY).map(normalizeClientRecord)
+  const seeds = (mockPublicClients as PublicClientRecord[]).map(normalizeClientRecord)
   if (stored.length === 0) {
     return seeds
   }

@@ -43,15 +43,7 @@ function SitePage() {
     )
     const alreadyConfigured = new Set(sliderItems.map((item) => item.contentId))
     return packages
-      .filter((item) => {
-        if (selectedInOtherRows.has(item.id)) {
-          return false
-        }
-        if (alreadyConfigured.has(item.id)) {
-          return false
-        }
-        return true
-      })
+      .filter((item) => !selectedInOtherRows.has(item.id) && !alreadyConfigured.has(item.id))
       .map((item) => ({
         id: item.id,
         label: `${item.name} (${item.editionYear})`,

@@ -541,10 +541,22 @@ function PackagesPage() {
     [additionalServices],
   )
 
-  const openCreateModal = () => {
+  const openCreateModalWithDraft = (nextDraft: SavePackagePayload) => {
     setIsError(false)
     setMessage('')
-    setDraft({
+    setDraft(nextDraft)
+    setModalMode('create')
+    setEditingId(null)
+    setActiveTab('general-info')
+    setEditingGalleryImageId(null)
+    setGalleryCaptionDraft('')
+    setIsGroupModalOpen(false)
+    setEditingGroupIndex(null)
+    setIsModalOpen(true)
+  }
+
+  const openCreateModal = () => {
+    openCreateModalWithDraft({
       productId: `product-${Date.now().toString(36)}`,
       editionYear: currentYear,
       name: '',
@@ -587,14 +599,6 @@ function PackagesPage() {
       isFeatured: false,
       isDescriptive: false,
     })
-    setModalMode('create')
-    setEditingId(null)
-    setActiveTab('general-info')
-    setEditingGalleryImageId(null)
-    setGalleryCaptionDraft('')
-    setIsGroupModalOpen(false)
-    setEditingGroupIndex(null)
-    setIsModalOpen(true)
   }
 
   const openEditModal = useCallback((item: SportPackage) => {
@@ -921,7 +925,7 @@ function PackagesPage() {
     setMessage('')
   }
 
-  const openPackageWhatsAppGroup = (item: SportPackage) => {
+  const openPackageWhatsAppGroup = useCallback((item: SportPackage) => {
     const rawLink = item.whatsappGroupLink.trim()
     if (!rawLink) {
       setIsError(true)
@@ -930,7 +934,7 @@ function PackagesPage() {
     }
     const href = /^https?:\/\//i.test(rawLink) ? rawLink : `https://${rawLink}`
     window.open(href, '_blank', 'noopener,noreferrer')
-  }
+  }, [t])
 
   const handleDelete = useCallback((item: SportPackage) => {
     const confirmed = window.confirm(t('utility.packages.confirmDelete', { title: item.name }))
@@ -1146,10 +1150,10 @@ function PackagesPage() {
     setSearchParams(next, { replace: true })
   }
 
-  const openEditionsModal = (productId: string) => {
+  const openEditionsModal = useCallback((productId: string) => {
     setSelectedProductId(productId)
     setIsEditionsModalOpen(true)
-  }
+  }, [])
 
   const closeEditionsModal = () => {
     setIsEditionsModalOpen(false)
@@ -1164,21 +1168,11 @@ function PackagesPage() {
     if (!source) {
       return
     }
-    setIsError(false)
-    setMessage('')
-    setDraft({
+    openCreateModalWithDraft({
       ...source,
       productId,
       editionYear: source.editionYear + 1,
     })
-    setModalMode('create')
-    setEditingId(null)
-    setActiveTab('general-info')
-    setEditingGalleryImageId(null)
-    setGalleryCaptionDraft('')
-    setIsGroupModalOpen(false)
-    setEditingGroupIndex(null)
-    setIsModalOpen(true)
   }
 
   const openPriorityModal = () => {
