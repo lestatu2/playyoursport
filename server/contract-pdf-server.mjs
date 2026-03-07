@@ -80,7 +80,7 @@ function formatItDate(value) {
   if (Number.isNaN(parsed.getTime())) {
     return direct
   }
-  return parsed.toLocaleDateString('it-IT')
+  return new Intl.DateTimeFormat('it-IT').format(parsed)
 }
 
 function splitResidenceAddress(address) {
@@ -130,7 +130,7 @@ function formatPackagePeriod(pkg) {
 
 function applyContractTemplate(template, variables) {
   const source = String(template || '')
-  return source.replace(/\{\{\s*([a-z0-9_]+)\s*\}\}/gi, (_, token) => {
+  return source.replace(/\{\{\s*([a-z0-9_]+)\s*}}/gi, (_, token) => {
     const key = `{{${token.toLowerCase()}}}`
     return variables[key] ?? ''
   })
@@ -287,9 +287,9 @@ function buildConsentsHtml(payload) {
   const birthDate = formatItDate(declarant.birthDate || '')
   const residence = splitResidenceAddress(declarant.residenceAddress || '')
   const phone = declarant.phone || '-'
-  const secondaryPhone = declarant.secondaryPhone || '-'
+  const secondaryPhone = declarant?.['secondaryPhone'] || '-'
   const email = declarant.email || '-'
-  const downloadDate = new Date().toLocaleDateString('it-IT')
+  const downloadDate = new Intl.DateTimeFormat('it-IT').format(new Date())
   const signaturePlace = payload.company.headquartersCity || payload.company.contractSignaturePlace || '-'
   const portalName = payload.company.portalName || 'Play Your Sport'
   const legalRepresentative = payload.company.legalRepresentativeFullName || '-'
@@ -341,7 +341,7 @@ function buildConsentsHtml(payload) {
         <p><strong>FINALITA DEL TRATTAMENTO</strong></p>
         <p>I dati raccolti saranno utilizzati esclusivamente per le seguenti finalita: rilascio account accesso al portale ${escapeHtml(portalName)}.</p>
         <p><strong>TITOLARE E RESPONSABILI DEL TRATTAMENTO</strong></p>
-        <p>Il Responsabile del trattamento e ${escapeHtml(legalRepresentative)}.</p>
+        <p>Il Responsabile del trattamento è ${escapeHtml(legalRepresentative)}.</p>
         <p>In ogni caso il trattamento avviene in modo da garantire la sicurezza e la riservatezza dei dati, mediante l'adozione delle misure previste dall'articolo 32 del Regolamento al fine di preservare l'integrita dei dati trattati e prevenire l'accesso agli stessi da parte di soggetti non autorizzati.</p>
         <p><strong>NATURA DEL CONFERIMENTO</strong></p>
         <p>Il conferimento dei dati e obbligatorio al fine di identificare gli utenti abilitati al portale dedicato.</p>
@@ -364,7 +364,6 @@ function buildConsentsHtml(payload) {
 async function getBrowser() {
   if (!browserPromise) {
     const executablePath = resolveChromeExecutablePath()
-    // eslint-disable-next-line no-console
     console.log('[contracts] launch', { executablePath: executablePath || 'auto-default' })
     browserPromise = puppeteer.launch({
       headless: true,
@@ -373,6 +372,22 @@ async function getBrowser() {
     })
   }
   return browserPromise
+}
+
+async function renderPdfBufferFromHtml(html) {
+  const browser = await getBrowser()
+  const page = await browser.newPage()
+  try {
+    await page.setContent(html, { waitUntil: 'networkidle0' })
+    return await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      preferCSSPageSize: true,
+      margin: { top: '12mm', right: '12mm', bottom: '12mm', left: '12mm' },
+    })
+  } finally {
+    await page.close()
+  }
 }
 
 const app = express()
@@ -387,21 +402,11 @@ app.post('/api/contracts/pdf', async (req, res) => {
   try {
     const payload = req.body || {}
     const html = buildContractHtml(payload)
-    const browser = await getBrowser()
-    const page = await browser.newPage()
-    await page.setContent(html, { waitUntil: 'networkidle0' })
-    const pdf = await page.pdf({
-      format: 'A4',
-      printBackground: true,
-      preferCSSPageSize: true,
-      margin: { top: '12mm', right: '12mm', bottom: '12mm', left: '12mm' },
-    })
-    await page.close()
+    const pdf = await renderPdfBufferFromHtml(html)
     res.setHeader('Content-Type', 'application/pdf')
     res.setHeader('Content-Disposition', 'attachment; filename="contratto-attivita.pdf"')
     res.send(pdf)
   } catch (error) {
-    // eslint-disable-next-line no-console
     console.error('[contracts] pdf_generation_failed', error)
     res.status(500).send('pdf_generation_failed')
   }
@@ -411,27 +416,16 @@ app.post('/api/consents/pdf', async (req, res) => {
   try {
     const payload = req.body || {}
     const html = buildConsentsHtml(payload)
-    const browser = await getBrowser()
-    const page = await browser.newPage()
-    await page.setContent(html, { waitUntil: 'networkidle0' })
-    const pdf = await page.pdf({
-      format: 'A4',
-      printBackground: true,
-      preferCSSPageSize: true,
-      margin: { top: '12mm', right: '12mm', bottom: '12mm', left: '12mm' },
-    })
-    await page.close()
+    const pdf = await renderPdfBufferFromHtml(html)
     res.setHeader('Content-Type', 'application/pdf')
     res.setHeader('Content-Disposition', 'attachment; filename="consensi-attivita.pdf"')
     res.send(pdf)
   } catch (error) {
-    // eslint-disable-next-line no-console
     console.error('[consents] pdf_generation_failed', error)
     res.status(500).send('pdf_generation_failed')
   }
 })
 
 app.listen(PORT, () => {
-  // eslint-disable-next-line no-console
   console.log(`Contract PDF server listening on http://localhost:${PORT}`)
 })
