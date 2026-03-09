@@ -532,3 +532,69 @@ Obiettivo: mantenere separazione netta tra prodotto base e edizione annuale.
 - Determinazione chiusura edizione:
   - `durationType=period` -> edizione chiusa se `periodEndDate < oggi`
   - `durationType=single-event` -> edizione chiusa se `eventDate < oggi`
+
+## Aggiornamento odierno (2026-03-09)
+
+### Frontend pubblico - scenario `subscriber` loggato
+- Scenario `subscriber` loggato + acquisto pacchetto `youth`:
+  - sezione genitore: `nome`, `cognome`, `email` visibili ma non modificabili
+  - NON richiedere `login` e `password`
+  - continuare a richiedere gli altri campi necessari
+- Submit:
+  - usare sempre `session.userId` (no fallback su altri utenti)
+  - conversione ruolo `subscriber -> client` al primo acquisto confermata
+- Regola sicurezza dati:
+  - nessun riuso/aggancio cliente di altri utenti in base a CF quando l utente e loggato
+
+### Frontend pubblico - documenti adulti per subscriber
+- Anche su pacchetto `adult`, se utente `subscriber` loggato:
+  - upload foto CF adulto obbligatorio
+  - upload documento identita adulto obbligatorio
+  - obbligatorieta valida sia in validazione step sia in submit
+
+### Frontend pubblico - scenari `client` loggato (pacchetti minori)
+- Caso pacchetto gia acquistato per almeno un minore collegato:
+  - mostrare disclaimer dedicato
+  - dopo disclaimer, permettere due percorsi:
+    - acquisto per altro minore gia collegato (selezione minore)
+    - acquisto per nuovo ulteriore minore
+- Caso acquisto per minore gia collegato:
+  - nessuna sezione minore
+  - nessuna sezione genitore
+  - form parte direttamente da sezione 3 (servizi) + sezioni successive
+- Caso acquisto per nuovo ulteriore minore (cliente gia validato):
+  - sezione minore presente
+  - sezione genitore assente
+
+### Backend operativo/admin - validazioni
+- Nei flussi `client` loggato con cliente gia validato:
+  - non ripetere validazione genitore
+  - eventuale validazione richiesta solo per nuovo minore collegato
+
+### Post-submit pubblico
+- Nei casi in cui non e prevista una nuova validazione:
+  - non mostrare messaggi di verifica/attivazione
+  - non mostrare testi prezzo legati a "dopo validazione"
+- Restano i messaggi operativi di pagamento (metodi disponibili / primo pagamento in sede)
+
+### Attivita e chiavi tecniche
+- Fix creazione attivita da submit pubblico:
+  - creazione esplicita `AthleteActivity` su acquisto pubblico (minor/direct)
+- Fix collisione chiavi attivita:
+  - chiave primaria atleta: `minor-{id}` / `direct-{id}`
+  - pacchetti aggiuntivi stesso atleta: `minor-{id}::{packageId}` / `direct-{id}::{packageId}`
+- Aggiunta riconciliazione da enrollments per allineare attivita mancanti senza rifare i flussi
+
+### Correzioni dati collegamento cliente/minori
+- Aggiunta routine di riallineamento collegamenti `minor.clientId` su dati gia sporchi, usando i riferimenti enrollment quando deterministici.
+
+### UI Atleti
+- Colonna coperture iscrizione:
+  - badge con nome iscrizione (es. Agonista, Campo scuola)
+  - data scadenza mostrata sotto in testo piccolo
+
+### Refactor tecnici
+- Introdotto helper comune storage:
+  - `src/lib/storage.ts`
+  - `readJsonArray<T>()`, `writeJsonValue<T>()`
+- Eliminata duplicazione parser/storage in moduli che la replicavano.
