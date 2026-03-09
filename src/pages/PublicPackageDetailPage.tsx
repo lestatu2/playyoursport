@@ -68,7 +68,7 @@ function PublicPackageDetailPage({ session, onLogin: _onLogin, onLogout }: Publi
         )}
       </section>
       <PublicEnrollmentModal
-        packageItem={item?.audience === 'youth' ? item : null}
+        packageItem={item ?? null}
         isOpen={isWizardOpen}
         session={session}
         onClose={() => setIsWizardOpen(false)}

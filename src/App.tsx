@@ -18,6 +18,7 @@ import UtilityContractsPage from './pages/UtilityContractsPage'
 import UsersPage from './pages/UsersPage'
 import ClientsPage from './pages/ClientsPage'
 import AthletesPage from './pages/AthletesPage'
+import GroupFieldAssignmentsPage from './pages/GroupFieldAssignmentsPage'
 import ActivitiesPaymentsPage from './pages/ActivitiesPaymentsPage'
 import ActivitiesHistoryPage from './pages/ActivitiesHistoryPage'
 import PublicPortalPage from './pages/PublicPortalPage'
@@ -78,6 +79,21 @@ function AdministratorRoute({ session }: AdminRouteProps) {
 type UtilityRouteProps = {
   session: AuthSession | null
   children: ReactElement
+}
+
+function GroupFieldAssignmentsRoute({ session, children }: UtilityRouteProps) {
+  const { t } = useTranslation()
+  if (!session || !['super-administrator', 'administrator', 'trainer'].includes(session.role)) {
+    return (
+      <div className="card bg-base-100 shadow-sm">
+        <div className="card-body">
+          <h2 className="card-title text-error">{t('common.accessDenied')}</h2>
+          <p className="text-sm">{t('app.permissionDenied')}</p>
+        </div>
+      </div>
+    )
+  }
+  return children
 }
 
 function PackagesRoute({ session, children }: UtilityRouteProps) {
@@ -237,6 +253,14 @@ function App() {
             <UsersRoute session={session}>
               <ActivitiesPaymentsPage />
             </UsersRoute>
+          }
+        />
+        <Route
+          path="assegnazione-gruppo-campo"
+          element={
+            <GroupFieldAssignmentsRoute session={session}>
+              <GroupFieldAssignmentsPage session={session!} />
+            </GroupFieldAssignmentsRoute>
           }
         />
         <Route

@@ -64,6 +64,48 @@ export function getPublicDirectAthletes(): PublicDirectAthleteRecord[] {
   return normalize(mockDirectAthletes as PublicDirectAthleteRecord[])
 }
 
+export function createPublicDirectAthleteRecord(payload: {
+  userId: number
+  clientId: number | null
+  packageId: string
+  avatarUrl?: string
+  firstName: string
+  lastName: string
+  birthDate: string
+  gender?: 'M' | 'F'
+  birthPlace: string
+  residenceAddress: string
+  taxCode: string
+  email: string
+  phone: string
+  medicalCertificateImageDataUrl?: string
+  medicalCertificateExpiryDate?: string
+}): PublicDirectAthleteRecord {
+  const all = getPublicDirectAthletes()
+  const next: PublicDirectAthleteRecord = {
+    id: `direct-athlete-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+    userId: payload.userId,
+    clientId: Number.isFinite(payload.clientId) ? Number(payload.clientId) : null,
+    packageId: payload.packageId.trim(),
+    avatarUrl: payload.avatarUrl?.trim() ?? '',
+    firstName: payload.firstName.trim(),
+    lastName: payload.lastName.trim(),
+    birthDate: payload.birthDate.trim(),
+    gender: payload.gender === 'F' ? 'F' : payload.gender === 'M' ? 'M' : undefined,
+    birthPlace: payload.birthPlace.trim(),
+    residenceAddress: payload.residenceAddress.trim(),
+    taxCode: payload.taxCode.trim().toUpperCase(),
+    email: payload.email.trim().toLowerCase(),
+    phone: payload.phone.trim(),
+    medicalCertificateImageDataUrl: payload.medicalCertificateImageDataUrl?.trim() ?? '',
+    medicalCertificateExpiryDate: payload.medicalCertificateExpiryDate?.trim() ?? '',
+    validationStatus: 'not_validated',
+    createdAt: new Date().toISOString(),
+  }
+  writeStorage([...all, next])
+  return next
+}
+
 export function updatePublicDirectAthleteRecord(
   id: string,
   payload: Pick<

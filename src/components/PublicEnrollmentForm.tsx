@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { CheckCircle2 } from 'lucide-react'
 import {
+  convertSubscriberToClient,
   createUser,
   getUsers,
   type PublicSession,
@@ -9,13 +10,21 @@ import {
 import { getAdditionalServices, getCompanies, getEnrollmentById, getGroups, getPackages, type AdditionalService, type PackageGroup, type SportPackage } from '../lib/package-catalog'
 import { createPublicEnrollment } from '../lib/public-enrollments'
 import { upsertCoverageFromEnrollmentPurchase } from '../lib/athlete-enrollment-coverages'
+import { createAthleteActivity } from '../lib/athlete-activities'
 import {
   createPublicClientRecord,
+  getPublicClients,
+  getPublicMinors,
+  updatePublicClientRecord,
   createPublicMinorRecord,
   findPublicClientByTaxCode,
   findPublicMinorByTaxCode,
   type ParentRole,
 } from '../lib/public-customer-records'
+import {
+  createPublicDirectAthleteRecord,
+  updatePublicDirectAthleteValidationStatus,
+} from '../lib/public-direct-athletes'
 import { getProjectSettings, getProjectSettingsChangedEventName } from '../lib/project-settings'
 import { computeItalianTaxCode, findBirthPlaceCodeByName } from '../lib/tax-code'
 import { getAvailablePaymentMethodsForCompany, type PaymentMethodCode } from '../lib/payment-methods'
@@ -149,6 +158,7 @@ type PublicEnrollmentFormProps = {
   onClose: () => void
   onCompleted?: (message: string) => void
   enabledStepIds?: StepId[]
+  selectedExistingMinorId?: number | null
 }
 
 function normalizeLoginChunk(value: string): string {
@@ -200,6 +210,7 @@ function PublicEnrollmentForm({
   onClose,
   onCompleted,
   enabledStepIds,
+  selectedExistingMinorId,
 }: PublicEnrollmentFormProps) {
   const { t } = useTranslation()
   const isDevMode = import.meta.env.DEV
@@ -220,6 +231,10 @@ function PublicEnrollmentForm({
     }
     return getPackages().find((item) => item.id === packageItem.id) ?? packageItem
   }, [packageItem])
+  const isAdultPackage = packageItem?.audience === 'adult'
+  const isLoggedSubscriber = session?.role === 'subscribers'
+  const isLoggedClient = session?.role === 'client'
+  const requiresParentIdentityDocuments = !isAdultPackage || isLoggedSubscriber
   const hasScheduleStep = Boolean(
     (canonicalPackage?.userSelectableSchedule ?? packageItem?.userSelectableSchedule) === true,
   )
@@ -316,8 +331,57 @@ function PublicEnrollmentForm({
   const packageCost = packageItem?.priceAmount ?? 0
   const enrollmentCost = packageItem?.enrollmentPrice ?? 0
   const orderGrandTotal = packageCost + enrollmentCost + selectedAdditionalServicesTotal
+  const adultDataSectionTitle = 'Dati cliente'
+  const parentStepLabel = isAdultPackage ? adultDataSectionTitle : t('public.youthWizard.steps.parent')
+  const parentFirstNameLabel = isAdultPackage ? 'Nome' : t('public.youthWizard.fields.parentFirstName')
+  const parentLastNameLabel = isAdultPackage ? 'Cognome' : t('public.youthWizard.fields.parentLastName')
+  const parentEmailLabel = isAdultPackage ? 'Email' : t('public.youthWizard.fields.parentEmail')
+  const parentPhoneLabel = isAdultPackage ? 'Telefono' : t('public.youthWizard.fields.parentPhone')
+  const parentSecondaryPhoneLabel = isAdultPackage ? 'Secondo telefono' : t('public.youthWizard.fields.parentSecondaryPhone')
+  const parentBirthDateLabel = isAdultPackage ? 'Data di nascita' : t('public.youthWizard.fields.parentBirthDate')
+  const parentGenderLabel = isAdultPackage ? 'Sesso' : t('public.youthWizard.fields.parentGender')
+  const parentBirthPlaceLabel = isAdultPackage ? 'Luogo di nascita' : t('public.youthWizard.fields.parentBirthPlace')
+  const parentResidenceLabel = isAdultPackage ? 'Residenza' : t('public.youthWizard.fields.parentResidenceAddress')
+  const parentTaxCodeLabel = isAdultPackage ? 'Codice fiscale' : t('public.youthWizard.fields.parentTaxCode')
+  const consentInformationCheckLabel = isAdultPackage
+    ? 'Il cliente prende visione della presente informativa'
+    : t('public.youthWizard.consents.informationCheck')
+  const consentEnrollmentCheckLabel = isAdultPackage
+    ? 'Si confermo - Conferma di richiesta iscrizione'
+    : t('public.youthWizard.consents.enrollmentCheck')
+  const consentEnrollmentTextTitle = isAdultPackage
+    ? 'Conferma richiesta iscrizione'
+    : t('public.youthWizard.consents.enrollmentTextTitle')
+  const consentDataProcessingSignatureLabel = isAdultPackage
+    ? 'Firma del cliente per consenso al trattamento dati'
+    : t('public.youthWizard.consents.dataProcessingSignature')
+  const consentEnrollmentSignatureLabel = isAdultPackage
+    ? 'Firma del cliente che conferma iscrizione'
+    : t('public.youthWizard.consents.enrollmentSignature')
+  const summaryAccountTitle = isAdultPackage ? 'Riepilogo cliente/account' : t('public.youthWizard.summary.parentTitle')
+  const enrollmentSignatureRequiredError = isAdultPackage
+    ? 'Firma del cliente che conferma iscrizione obbligatoria.'
+    : t('public.youthWizard.errors.enrollmentSignatureRequired')
+  const verificationNoticeLabel = isAdultPackage
+    ? 'Per poter essere attivato, è necessaria la verifica dei dati del cliente.'
+    : t('public.youthWizard.postSubmit.verificationNotice')
   const consentsStepId: StepId = hasScheduleStep ? 5 : 4
   const confirmStepId: StepId = hasScheduleStep ? 6 : 5
+  const requiresPostSubmitValidation = !(isLoggedClient && !activeStepIds.includes(1))
+  const selectedExistingMinor = useMemo(() => {
+    if (!selectedExistingMinorId || !session || session.role !== 'client') {
+      return null
+    }
+    const currentClient = getPublicClients().find((item) => item.userId === session.userId) ?? null
+    if (!currentClient) {
+      return null
+    }
+    const minor = getPublicMinors().find((item) => item.id === selectedExistingMinorId) ?? null
+    if (!minor || minor.clientId !== currentClient.id) {
+      return null
+    }
+    return minor
+  }, [selectedExistingMinorId, session])
   const schedulePreferenceOptions = useMemo<SchedulePreferenceOption[]>(() => {
     const sourcePackage = canonicalPackage ?? packageItem
     if (!sourcePackage?.userSelectableSchedule) {
@@ -326,7 +390,8 @@ function PublicEnrollmentForm({
     const unique = new Map<string, SchedulePreferenceOption>()
     sourcePackage.groups.forEach((group) => {
       const groupGender = utilityGroupGenderById.get(group.id) ?? detectGroupGender(group)
-      if (!isGroupGenderCompatibleWithMinor(groupGender, draft.minorGender)) {
+      const participantGender = isAdultPackage ? draft.parentGender : draft.minorGender
+      if (!isGroupGenderCompatibleWithMinor(groupGender, participantGender)) {
         return
       }
       group.schedules.forEach((schedule) => {
@@ -345,7 +410,7 @@ function PublicEnrollmentForm({
       })
     })
     return Array.from(unique.values())
-  }, [canonicalPackage, draft.minorGender, packageItem, utilityGroupGenderById])
+  }, [canonicalPackage, draft.minorGender, draft.parentGender, isAdultPackage, packageItem, utilityGroupGenderById])
   const schedulePreferenceGroups = useMemo<SchedulePreferenceGroup[]>(() => {
     const byGroup = new Map<string, SchedulePreferenceGroup>()
     schedulePreferenceOptions.forEach((option) => {
@@ -442,12 +507,42 @@ function PublicEnrollmentForm({
 
   useEffect(() => {
     const existingLogins = new Set(getUsers().map((user) => user.login.toLowerCase()))
+    if (session) {
+      return
+    }
     if (draft.login) {
       existingLogins.delete(draft.login.toLowerCase())
     }
     const nextLogin = buildAutoLogin(draft.parentFirstName, draft.parentLastName, draft.parentBirthDate, existingLogins)
     setDraft((prev) => (prev.login === nextLogin ? prev : { ...prev, login: nextLogin }))
-  }, [draft.login, draft.parentBirthDate, draft.parentFirstName, draft.parentLastName])
+  }, [draft.login, draft.parentBirthDate, draft.parentFirstName, draft.parentLastName, session])
+
+  useEffect(() => {
+    if (!session || (session.role !== 'subscribers' && session.role !== 'client')) {
+      return
+    }
+    const sessionUser = getUsers().find((item) => item.id === session.userId) ?? null
+    if (!sessionUser) {
+      return
+    }
+    const existingClient = getPublicClients().find((item) => item.userId === session.userId) ?? null
+    setDraft((prev) => ({
+      ...prev,
+      parentFirstName: sessionUser.firstName,
+      parentLastName: sessionUser.lastName,
+      parentEmail: sessionUser.email,
+      parentPhone: existingClient?.parentPhone ?? '',
+      parentSecondaryPhone: existingClient?.parentSecondaryPhone ?? '',
+      parentBirthDate: existingClient?.parentBirthDate ?? '',
+      parentBirthPlace: existingClient?.parentBirthPlace ?? '',
+      parentRole: existingClient?.parentRole ?? 'genitore',
+      parentGender: existingClient?.parentGender === 'M' ? 'M' : existingClient?.parentGender === 'F' ? 'F' : 'F',
+      parentResidenceAddress: existingClient?.residenceAddress ?? '',
+      parentTaxCode: existingClient?.parentTaxCode ?? '',
+      login: sessionUser.login,
+      password: '',
+    }))
+  }, [session])
 
   useEffect(() => {
     if (paymentMethodsForRender.length === 0) {
@@ -548,6 +643,9 @@ function PublicEnrollmentForm({
   }
 
   const validateStepOne = (): boolean => {
+    if (isAdultPackage) {
+      return true
+    }
     if (
       !draft.minorFirstName.trim() ||
       !draft.minorLastName.trim() ||
@@ -585,22 +683,31 @@ function PublicEnrollmentForm({
       !draft.parentBirthPlace.trim() ||
       !draft.parentResidenceAddress.trim() ||
       !draft.parentTaxCode.trim() ||
-      !draft.password.trim()
+      (!isLoggedSubscriber && !draft.password.trim())
     ) {
       setError(t('public.youthWizard.errors.parentRequired'))
       return false
     }
-    if (!parentTaxCodeFile) {
+    if (requiresParentIdentityDocuments && !parentTaxCodeFile) {
       setError(t('public.youthWizard.errors.parentTaxCodePhotoRequired'))
       return false
     }
-    if (!parentIdentityFile) {
+    if (requiresParentIdentityDocuments && !parentIdentityFile) {
       setError(t('public.youthWizard.errors.parentIdentityRequired'))
       return false
     }
-    if (findPublicClientByTaxCode(draft.parentTaxCode)) {
-      setError(t('public.youthWizard.errors.parentTaxCodeDuplicate'))
-      return false
+    if (!session) {
+      const existingClientByTaxCode = findPublicClientByTaxCode(draft.parentTaxCode)
+      if (existingClientByTaxCode) {
+        setError(t('public.youthWizard.errors.parentTaxCodeDuplicate'))
+        return false
+      }
+    } else {
+      const existingClientByTaxCode = findPublicClientByTaxCode(draft.parentTaxCode)
+      if (existingClientByTaxCode && existingClientByTaxCode.userId !== session.userId) {
+        setError(t('public.youthWizard.errors.parentTaxCodeDuplicate'))
+        return false
+      }
     }
     return true
   }
@@ -637,7 +744,7 @@ function PublicEnrollmentForm({
       return false
     }
     if (!draft.enrollmentConfirmationSignatureDataUrl) {
-      setError(t('public.youthWizard.errors.enrollmentSignatureRequired'))
+      setError(enrollmentSignatureRequiredError)
       return false
     }
     return true
@@ -713,7 +820,7 @@ function PublicEnrollmentForm({
 
   const submit = async () => {
     setError('')
-    if (session) {
+    if (session && session.role !== 'subscribers' && session.role !== 'client') {
       setError(t('public.common.scenarioUnavailableLogged'))
       return
     }
@@ -738,11 +845,15 @@ function PublicEnrollmentForm({
       setError(t('public.youthWizard.errors.minorTaxCodePhotoRequired'))
       return
     }
-    if (activeStepIds.includes(2) && !parentTaxCodeFile) {
+    if (!isAdultPackage && !activeStepIds.includes(1) && !selectedExistingMinor) {
+      setError(t('public.common.scenarioUnavailableLogged'))
+      return
+    }
+    if (requiresParentIdentityDocuments && activeStepIds.includes(2) && !parentTaxCodeFile) {
       setError(t('public.youthWizard.errors.parentTaxCodePhotoRequired'))
       return
     }
-    if (activeStepIds.includes(2) && !parentIdentityFile) {
+    if (requiresParentIdentityDocuments && activeStepIds.includes(2) && !parentIdentityFile) {
       setError(t('public.youthWizard.errors.parentIdentityRequired'))
       return
     }
@@ -761,7 +872,7 @@ function PublicEnrollmentForm({
           return
         }
       }
-      if (activeStepIds.includes(2) && parentTaxCodeFile) {
+      if (requiresParentIdentityDocuments && activeStepIds.includes(2) && parentTaxCodeFile) {
         try {
           parentTaxCodeImageDataUrl = await readFileAsDataUrl(parentTaxCodeFile)
         } catch {
@@ -769,7 +880,7 @@ function PublicEnrollmentForm({
           return
         }
       }
-      if (activeStepIds.includes(2) && parentIdentityFile) {
+      if (requiresParentIdentityDocuments && activeStepIds.includes(2) && parentIdentityFile) {
         try {
           parentIdentityDocumentImageDataUrl = await readFileAsDataUrl(parentIdentityFile)
         } catch {
@@ -780,87 +891,179 @@ function PublicEnrollmentForm({
 
       if (
         (activeStepIds.includes(1) && !minorTaxCodeImageDataUrl) ||
-        (activeStepIds.includes(2) && !parentTaxCodeImageDataUrl) ||
-        (activeStepIds.includes(2) && !parentIdentityDocumentImageDataUrl)
+        (requiresParentIdentityDocuments && activeStepIds.includes(2) && !parentTaxCodeImageDataUrl) ||
+        (requiresParentIdentityDocuments && activeStepIds.includes(2) && !parentIdentityDocumentImageDataUrl)
       ) {
         setError(t('public.youthWizard.errors.documentUpload'))
         return
       }
 
-      const created = createUser({
-        role: 'client',
-        firstName: draft.parentFirstName,
-        lastName: draft.parentLastName,
-        avatarUrl: '',
-        email: draft.parentEmail,
-        login: draft.login,
-        password: draft.password,
-        age: null,
-        sector: '',
-        profession: '',
-        permissions: [],
-      })
-      if (!created.ok) {
-        setError(t('public.youthWizard.errors.registerInvalid'))
+      let createdUserId = session?.userId ?? null
+      if (!createdUserId) {
+        const created = createUser({
+          role: 'client',
+          firstName: draft.parentFirstName,
+          lastName: draft.parentLastName,
+          avatarUrl: '',
+          email: draft.parentEmail,
+          login: draft.login,
+          password: draft.password,
+          age: null,
+          sector: '',
+          profession: '',
+          permissions: [],
+        })
+        if (!created.ok) {
+          setError(t('public.youthWizard.errors.registerInvalid'))
+          return
+        }
+        createdUserId = created.user.id
+      } else if (session?.role === 'subscribers') {
+        const converted = convertSubscriberToClient(createdUserId)
+        if (!converted.ok) {
+          setError(t('public.youthWizard.errors.registerInvalid'))
+          return
+        }
+      }
+
+      const existingClientByUser = getPublicClients().find((item) => item.userId === createdUserId) ?? null
+      let existingClient = existingClientByUser
+      if (!session) {
+        const existingClientByTaxCode = findPublicClientByTaxCode(draft.parentTaxCode)
+        if (existingClientByTaxCode && existingClientByTaxCode.userId !== createdUserId) {
+          setError(t('public.youthWizard.errors.parentTaxCodeDuplicate'))
+          return
+        }
+        existingClient = existingClient ?? existingClientByTaxCode
+      }
+      if (isLoggedClient && !activeStepIds.includes(2) && !existingClientByUser) {
+        setError(t('public.common.scenarioUnavailableLogged'))
         return
       }
-      const createdUserId = created.user.id
 
-      const clientRecord = createPublicClientRecord({
-        userId: createdUserId,
-        avatarUrl: '',
-        parentFirstName: draft.parentFirstName,
-        parentLastName: draft.parentLastName,
-        parentEmail: draft.parentEmail,
-        parentPhone: draft.parentPhone,
-        parentSecondaryPhone: draft.parentSecondaryPhone,
-        parentBirthDate: draft.parentBirthDate,
-        parentBirthPlace: draft.parentBirthPlace,
-        parentRole: draft.parentRole,
-        parentGender: draft.parentGender,
-        parentTaxCode: draft.parentTaxCode,
-        residenceAddress: draft.parentResidenceAddress,
-        consentEnrollmentAccepted: draft.consentEnrollmentAccepted,
-        consentInformationAccepted: draft.consentInformationAccepted,
-        consentDataProcessingAccepted: draft.consentDataProcessingAccepted,
-        consentDataProcessingSignatureDataUrl: draft.consentDataProcessingSignatureDataUrl,
-        enrollmentConfirmationSignatureDataUrl: draft.enrollmentConfirmationSignatureDataUrl,
-        parentTaxCodeImageDataUrl,
-        parentIdentityDocumentImageDataUrl,
-        privacyPolicySigned: draft.privacyAccepted,
-      })
+      const clientRecord = isLoggedClient && !activeStepIds.includes(2)
+        ? existingClientByUser!
+        : existingClient
+        ? (
+            updatePublicClientRecord(existingClient.id, {
+              parentFirstName: draft.parentFirstName,
+              parentLastName: draft.parentLastName,
+              parentEmail: draft.parentEmail,
+              parentPhone: draft.parentPhone,
+              parentSecondaryPhone: draft.parentSecondaryPhone,
+              parentBirthDate: draft.parentBirthDate,
+              parentBirthPlace: draft.parentBirthPlace,
+              parentRole: draft.parentRole,
+              parentTaxCode: draft.parentTaxCode,
+              residenceAddress: draft.parentResidenceAddress,
+            }) ?? existingClient
+          )
+        : createPublicClientRecord({
+            userId: createdUserId,
+            avatarUrl: '',
+            parentFirstName: draft.parentFirstName,
+            parentLastName: draft.parentLastName,
+            parentEmail: draft.parentEmail,
+            parentPhone: draft.parentPhone,
+            parentSecondaryPhone: draft.parentSecondaryPhone,
+            parentBirthDate: draft.parentBirthDate,
+            parentBirthPlace: draft.parentBirthPlace,
+            parentRole: draft.parentRole,
+            parentGender: draft.parentGender,
+            parentTaxCode: draft.parentTaxCode,
+            residenceAddress: draft.parentResidenceAddress,
+            consentEnrollmentAccepted: draft.consentEnrollmentAccepted,
+            consentInformationAccepted: draft.consentInformationAccepted,
+            consentDataProcessingAccepted: draft.consentDataProcessingAccepted,
+            consentDataProcessingSignatureDataUrl: draft.consentDataProcessingSignatureDataUrl,
+            enrollmentConfirmationSignatureDataUrl: draft.enrollmentConfirmationSignatureDataUrl,
+            parentTaxCodeImageDataUrl,
+            parentIdentityDocumentImageDataUrl,
+            privacyPolicySigned: draft.privacyAccepted,
+          })
 
-      const createdMinor = createPublicMinorRecord({
-        clientId: clientRecord.id,
-        packageId: packageItem.id,
-        avatarUrl: '',
-        firstName: draft.minorFirstName,
-        lastName: draft.minorLastName,
-        birthDate: draft.minorBirthDate,
-        gender: draft.minorGender,
-        birthPlace: draft.minorBirthPlace,
-        residenceAddress: draft.minorResidenceAddress,
-        taxCode: draft.minorTaxCode,
-        taxCodeImageDataUrl: minorTaxCodeImageDataUrl,
-      })
+      let participantFirstName: string
+      let participantLastName: string
+      let participantBirthYear: number | null
+      let enrollmentAudience: 'adult' | 'youth'
+      let athleteKeyForCoverage: string
+      if (isAdultPackage) {
+        const createdDirectAthlete = createPublicDirectAthleteRecord({
+          userId: createdUserId,
+          clientId: clientRecord.id,
+          packageId: packageItem.id,
+          avatarUrl: '',
+          firstName: draft.parentFirstName,
+          lastName: draft.parentLastName,
+          birthDate: draft.parentBirthDate,
+          gender: draft.parentGender,
+          birthPlace: draft.parentBirthPlace,
+          residenceAddress: draft.parentResidenceAddress,
+          taxCode: draft.parentTaxCode,
+          email: draft.parentEmail,
+          phone: draft.parentPhone,
+        })
+        updatePublicDirectAthleteValidationStatus(createdDirectAthlete.id, 'validated')
+        athleteKeyForCoverage = `direct-${createdDirectAthlete.id}`
+        participantFirstName = draft.parentFirstName.trim()
+        participantLastName = draft.parentLastName.trim()
+        const birthYear = Number.parseInt(draft.parentBirthDate.slice(0, 4), 10)
+        participantBirthYear = Number.isInteger(birthYear) ? birthYear : null
+        enrollmentAudience = 'adult'
+      } else {
+        const minorForEnrollment = selectedExistingMinor ?? createPublicMinorRecord({
+          clientId: clientRecord.id,
+          packageId: packageItem.id,
+          avatarUrl: '',
+          firstName: draft.minorFirstName,
+          lastName: draft.minorLastName,
+          birthDate: draft.minorBirthDate,
+          gender: draft.minorGender,
+          birthPlace: draft.minorBirthPlace,
+          residenceAddress: draft.minorResidenceAddress,
+          taxCode: draft.minorTaxCode,
+          taxCodeImageDataUrl: minorTaxCodeImageDataUrl,
+        })
+        athleteKeyForCoverage = `minor-${minorForEnrollment.id}`
+        participantFirstName = minorForEnrollment.firstName.trim()
+        participantLastName = minorForEnrollment.lastName.trim()
+        const minorBirthYear = Number.parseInt(minorForEnrollment.birthDate.slice(0, 4), 10)
+        participantBirthYear = Number.isInteger(minorBirthYear) ? minorBirthYear : null
+        enrollmentAudience = 'youth'
+      }
       const packageEnrollment = getEnrollmentById(packageItem.enrollmentId)
       if (packageEnrollment) {
         upsertCoverageFromEnrollmentPurchase({
-          athleteKey: `minor-${createdMinor.id}`,
+          athleteKey: athleteKeyForCoverage,
           packageItem,
           enrollment: packageEnrollment,
         })
       }
-
-      const minorBirthYear = Number.parseInt(draft.minorBirthDate.slice(0, 4), 10)
+      if (enrollmentAudience === 'adult') {
+        createAthleteActivity({
+          athleteKey: athleteKeyForCoverage,
+          type: 'direct_user',
+          athleteId: athleteKeyForCoverage.replace('direct-', ''),
+          packageId: packageItem.id,
+          selectedPaymentMethodCode: draft.selectedPaymentMethodCode,
+        })
+      } else {
+        createAthleteActivity({
+          athleteKey: athleteKeyForCoverage,
+          type: 'minor',
+          athleteId: athleteKeyForCoverage.replace('minor-', ''),
+          packageId: packageItem.id,
+          selectedPaymentMethodCode: draft.selectedPaymentMethodCode,
+        })
+      }
 
       createPublicEnrollment({
         packageId: packageItem.id,
         purchaserUserId: createdUserId,
-        audience: 'youth',
-        participantFirstName: draft.minorFirstName.trim(),
-        participantLastName: draft.minorLastName.trim(),
-        participantBirthYear: Number.isInteger(minorBirthYear) ? minorBirthYear : null,
+        audience: enrollmentAudience,
+        participantFirstName,
+        participantLastName,
+        participantBirthYear,
         parentFirstName: draft.parentFirstName.trim(),
         parentLastName: draft.parentLastName.trim(),
         parentEmail: draft.parentEmail.trim().toLowerCase(),
@@ -911,15 +1114,21 @@ function PublicEnrollmentForm({
               </div>
 
               <div className="rounded-lg border border-base-300 p-4 text-sm leading-relaxed">
-                <p>{t('public.youthWizard.postSubmit.verificationNotice')}</p>
-                <p className="mt-2">{t('public.youthWizard.postSubmit.activationNotice')}</p>
+                {requiresPostSubmitValidation ? (
+                  <>
+                    <p>{verificationNoticeLabel}</p>
+                    <p className="mt-2">{t('public.youthWizard.postSubmit.activationNotice')}</p>
+                  </>
+                ) : null}
                 {submissionSummary.firstPaymentOnSite ? (
                   <p className="mt-2">{t('public.youthWizard.postSubmit.firstPaymentOnSite')}</p>
                 ) : (
                   <p className="mt-2">{t('public.youthWizard.postSubmit.paymentMethodsNotice')}</p>
                 )}
-                <p className="mt-2 text-warning">{t('public.youthWizard.postSubmit.variableServicesNotice')}</p>
-                {submissionSummary.hasVariableServices ? (
+                {requiresPostSubmitValidation ? (
+                  <p className="mt-2 text-warning">{t('public.youthWizard.postSubmit.variableServicesNotice')}</p>
+                ) : null}
+                {requiresPostSubmitValidation && submissionSummary.hasVariableServices ? (
                   <p className="mt-2 text-warning">{t('public.youthWizard.postSubmit.variableServicesGuaranteedNotice')}</p>
                 ) : null}
               </div>
@@ -952,18 +1161,18 @@ function PublicEnrollmentForm({
                 >
                   {!hasScheduleStep
                     ? stepId === 1
-                      ? t('public.youthWizard.steps.minor')
+                      ? (isAdultPackage ? parentStepLabel : t('public.youthWizard.steps.minor'))
                       : stepId === 2
-                        ? t('public.youthWizard.steps.parent')
+                        ? parentStepLabel
                         : stepId === 3
                           ? t('public.youthWizard.steps.services')
                           : stepId === 4
                             ? t('public.youthWizard.steps.consents')
                             : t('public.youthWizard.steps.confirm')
                     : stepId === 1
-                      ? t('public.youthWizard.steps.minor')
+                      ? (isAdultPackage ? parentStepLabel : t('public.youthWizard.steps.minor'))
                       : stepId === 2
-                        ? t('public.youthWizard.steps.parent')
+                        ? parentStepLabel
                         : stepId === 3
                           ? t('public.youthWizard.steps.services')
                           : stepId === 4
@@ -1033,91 +1242,121 @@ function PublicEnrollmentForm({
 
             {step === 2 && (
               <div className="mx-auto grid max-w-6xl gap-4 md:grid-cols-2">
+                <p className="md:col-span-2 text-sm font-semibold">{parentStepLabel}</p>
                 <label className="form-control">
-                  <span className="label-text mb-1 text-xs">{t('public.youthWizard.fields.parentFirstName')}</span>
-                  <input className="input input-bordered w-full" placeholder={t('public.youthWizard.fields.parentFirstName')} value={draft.parentFirstName} onChange={(event) => setDraft((prev) => ({ ...prev, parentFirstName: event.target.value }))} />
+                  <span className="label-text mb-1 text-xs">{parentFirstNameLabel}</span>
+                  <input
+                    className="input input-bordered w-full"
+                    placeholder={parentFirstNameLabel}
+                    value={draft.parentFirstName}
+                    readOnly={isLoggedSubscriber}
+                    onChange={(event) => setDraft((prev) => ({ ...prev, parentFirstName: event.target.value }))}
+                  />
                 </label>
                 <label className="form-control">
-                  <span className="label-text mb-1 text-xs">{t('public.youthWizard.fields.parentLastName')}</span>
-                  <input className="input input-bordered w-full" placeholder={t('public.youthWizard.fields.parentLastName')} value={draft.parentLastName} onChange={(event) => setDraft((prev) => ({ ...prev, parentLastName: event.target.value }))} />
+                  <span className="label-text mb-1 text-xs">{parentLastNameLabel}</span>
+                  <input
+                    className="input input-bordered w-full"
+                    placeholder={parentLastNameLabel}
+                    value={draft.parentLastName}
+                    readOnly={isLoggedSubscriber}
+                    onChange={(event) => setDraft((prev) => ({ ...prev, parentLastName: event.target.value }))}
+                  />
                 </label>
                 <label className="form-control">
-                  <span className="label-text mb-1 text-xs">{t('public.youthWizard.fields.parentEmail')}</span>
-                  <input className="input input-bordered w-full" type="email" placeholder={t('public.youthWizard.fields.parentEmail')} value={draft.parentEmail} onChange={(event) => setDraft((prev) => ({ ...prev, parentEmail: event.target.value }))} />
+                  <span className="label-text mb-1 text-xs">{parentEmailLabel}</span>
+                  <input
+                    className="input input-bordered w-full"
+                    type="email"
+                    placeholder={parentEmailLabel}
+                    value={draft.parentEmail}
+                    readOnly={isLoggedSubscriber}
+                    onChange={(event) => setDraft((prev) => ({ ...prev, parentEmail: event.target.value }))}
+                  />
                 </label>
                 <label className="form-control">
-                  <span className="label-text mb-1 text-xs">{t('public.youthWizard.fields.parentPhone')}</span>
+                  <span className="label-text mb-1 text-xs">{parentPhoneLabel}</span>
                   <input className="input input-bordered w-full" placeholder={t('public.youthWizard.placeholders.parentPhone')} value={draft.parentPhone} onChange={(event) => setDraft((prev) => ({ ...prev, parentPhone: event.target.value }))} />
                 </label>
                 <label className="form-control">
-                  <span className="label-text mb-1 text-xs">{t('public.youthWizard.fields.parentSecondaryPhone')}</span>
+                  <span className="label-text mb-1 text-xs">{parentSecondaryPhoneLabel}</span>
                   <input className="input input-bordered w-full" placeholder={t('public.youthWizard.placeholders.parentSecondaryPhone')} value={draft.parentSecondaryPhone} onChange={(event) => setDraft((prev) => ({ ...prev, parentSecondaryPhone: event.target.value }))} />
                 </label>
                 <label className="form-control">
-                  <span className="label-text mb-1 text-xs">{t('public.youthWizard.fields.parentBirthDate')}</span>
+                  <span className="label-text mb-1 text-xs">{parentBirthDateLabel}</span>
                   <input className="input input-bordered w-full" type="date" value={draft.parentBirthDate} onChange={(event) => setDraft((prev) => ({ ...prev, parentBirthDate: event.target.value }))} />
                 </label>
                 <label className="form-control">
-                  <span className="label-text mb-1 text-xs">{t('public.youthWizard.fields.parentGender')}</span>
+                  <span className="label-text mb-1 text-xs">{parentGenderLabel}</span>
                   <select className="select select-bordered w-full" value={draft.parentGender} onChange={(event) => setDraft((prev) => ({ ...prev, parentGender: event.target.value === 'M' ? 'M' : 'F' }))}>
                     <option value="F">F</option>
                     <option value="M">M</option>
                   </select>
                 </label>
-                <label className="form-control">
-                  <span className="label-text mb-1 text-xs">Ruolo firmatario</span>
-                  <select
-                    className="select select-bordered w-full"
-                    value={draft.parentRole}
-                    onChange={(event) => setDraft((prev) => ({ ...prev, parentRole: event.target.value as ParentRole }))}
-                  >
-                    <option value="genitore">Genitore</option>
-                    <option value="tutore">Tutore</option>
-                    <option value="esercente_responsabilita">Esercente responsabilita</option>
-                  </select>
-                </label>
-                <label className="form-control md:col-span-2">
-                  <span className="label-text mb-1 text-xs">{t('public.youthWizard.fields.parentBirthPlace')}</span>
+                {!isAdultPackage ? (
+                  <label className="form-control">
+                    <span className="label-text mb-1 text-xs">Ruolo firmatario</span>
+                    <select
+                      className="select select-bordered w-full"
+                      value={draft.parentRole}
+                      onChange={(event) => setDraft((prev) => ({ ...prev, parentRole: event.target.value as ParentRole }))}
+                    >
+                      <option value="genitore">Genitore</option>
+                      <option value="tutore">Tutore</option>
+                      <option value="esercente_responsabilita">Esercente responsabilita</option>
+                    </select>
+                  </label>
+                ) : null}
+                <label className={isAdultPackage ? 'form-control' : 'form-control md:col-span-2'}>
+                  <span className="label-text mb-1 text-xs">{parentBirthPlaceLabel}</span>
                   <input
                     ref={parentBirthPlaceRef}
                     className="input input-bordered w-full"
-                    placeholder={t('public.youthWizard.fields.parentBirthPlace')}
+                    placeholder={parentBirthPlaceLabel}
                     value={draft.parentBirthPlace}
                     onFocus={initializeParentBirthPlaceAutocomplete}
                     onChange={(event) => setDraft((prev) => ({ ...prev, parentBirthPlace: event.target.value }))}
                   />
                 </label>
                 <label className="form-control md:col-span-2">
-                  <span className="label-text mb-1 text-xs">{t('public.youthWizard.fields.parentResidenceAddress')}</span>
+                  <span className="label-text mb-1 text-xs">{parentResidenceLabel}</span>
                   <input
                     ref={parentResidenceRef}
                     className="input input-bordered w-full"
-                    placeholder={t('public.youthWizard.fields.parentResidenceAddress')}
+                    placeholder={parentResidenceLabel}
                     value={draft.parentResidenceAddress}
                     onFocus={initializeParentResidenceAutocomplete}
                     onChange={(event) => setDraft((prev) => ({ ...prev, parentResidenceAddress: event.target.value }))}
                   />
                 </label>
                 <label className="form-control">
-                  <span className="label-text mb-1 text-xs">{t('public.youthWizard.fields.parentTaxCode')}</span>
-                  <input className="input input-bordered w-full" placeholder={t('public.youthWizard.fields.parentTaxCode')} value={draft.parentTaxCode} readOnly />
+                  <span className="label-text mb-1 text-xs">{parentTaxCodeLabel}</span>
+                  <input className="input input-bordered w-full" placeholder={parentTaxCodeLabel} value={draft.parentTaxCode} readOnly />
                 </label>
-                <div className="form-control w-full">
-                  <span className="label-text mb-1 text-xs">{t('public.youthWizard.fields.parentTaxCodePhoto')}</span>
-                  <input className="file-input file-input-bordered w-full" type="file" accept="image/*,.pdf" onChange={(event) => setParentTaxCodeFile(event.target.files?.[0] ?? null)} />
-                </div>
-                <div className="form-control md:col-span-2">
-                  <span className="label-text mb-1 text-xs">{t('public.youthWizard.fields.parentIdentityDocument')}</span>
-                  <input className="file-input file-input-bordered w-full" type="file" accept="image/*,.pdf" onChange={(event) => setParentIdentityFile(event.target.files?.[0] ?? null)} />
-                </div>
-                <label className="form-control">
-                  <span className="label-text mb-1 text-xs">{t('public.youthWizard.fields.loginAuto')}</span>
-                  <input className="input input-bordered w-full" placeholder={t('public.youthWizard.fields.login')} value={draft.login} readOnly />
-                </label>
-                <label className="form-control">
-                  <span className="label-text mb-1 text-xs">{t('public.youthWizard.fields.password')}</span>
-                  <input className="input input-bordered w-full" type="password" placeholder={t('public.youthWizard.fields.password')} value={draft.password} onChange={(event) => setDraft((prev) => ({ ...prev, password: event.target.value }))} />
-                </label>
+                {requiresParentIdentityDocuments ? (
+                  <>
+                    <div className="form-control w-full">
+                      <span className="label-text mb-1 text-xs">{t('public.youthWizard.fields.parentTaxCodePhoto')}</span>
+                      <input className="file-input file-input-bordered w-full" type="file" accept="image/*,.pdf" onChange={(event) => setParentTaxCodeFile(event.target.files?.[0] ?? null)} />
+                    </div>
+                    <div className="form-control md:col-span-2">
+                      <span className="label-text mb-1 text-xs">{t('public.youthWizard.fields.parentIdentityDocument')}</span>
+                      <input className="file-input file-input-bordered w-full" type="file" accept="image/*,.pdf" onChange={(event) => setParentIdentityFile(event.target.files?.[0] ?? null)} />
+                    </div>
+                  </>
+                ) : null}
+                {!isLoggedSubscriber ? (
+                  <>
+                    <label className="form-control">
+                      <span className="label-text mb-1 text-xs">{t('public.youthWizard.fields.loginAuto')}</span>
+                      <input className="input input-bordered w-full" placeholder={t('public.youthWizard.fields.login')} value={draft.login} readOnly />
+                    </label>
+                    <label className="form-control">
+                      <span className="label-text mb-1 text-xs">{t('public.youthWizard.fields.password')}</span>
+                      <input className="input input-bordered w-full" type="password" placeholder={t('public.youthWizard.fields.password')} value={draft.password} onChange={(event) => setDraft((prev) => ({ ...prev, password: event.target.value }))} />
+                    </label>
+                  </>
+                ) : null}
               </div>
             )}
 
@@ -1230,11 +1469,11 @@ function PublicEnrollmentForm({
                       checked={draft.consentEnrollmentAccepted}
                       onChange={(event) => setDraft((prev) => ({ ...prev, consentEnrollmentAccepted: event.target.checked }))}
                     />
-                    <span className="label-text">{t('public.youthWizard.consents.enrollmentCheck')}</span>
+                    <span className="label-text">{consentEnrollmentCheckLabel}</span>
                   </label>
                   <div tabIndex={0} className="collapse collapse-arrow border border-base-300 bg-base-100">
-                    <div className="collapse-title text-sm font-medium">{t('public.youthWizard.consents.enrollmentTextTitle')}</div>
-                    <div className="collapse-content text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: company?.consentMinors || `<p>${t('public.youthWizard.consents.emptyConsentText')}</p>` }} />
+                    <div className="collapse-title text-sm font-medium">{consentEnrollmentTextTitle}</div>
+                    <div className="collapse-content text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: (isAdultPackage ? company?.consentAdults : company?.consentMinors) || `<p>${t('public.youthWizard.consents.emptyConsentText')}</p>` }} />
                   </div>
                 </div>
 
@@ -1246,7 +1485,7 @@ function PublicEnrollmentForm({
                       checked={draft.consentInformationAccepted}
                       onChange={(event) => setDraft((prev) => ({ ...prev, consentInformationAccepted: event.target.checked }))}
                     />
-                    <span className="label-text">{t('public.youthWizard.consents.informationCheck')}</span>
+                    <span className="label-text">{consentInformationCheckLabel}</span>
                   </label>
                   <div tabIndex={0} className="collapse collapse-arrow border border-base-300 bg-base-100">
                     <div className="collapse-title text-sm font-medium">{t('public.youthWizard.consents.informationTextTitle')}</div>
@@ -1269,14 +1508,14 @@ function PublicEnrollmentForm({
                     <div className="collapse-content text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: company?.consentDataProcessing || `<p>${t('public.youthWizard.consents.emptyConsentText')}</p>` }} />
                   </div>
                   <SignaturePadField
-                    label={t('public.youthWizard.consents.dataProcessingSignature')}
+                    label={consentDataProcessingSignatureLabel}
                     value={draft.consentDataProcessingSignatureDataUrl}
                     onChange={(value) => setDraft((prev) => ({ ...prev, consentDataProcessingSignatureDataUrl: value }))}
                   />
                 </div>
 
                 <SignaturePadField
-                  label={t('public.youthWizard.consents.enrollmentSignature')}
+                  label={consentEnrollmentSignatureLabel}
                   value={draft.enrollmentConfirmationSignatureDataUrl}
                   onChange={(value) => setDraft((prev) => ({ ...prev, enrollmentConfirmationSignatureDataUrl: value }))}
                 />
@@ -1287,23 +1526,39 @@ function PublicEnrollmentForm({
               <div className="mx-auto max-w-6xl space-y-4">
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div className="rounded-lg border border-base-300 p-4">
-                    <h4 className="font-semibold">{t('public.youthWizard.summary.minorTitle')}</h4>
-                    <p className="text-sm">{draft.minorFirstName} {draft.minorLastName}</p>
-                    <p className="text-sm opacity-70">{t('public.youthWizard.summary.birthDate')}: {draft.minorBirthDate}</p>
-                    <p className="text-sm opacity-70">{t('public.youthWizard.summary.birthPlace')}: {draft.minorBirthPlace}</p>
-                    <p className="text-sm opacity-70">{t('public.youthWizard.summary.residence')}: {draft.minorResidenceAddress}</p>
-                    <p className="text-sm opacity-70">{t('public.youthWizard.summary.taxCode')}: {draft.minorTaxCode}</p>
-                    <p className="flex items-center gap-2 text-sm opacity-70">
-                      <span>{t('public.youthWizard.summary.taxCodePhoto')}:</span>
-                      {minorTaxCodeFile ? (
-                        <CheckCircle2 className="h-4 w-4 text-success" aria-label={t('public.youthWizard.summary.uploaded')} />
-                      ) : (
-                        <span>-</span>
-                      )}
-                    </p>
+                    {isAdultPackage ? (
+                      <>
+                        <h4 className="font-semibold">Cliente</h4>
+                        <p className="text-sm">{draft.parentFirstName} {draft.parentLastName}</p>
+                        <p className="text-sm opacity-70">{draft.parentEmail}</p>
+                        <p className="text-sm opacity-70">{t('public.youthWizard.summary.phone')}: {draft.parentPhone}</p>
+                        <p className="text-sm opacity-70">{t('public.youthWizard.summary.birthDate')}: {draft.parentBirthDate}</p>
+                        <p className="text-sm opacity-70">{t('public.youthWizard.summary.birthPlace')}: {draft.parentBirthPlace}</p>
+                        <p className="text-sm opacity-70">{t('public.youthWizard.summary.residence')}: {draft.parentResidenceAddress}</p>
+                        <p className="text-sm opacity-70">{t('public.youthWizard.summary.taxCode')}: {draft.parentTaxCode}</p>
+                      </>
+                    ) : (
+                      <>
+                        <h4 className="font-semibold">{t('public.youthWizard.summary.minorTitle')}</h4>
+                        <p className="text-sm">{(selectedExistingMinor?.firstName ?? draft.minorFirstName)} {(selectedExistingMinor?.lastName ?? draft.minorLastName)}</p>
+                        <p className="text-sm opacity-70">{t('public.youthWizard.summary.birthDate')}: {selectedExistingMinor?.birthDate ?? draft.minorBirthDate}</p>
+                        <p className="text-sm opacity-70">{t('public.youthWizard.summary.birthPlace')}: {selectedExistingMinor?.birthPlace ?? draft.minorBirthPlace}</p>
+                        <p className="text-sm opacity-70">{t('public.youthWizard.summary.residence')}: {selectedExistingMinor?.residenceAddress ?? draft.minorResidenceAddress}</p>
+                        <p className="text-sm opacity-70">{t('public.youthWizard.summary.taxCode')}: {selectedExistingMinor?.taxCode ?? draft.minorTaxCode}</p>
+                        <p className="flex items-center gap-2 text-sm opacity-70">
+                          <span>{t('public.youthWizard.summary.taxCodePhoto')}:</span>
+                          {selectedExistingMinor || minorTaxCodeFile ? (
+                            <CheckCircle2 className="h-4 w-4 text-success" aria-label={t('public.youthWizard.summary.uploaded')} />
+                          ) : (
+                            <span>-</span>
+                          )}
+                        </p>
+                      </>
+                    )}
                   </div>
-                  <div className="rounded-lg border border-base-300 p-4">
-                    <h4 className="font-semibold">{t('public.youthWizard.summary.parentTitle')}</h4>
+                  {!isAdultPackage && activeStepIds.includes(2) ? (
+                    <div className="rounded-lg border border-base-300 p-4">
+                    <h4 className="font-semibold">{summaryAccountTitle}</h4>
                     <p className="text-sm">{draft.parentFirstName} {draft.parentLastName}</p>
                     <p className="text-sm opacity-70">{draft.parentEmail}</p>
                     <p className="text-sm opacity-70">{t('public.youthWizard.summary.phone')}: {draft.parentPhone}</p>
@@ -1328,7 +1583,8 @@ function PublicEnrollmentForm({
                         <span>-</span>
                       )}
                     </p>
-                  </div>
+                    </div>
+                  ) : null}
                 </div>
                 <div className="rounded-lg border border-base-300 p-4">
                   <h4 className="font-semibold">{t('public.youthWizard.summary.selectedServices')}</h4>

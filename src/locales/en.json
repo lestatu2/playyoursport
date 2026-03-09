@@ -69,7 +69,8 @@
     "utilityAdditionalServices": "Additional services",
     "utilityWhatsAppAccounts": "WhatsApp accounts",
     "utilityPaymentMethods": "Payment methods",
-    "utilityContracts": "Contracts"
+    "utilityContracts": "Contracts",
+    "groupFieldAssignments": "Group/Field Assignment"
   },
   "users": {
     "title": "Users",
@@ -1148,9 +1149,41 @@
         "variableServicesGuaranteedNotice": "When variable services are present, the final total will include the variable service price set during validation."
       }
     }
+  },
+  "assignments": {
+    "title": "Group/Field Assignment",
+    "description": "Move athletes across group, field, and schedule. Moves are immediate and the admin can close the final setup.",
+    "package": "Package",
+    "noPackages": "No available packages for your profile.",
+    "noSchedule": "No schedule",
+    "requestCreated": "Move proposal created.",
+    "requestCounterProposed": "Counter-proposal saved.",
+    "requestApproved": "Request approved and assignment applied.",
+    "requestRejected": "Request rejected.",
+    "requestsTitle": "Move requests",
+    "noRequests": "No requests yet.",
+    "counterPropose": "Counter-propose",
+    "finalConfirm": "Final confirm",
+    "requestFinalConfirmed": "Final confirmation applied.",
+    "searchName": "Search by name",
+    "searchNamePlaceholder": "Type a name",
+    "searchAge": "Search by age",
+    "searchAgePlaceholder": "Exact age",
+    "searchGroup": "Search by group",
+    "allGroups": "All groups",
+    "searchField": "Search by field",
+    "allFields": "All fields",
+    "searchWeekday": "Search by weekday",
+    "allWeekdays": "All weekdays",
+    "moveApplied": "Move applied.",
+    "statusDraft": "Open draft",
+    "statusFinalized": "Setup finalized",
+    "finalizeGroup": "Close group/field setup",
+    "reopenGroup": "Reopen group/field setup",
+    "groupFinalized": "Group/field setup closed.",
+    "groupReopened": "Group/field setup reopened.",
+    "groupMoveUp": "Up",
+    "groupMoveDown": "Down",
+    "dragGroup": "Drag"
   }
 }
-
-
-
-

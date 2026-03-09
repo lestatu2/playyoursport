@@ -245,6 +245,14 @@ function ManagementLayout({ session, onLogout }: ManagementLayoutProps) {
                 />
               </>
             )}
+            {['super-administrator', 'administrator', 'trainer'].includes(session.role) && (
+              <MenuItem
+                to="/app/assegnazione-gruppo-campo"
+                icon={<Map className="h-5 w-5 shrink-0" />}
+                label={t('nav.groupFieldAssignments')}
+                collapsed={collapsed}
+              />
+            )}
             {canAccessPackages(session.role) &&
               (session.role !== 'editor-admin' || hasSessionPermission('packages.manage')) && (
                 <MenuItem

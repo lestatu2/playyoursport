@@ -33,8 +33,10 @@ import { getAvailablePaymentMethodsForCompany, type PaymentMethodCode } from '..
 import { upsertCoverageFromEnrollmentPurchase } from '../lib/athlete-enrollment-coverages'
 import { downloadConsentsPdf, type ConsentPdfPayload } from '../lib/contract-pdf'
 import {
+  createPublicDirectAthleteRecord,
   getPublicDirectAthletes,
   removePublicDirectAthletesByClientId,
+  updatePublicDirectAthleteValidationStatus,
   type PublicDirectAthleteRecord,
 } from '../lib/public-direct-athletes'
 import { getSession } from '../lib/auth'
@@ -323,6 +325,7 @@ function ClientsPage() {
   const [createMode, setCreateMode] = useState<CreateClientMode>('parent')
   const [createDraft, setCreateDraft] = useState<CreateParentMinorDraft>(emptyCreateParentMinorDraft)
   const [createError, setCreateError] = useState('')
+  const [createInvalidField, setCreateInvalidField] = useState<string>('')
   const [isAddMinorModalOpen, setIsAddMinorModalOpen] = useState(false)
   const [addMinorDraft, setAddMinorDraft] = useState<AddMinorDraft>(emptyAddMinorDraft)
   const [addMinorError, setAddMinorError] = useState('')
@@ -356,9 +359,15 @@ function ClientsPage() {
       getPackages().filter((item) => item.audience === 'youth' && item.status === 'published'),
     [],
   )
+  const adultPackages = useMemo(
+    () =>
+      getPackages().filter((item) => item.audience === 'adult' && item.status === 'published'),
+    [],
+  )
+  const createPackages = createMode === 'parent' ? youthPackages : adultPackages
   const selectedCreatePackage = useMemo(
-    () => youthPackages.find((item) => item.id === createDraft.packageId) ?? null,
-    [createDraft.packageId, youthPackages],
+    () => createPackages.find((item) => item.id === createDraft.packageId) ?? null,
+    [createDraft.packageId, createPackages],
   )
   const selectedAddMinorPackage = useMemo(
     () => youthPackages.find((item) => item.id === addMinorDraft.packageId) ?? null,
@@ -378,11 +387,11 @@ function ClientsPage() {
   }, [selectedAddMinorPackage])
   const resolvePaymentMethodForPackage = useCallback(
     (packageId: string, currentCode: PaymentMethodCode | ''): PaymentMethodCode | '' => {
-      const packageItem = youthPackages.find((item) => item.id === packageId) ?? null
+      const packageItem = [...youthPackages, ...adultPackages].find((item) => item.id === packageId) ?? null
       const methods = packageItem ? getAvailablePaymentMethodsForCompany(packageItem.companyId) : []
       return resolveValidPaymentMethodCode(currentCode, methods)
     },
-    [youthPackages],
+    [adultPackages, youthPackages],
   )
   const renderPaymentMethodOptions = useCallback(
     (methods: ReturnType<typeof getAvailablePaymentMethodsForCompany>) => {
@@ -411,7 +420,7 @@ function ClientsPage() {
 
   useEffect(() => {
     let cancelled = false
-    if (!isCreateModalOpen || createMode !== 'parent') {
+    if (!isCreateModalOpen) {
       return () => {
         cancelled = true
       }
@@ -443,7 +452,6 @@ function ClientsPage() {
     createDraft.parentFirstName,
     createDraft.parentGender,
     createDraft.parentLastName,
-    createMode,
     isCreateModalOpen,
   ])
 
@@ -1066,14 +1074,11 @@ function ClientsPage() {
     (
       client: PublicClientRecord,
       company: ReturnType<typeof getCompanies>[number],
-      subject: { kind: 'minor'; minor: PublicMinorRecord } | { kind: 'adult'; athlete: PublicDirectAthleteRecord },
+      directAthlete: PublicDirectAthleteRecord | null,
     ): ConsentPdfPayload => ({
       activity: {
-        key: subject.kind === 'minor' ? `minor-${subject.minor.id}` : subject.athlete.id,
-        createdAt:
-          subject.kind === 'minor'
-            ? subject.minor.createdAt || client.createdAt
-            : subject.athlete.createdAt || client.createdAt,
+        key: directAthlete ? `direct-${directAthlete.id}` : `client-${client.id}`,
+        createdAt: directAthlete?.createdAt || client.createdAt,
       },
       company: {
         title: company.title,
@@ -1117,22 +1122,19 @@ function ClientsPage() {
     [],
   )
 
-  async function downloadClientConsents(client: PublicClientRecord, preferredMinor?: PublicMinorRecord | null): Promise<boolean> {
-    const clientMinors = minorsByClientId.get(client.id) ?? []
-    const clientDirectAthletes = directAthletesByClientId.get(client.id) ?? []
-    const fallbackDirectAthlete =
-      directAthletes.find((athlete) => athlete.taxCode.trim().toUpperCase() === client.parentTaxCode.trim().toUpperCase()) ??
-      null
-    const minor = preferredMinor ?? clientMinors[0] ?? null
-    const directAthlete = clientDirectAthletes[0] ?? fallbackDirectAthlete
-    const selectedPackageId = minor ? minor.packageId : directAthlete?.packageId ?? ''
+  async function downloadClientConsentsForPackage(
+    client: PublicClientRecord,
+    packageId: string,
+    directAthlete: PublicDirectAthleteRecord | null = null,
+  ): Promise<boolean> {
+    const selectedPackageId = packageId.trim()
     if (!selectedPackageId) {
-      window.alert(t('clients.consentsNoLinkedMinor'))
+      window.alert(t('clients.consentsNoLinkedAdult', { defaultValue: 'Pacchetto non selezionato.' }))
       return false
     }
     const packageItem = packagesById.get(selectedPackageId)
     if (!packageItem) {
-      window.alert(t('clients.consentsNoLinkedMinor'))
+      window.alert(`Pacchetto non trovato in catalogo (packageId: ${selectedPackageId}).`)
       return false
     }
     const company = companiesById.get(packageItem.companyId)
@@ -1140,11 +1142,7 @@ function ClientsPage() {
       window.alert(t('activitiesPayments.contract.companyNotFound'))
       return false
     }
-    const payload = buildConsentPayload(
-      client,
-      company,
-      minor ? { kind: 'minor', minor } : { kind: 'adult', athlete: directAthlete as PublicDirectAthleteRecord },
-    )
+    const payload = buildConsentPayload(client, company, directAthlete)
     const fullName = `${client.parentFirstName} ${client.parentLastName}`
     const result = await downloadConsentsPdf({
       payload,
@@ -1157,9 +1155,34 @@ function ClientsPage() {
     return true
   }
 
+  async function downloadClientConsents(client: PublicClientRecord): Promise<boolean> {
+    const clientMinors = minorsByClientId.get(client.id) ?? []
+    const clientDirectAthletes = directAthletesByClientId.get(client.id) ?? []
+    const isParentClient = clientMinors.length > 0
+    const fallbackDirectAthlete =
+      directAthletes.find((athlete) => athlete.taxCode.trim().toUpperCase() === client.parentTaxCode.trim().toUpperCase()) ??
+      null
+    const directAthlete = clientDirectAthletes[0] ?? fallbackDirectAthlete
+    const selectedPackageId = isParentClient
+      ? (clientMinors[0]?.packageId ?? '')
+      : (directAthlete?.packageId ?? '')
+    if (!selectedPackageId && isParentClient) {
+      window.alert(
+        t('clients.consentsNoLinkedMinor'),
+      )
+      return false
+    }
+    if (!selectedPackageId && !isParentClient) {
+      window.alert(t('clients.consentsNoLinkedAdult', { defaultValue: 'Nessun pacchetto adulto collegato al cliente.' }))
+      return false
+    }
+    return downloadClientConsentsForPackage(client, selectedPackageId, directAthlete)
+  }
+
   const openCreateModal = () => {
     setCreateMode('parent')
     setCreateError('')
+    setCreateInvalidField('')
     setCreateDraft({
       ...emptyCreateParentMinorDraft,
       packageId: youthPackages[0]?.id ?? '',
@@ -1174,6 +1197,7 @@ function ClientsPage() {
   const closeCreateModal = () => {
     setIsCreateModalOpen(false)
     setCreateError('')
+    setCreateInvalidField('')
     setCreateMode('parent')
     setCreateDraft(emptyCreateParentMinorDraft)
     parentBirthPlaceInitializedRef.current = false
@@ -1204,24 +1228,104 @@ function ClientsPage() {
   }
 
   const saveCreateClient = () => {
-    if (createMode === 'athlete') {
-      setCreateError(t('clients.createAthleteNotImplemented'))
-      return
-    }
-    const selectedPackage = youthPackages.find((item) => item.id === createDraft.packageId) ?? null
+    setCreateInvalidField('')
+    const selectedPackage = createPackages.find((item) => item.id === createDraft.packageId) ?? null
     if (!selectedPackage) {
+      setCreateInvalidField('packageId')
       setCreateError(t('clients.createSelectPackage'))
       return
     }
     if (!createDraft.paymentMethodCode) {
+      setCreateInvalidField('paymentMethodCode')
       setCreateError(t('clients.selectPaymentMethod'))
       return
     }
     const selectedCreatePaymentMethodCode = resolveValidPaymentMethodCode(createDraft.paymentMethodCode, createPaymentMethods)
     if (!selectedCreatePaymentMethodCode) {
+      setCreateInvalidField('paymentMethodCode')
       setCreateError(t('clients.selectPaymentMethod'))
       return
     }
+    const adultRequiredFields: Array<{ key: keyof CreateParentMinorDraft, value: string, label: string }> = [
+      { key: 'parentFirstName', value: createDraft.parentFirstName, label: t('clients.parentFirstName') },
+      { key: 'parentLastName', value: createDraft.parentLastName, label: t('clients.parentLastName') },
+      { key: 'parentEmail', value: createDraft.parentEmail, label: t('clients.email') },
+      { key: 'parentPhone', value: createDraft.parentPhone, label: t('clients.phone') },
+      { key: 'parentBirthDate', value: createDraft.parentBirthDate, label: t('clients.birthDate') },
+      { key: 'parentBirthPlace', value: createDraft.parentBirthPlace, label: t('clients.birthPlace') },
+      { key: 'parentTaxCode', value: createDraft.parentTaxCode, label: t('clients.taxCode') },
+      { key: 'parentResidenceAddress', value: createDraft.parentResidenceAddress, label: t('clients.residence') },
+    ]
+    const missingAdultField = adultRequiredFields.find((item) => !item.value.trim())
+    if (missingAdultField) {
+      setCreateInvalidField(missingAdultField.key)
+      setCreateError(`${t('clients.createRequired')} ${missingAdultField.label}`)
+      return
+    }
+    if (findPublicClientByTaxCode(createDraft.parentTaxCode)) {
+      setCreateError(t('clients.parentTaxCodeDuplicate'))
+      return
+    }
+    const allClients = getPublicClients()
+    const nextUserId = Math.max(0, ...allClients.map((item) => item.userId || 0)) + 1
+
+    const createdClient = createPublicClientRecord({
+      userId: nextUserId,
+      parentFirstName: createDraft.parentFirstName,
+      parentLastName: createDraft.parentLastName,
+      parentEmail: createDraft.parentEmail,
+      parentPhone: createDraft.parentPhone,
+      parentSecondaryPhone: createDraft.parentSecondaryPhone,
+      parentBirthDate: createDraft.parentBirthDate,
+      parentBirthPlace: createDraft.parentBirthPlace,
+      parentRole: createMode === 'athlete' ? 'genitore' : createDraft.parentRole,
+      parentGender: createDraft.parentGender,
+      avatarUrl: '',
+      parentTaxCode: createDraft.parentTaxCode,
+      residenceAddress: createDraft.parentResidenceAddress,
+      consentEnrollmentAccepted: true,
+      consentInformationAccepted: true,
+      consentDataProcessingAccepted: false,
+      consentDataProcessingSignatureDataUrl: '',
+      enrollmentConfirmationSignatureDataUrl: '',
+      parentTaxCodeImageDataUrl: '',
+      parentIdentityDocumentImageDataUrl: '',
+      privacyPolicySigned: false,
+    })
+    updatePublicClientValidationStatus(createdClient.id, 'validated')
+    if (createMode === 'athlete') {
+      const createdDirectAthlete = createPublicDirectAthleteRecord({
+        userId: nextUserId,
+        clientId: createdClient.id,
+        packageId: selectedPackage.id,
+        avatarUrl: '',
+        firstName: createDraft.parentFirstName,
+        lastName: createDraft.parentLastName,
+        birthDate: createDraft.parentBirthDate,
+        gender: createDraft.parentGender,
+        birthPlace: createDraft.parentBirthPlace,
+        residenceAddress: createDraft.parentResidenceAddress,
+        taxCode: createDraft.parentTaxCode,
+        email: createDraft.parentEmail,
+        phone: createDraft.parentPhone,
+      })
+      updatePublicDirectAthleteValidationStatus(createdDirectAthlete.id, 'validated')
+      const selectedEnrollment = getEnrollmentById(selectedPackage.enrollmentId)
+      if (selectedEnrollment) {
+        upsertCoverageFromEnrollmentPurchase({
+          athleteKey: `direct-${createdDirectAthlete.id}`,
+          packageItem: selectedPackage,
+          enrollment: selectedEnrollment,
+        })
+      }
+      void downloadClientConsentsForPackage(createdClient, selectedPackage.id, createdDirectAthlete)
+      refresh()
+      setMessage(t('clients.created'))
+      closeCreateModal()
+      navigate(`/app/attivita-pagamenti?athleteId=direct-${createdDirectAthlete.id}`)
+      return
+    }
+
     const minorAge = getAgeFromBirthDate(createDraft.minorBirthDate)
     if (
       minorAge === null ||
@@ -1236,29 +1340,18 @@ function ClientsPage() {
       )
       return
     }
-    const requiredFields = [
-      createDraft.parentFirstName,
-      createDraft.parentLastName,
-      createDraft.parentEmail,
-      createDraft.parentPhone,
-      createDraft.parentBirthDate,
-      createDraft.parentBirthPlace,
-      createDraft.parentRole,
-      createDraft.parentTaxCode,
-      createDraft.parentResidenceAddress,
-      createDraft.minorFirstName,
-      createDraft.minorLastName,
-      createDraft.minorBirthDate,
-      createDraft.minorBirthPlace,
-      createDraft.minorTaxCode,
-      createDraft.minorResidenceAddress,
+    const requiredMinorFields: Array<{ key: keyof CreateParentMinorDraft, value: string, label: string }> = [
+      { key: 'minorFirstName', value: createDraft.minorFirstName, label: t('clients.minorFirstName') },
+      { key: 'minorLastName', value: createDraft.minorLastName, label: t('clients.minorLastName') },
+      { key: 'minorBirthDate', value: createDraft.minorBirthDate, label: t('athletes.birthDate') },
+      { key: 'minorBirthPlace', value: createDraft.minorBirthPlace, label: t('clients.birthPlace') },
+      { key: 'minorTaxCode', value: createDraft.minorTaxCode, label: t('clients.taxCode') },
+      { key: 'minorResidenceAddress', value: createDraft.minorResidenceAddress, label: t('clients.residence') },
     ]
-    if (requiredFields.some((item) => !item.trim())) {
-      setCreateError(t('clients.createRequired'))
-      return
-    }
-    if (findPublicClientByTaxCode(createDraft.parentTaxCode)) {
-      setCreateError(t('clients.parentTaxCodeDuplicate'))
+    const missingMinorField = requiredMinorFields.find((item) => !item.value.trim())
+    if (missingMinorField) {
+      setCreateInvalidField(missingMinorField.key)
+      setCreateError(`${t('clients.createRequired')} ${missingMinorField.label}`)
       return
     }
     if (findPublicMinorByTaxCode(createDraft.minorTaxCode)) {
@@ -1266,32 +1359,6 @@ function ClientsPage() {
       return
     }
 
-    const allClients = getPublicClients()
-    const nextUserId = Math.max(0, ...allClients.map((item) => item.userId || 0)) + 1
-
-    const createdClient = createPublicClientRecord({
-      userId: nextUserId,
-      parentFirstName: createDraft.parentFirstName,
-      parentLastName: createDraft.parentLastName,
-      parentEmail: createDraft.parentEmail,
-      parentPhone: createDraft.parentPhone,
-      parentSecondaryPhone: createDraft.parentSecondaryPhone,
-      parentBirthDate: createDraft.parentBirthDate,
-      parentBirthPlace: createDraft.parentBirthPlace,
-      parentRole: createDraft.parentRole,
-      parentGender: createDraft.parentGender,
-      avatarUrl: '',
-      parentTaxCode: createDraft.parentTaxCode,
-      residenceAddress: createDraft.parentResidenceAddress,
-      consentEnrollmentAccepted: true,
-      consentInformationAccepted: true,
-      consentDataProcessingAccepted: false,
-      consentDataProcessingSignatureDataUrl: '',
-      enrollmentConfirmationSignatureDataUrl: '',
-      parentTaxCodeImageDataUrl: '',
-      parentIdentityDocumentImageDataUrl: '',
-      privacyPolicySigned: false,
-    })
     const createdMinor = createPublicMinorRecord({
       clientId: createdClient.id,
       packageId: selectedPackage.id,
@@ -1314,10 +1381,8 @@ function ClientsPage() {
         enrollment: selectedEnrollment,
       })
     }
-
-    updatePublicClientValidationStatus(createdClient.id, 'validated')
     updatePublicMinorValidationStatus(createdMinor.id, 'validated')
-    void downloadClientConsents(createdClient, createdMinor)
+    void downloadClientConsentsForPackage(createdClient, selectedPackage.id, null)
     refresh()
     setMessage(t('clients.created'))
     closeCreateModal()
@@ -1432,14 +1497,12 @@ function ClientsPage() {
       return
     }
     const clientForDownload = activeClient
-    const firstLinkedMinor = activeClientMinors[0] ?? null
-    if (status === 'validated') {
-      const hasNotValidatedMinors = activeClientMinors.some((minor) => minor.validationStatus !== 'validated')
-      if (hasNotValidatedMinors) {
-        const confirmed = window.confirm(t('clients.confirmValidateWithUnvalidatedMinors'))
-        if (!confirmed) {
-          return
-        }
+    const linkedMinors = minorsByClientId.get(activeClient.id) ?? []
+    const isParentClient = linkedMinors.length > 0
+    if (status === 'validated' && isParentClient && linkedMinors.some((minor) => minor.validationStatus !== 'validated')) {
+      const confirmed = window.confirm(t('clients.confirmValidateWithUnvalidatedMinors'))
+      if (!confirmed) {
+        return
       }
     }
     saveAllChanges(true)
@@ -1447,7 +1510,7 @@ function ClientsPage() {
     refresh()
     setMessage(t('clients.updated'))
     if (status === 'validated') {
-      void downloadClientConsents(clientForDownload, firstLinkedMinor)
+      void downloadClientConsents(clientForDownload)
     }
   }
 
@@ -1475,6 +1538,10 @@ function ClientsPage() {
     setStatusFilter('all')
     setPrivacyFilter('all')
   }
+  const createInputClass = (field: keyof CreateParentMinorDraft) =>
+    `input input-bordered w-full ${createInvalidField === field ? 'input-error' : ''}`
+  const createSelectClass = (field: 'packageId' | 'paymentMethodCode') =>
+    `select select-bordered w-full ${createInvalidField === field ? 'select-error' : ''}`
 
   return (
     <section className="space-y-4">
@@ -1690,22 +1757,24 @@ function ClientsPage() {
                 <span className="label-text mb-1 text-xs">{t('clients.birthDate')}</span>
                 <input type="date" className="input input-bordered w-full" value={clientDraft.parentBirthDate} onChange={(event) => setClientDraft((prev) => (prev ? { ...prev, parentBirthDate: event.target.value } : prev))} />
               </label>
-              <label className="form-control">
-                <span className="label-text mb-1 text-xs">{t('clients.parentRoleLabel')}</span>
-                <select
-                  className="select select-bordered w-full"
-                  value={clientDraft.parentRole}
-                  onChange={(event) =>
-                    setClientDraft((prev) =>
-                      prev ? { ...prev, parentRole: event.target.value as ParentRole } : prev,
-                    )
-                  }
-                >
-                  {PARENT_ROLE_OPTIONS.map((item) => (
-                    <option key={item} value={item}>{parentRoleLabel(item)}</option>
-                  ))}
-                </select>
-              </label>
+              {activeClientMinors.length > 0 ? (
+                <label className="form-control">
+                  <span className="label-text mb-1 text-xs">{t('clients.parentRoleLabel')}</span>
+                  <select
+                    className="select select-bordered w-full"
+                    value={clientDraft.parentRole}
+                    onChange={(event) =>
+                      setClientDraft((prev) =>
+                        prev ? { ...prev, parentRole: event.target.value as ParentRole } : prev,
+                      )
+                    }
+                  >
+                    {PARENT_ROLE_OPTIONS.map((item) => (
+                      <option key={item} value={item}>{parentRoleLabel(item)}</option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
               <label className="form-control">
                 <span className="label-text mb-1 text-xs">{t('clients.birthPlace')}</span>
                 <input className="input input-bordered w-full" value={clientDraft.parentBirthPlace} onChange={(event) => setClientDraft((prev) => (prev ? { ...prev, parentBirthPlace: event.target.value } : prev))} />
@@ -1970,7 +2039,21 @@ function ClientsPage() {
                   className="select select-bordered w-full"
                   value={createMode}
                   onChange={(event) => {
-                    setCreateMode(event.target.value as CreateClientMode)
+                    const nextMode = event.target.value as CreateClientMode
+                    const nextPackages = nextMode === 'parent' ? youthPackages : adultPackages
+                    setCreateMode(nextMode)
+                    setCreateInvalidField('')
+                    setCreateDraft((prev) => {
+                      const packageId = nextPackages[0]?.id ?? ''
+                      return {
+                        ...prev,
+                        packageId,
+                        paymentMethodCode: resolveValidPaymentMethodCode(
+                          '',
+                          getAvailablePaymentMethodsForCompany(nextPackages[0]?.companyId ?? ''),
+                        ),
+                      }
+                    })
                     setCreateError('')
                   }}
                 >
@@ -1981,9 +2064,10 @@ function ClientsPage() {
               <label className="form-control">
                 <span className="label-text mb-1 text-xs">{t('clients.createPackageLabel')}</span>
                 <select
-                  className="select select-bordered w-full"
+                  className={createSelectClass('packageId')}
                   value={createDraft.packageId}
                   onChange={(event) => {
+                    setCreateInvalidField('')
                     const packageId = event.target.value
                     setCreateDraft((prev) => ({
                       ...prev,
@@ -1992,10 +2076,10 @@ function ClientsPage() {
                     }))
                   }}
                 >
-                  {youthPackages.length === 0 ? (
+                  {createPackages.length === 0 ? (
                     <option value="">{t('clients.createNoPackages')}</option>
                   ) : (
-                    youthPackages.map((item: SportPackage) => (
+                    createPackages.map((item: SportPackage) => (
                       <option key={item.id} value={item.id}>
                         {item.name}
                       </option>
@@ -2006,11 +2090,12 @@ function ClientsPage() {
               <label className="form-control md:col-span-2">
                 <span className="label-text mb-1 text-xs">{t('clients.paymentMethod')}</span>
                 <select
-                  className="select select-bordered w-full"
+                  className={createSelectClass('paymentMethodCode')}
                   value={createDraft.paymentMethodCode}
-                  onChange={(event) =>
+                  onChange={(event) => {
+                    setCreateInvalidField('')
                     setCreateDraft((prev) => ({ ...prev, paymentMethodCode: event.target.value as PaymentMethodCode | '' }))
-                  }
+                  }}
                 >
                   {renderPaymentMethodOptions(createPaymentMethods)}
                 </select>
@@ -2024,19 +2109,19 @@ function ClientsPage() {
                   <div className="mt-2 grid grid-cols-1 gap-3 md:grid-cols-2">
                     <label className="form-control">
                       <span className="label-text mb-1 text-xs">{t('clients.parentFirstName')}</span>
-                      <input className="input input-bordered w-full" value={createDraft.parentFirstName} onChange={(event) => setCreateDraft((prev) => ({ ...prev, parentFirstName: event.target.value }))} />
+                      <input className={createInputClass('parentFirstName')} value={createDraft.parentFirstName} onChange={(event) => { setCreateInvalidField(''); setCreateDraft((prev) => ({ ...prev, parentFirstName: event.target.value })) }} />
                     </label>
                     <label className="form-control">
                       <span className="label-text mb-1 text-xs">{t('clients.parentLastName')}</span>
-                      <input className="input input-bordered w-full" value={createDraft.parentLastName} onChange={(event) => setCreateDraft((prev) => ({ ...prev, parentLastName: event.target.value }))} />
+                      <input className={createInputClass('parentLastName')} value={createDraft.parentLastName} onChange={(event) => { setCreateInvalidField(''); setCreateDraft((prev) => ({ ...prev, parentLastName: event.target.value })) }} />
                     </label>
                     <label className="form-control">
                       <span className="label-text mb-1 text-xs">{t('clients.email')}</span>
-                      <input className="input input-bordered w-full" value={createDraft.parentEmail} onChange={(event) => setCreateDraft((prev) => ({ ...prev, parentEmail: event.target.value }))} />
+                      <input className={createInputClass('parentEmail')} value={createDraft.parentEmail} onChange={(event) => { setCreateInvalidField(''); setCreateDraft((prev) => ({ ...prev, parentEmail: event.target.value })) }} />
                     </label>
                     <label className="form-control">
                       <span className="label-text mb-1 text-xs">{t('clients.phone')}</span>
-                      <input className="input input-bordered w-full" value={createDraft.parentPhone} onChange={(event) => setCreateDraft((prev) => ({ ...prev, parentPhone: event.target.value }))} />
+                      <input className={createInputClass('parentPhone')} value={createDraft.parentPhone} onChange={(event) => { setCreateInvalidField(''); setCreateDraft((prev) => ({ ...prev, parentPhone: event.target.value })) }} />
                     </label>
                     <label className="form-control">
                       <span className="label-text mb-1 text-xs">{t('clients.secondaryPhone')}</span>
@@ -2044,7 +2129,7 @@ function ClientsPage() {
                     </label>
                     <label className="form-control">
                       <span className="label-text mb-1 text-xs">{t('clients.birthDate')}</span>
-                      <input type="date" className="input input-bordered w-full" value={createDraft.parentBirthDate} onChange={(event) => setCreateDraft((prev) => ({ ...prev, parentBirthDate: event.target.value }))} />
+                      <input type="date" className={createInputClass('parentBirthDate')} value={createDraft.parentBirthDate} onChange={(event) => { setCreateInvalidField(''); setCreateDraft((prev) => ({ ...prev, parentBirthDate: event.target.value })) }} />
                     </label>
                     <label className="form-control">
                       <span className="label-text mb-1 text-xs">{t('clients.gender')}</span>
@@ -2075,24 +2160,24 @@ function ClientsPage() {
                       <span className="label-text mb-1 text-xs">{t('clients.birthPlace')}</span>
                       <input
                         ref={parentBirthPlaceRef}
-                        className="input input-bordered w-full"
+                        className={createInputClass('parentBirthPlace')}
                         value={createDraft.parentBirthPlace}
                         onFocus={initializeParentBirthPlaceAutocomplete}
-                        onChange={(event) => setCreateDraft((prev) => ({ ...prev, parentBirthPlace: event.target.value }))}
+                        onChange={(event) => { setCreateInvalidField(''); setCreateDraft((prev) => ({ ...prev, parentBirthPlace: event.target.value })) }}
                       />
                     </label>
                     <label className="form-control">
                       <span className="label-text mb-1 text-xs">{t('clients.taxCode')}</span>
-                      <input className="input input-bordered w-full" value={createDraft.parentTaxCode} readOnly />
+                      <input className={createInputClass('parentTaxCode')} value={createDraft.parentTaxCode} readOnly />
                     </label>
                     <label className="form-control md:col-span-2">
                       <span className="label-text mb-1 text-xs">{t('clients.residence')}</span>
                       <input
                         ref={parentResidenceRef}
-                        className="input input-bordered w-full"
+                        className={createInputClass('parentResidenceAddress')}
                         value={createDraft.parentResidenceAddress}
                         onFocus={initializeParentResidenceAutocomplete}
-                        onChange={(event) => setCreateDraft((prev) => ({ ...prev, parentResidenceAddress: event.target.value }))}
+                        onChange={(event) => { setCreateInvalidField(''); setCreateDraft((prev) => ({ ...prev, parentResidenceAddress: event.target.value })) }}
                       />
                     </label>
                   </div>
@@ -2103,15 +2188,15 @@ function ClientsPage() {
                   <div className="mt-2 grid grid-cols-1 gap-3 md:grid-cols-2">
                     <label className="form-control">
                       <span className="label-text mb-1 text-xs">{t('clients.minorFirstName')}</span>
-                      <input className="input input-bordered w-full" value={createDraft.minorFirstName} onChange={(event) => setCreateDraft((prev) => ({ ...prev, minorFirstName: event.target.value }))} />
+                      <input className={createInputClass('minorFirstName')} value={createDraft.minorFirstName} onChange={(event) => { setCreateInvalidField(''); setCreateDraft((prev) => ({ ...prev, minorFirstName: event.target.value })) }} />
                     </label>
                     <label className="form-control">
                       <span className="label-text mb-1 text-xs">{t('clients.minorLastName')}</span>
-                      <input className="input input-bordered w-full" value={createDraft.minorLastName} onChange={(event) => setCreateDraft((prev) => ({ ...prev, minorLastName: event.target.value }))} />
+                      <input className={createInputClass('minorLastName')} value={createDraft.minorLastName} onChange={(event) => { setCreateInvalidField(''); setCreateDraft((prev) => ({ ...prev, minorLastName: event.target.value })) }} />
                     </label>
                     <label className="form-control">
                       <span className="label-text mb-1 text-xs">{t('athletes.birthDate')}</span>
-                      <input type="date" className="input input-bordered w-full" value={createDraft.minorBirthDate} onChange={(event) => setCreateDraft((prev) => ({ ...prev, minorBirthDate: event.target.value }))} />
+                      <input type="date" className={createInputClass('minorBirthDate')} value={createDraft.minorBirthDate} onChange={(event) => { setCreateInvalidField(''); setCreateDraft((prev) => ({ ...prev, minorBirthDate: event.target.value })) }} />
                     </label>
                     <label className="form-control">
                       <span className="label-text mb-1 text-xs">{t('clients.gender')}</span>
@@ -2128,33 +2213,96 @@ function ClientsPage() {
                       <span className="label-text mb-1 text-xs">{t('clients.birthPlace')}</span>
                       <input
                         ref={minorBirthPlaceRef}
-                        className="input input-bordered w-full"
+                        className={createInputClass('minorBirthPlace')}
                         value={createDraft.minorBirthPlace}
                         onFocus={initializeMinorBirthPlaceAutocomplete}
-                        onChange={(event) => setCreateDraft((prev) => ({ ...prev, minorBirthPlace: event.target.value }))}
+                        onChange={(event) => { setCreateInvalidField(''); setCreateDraft((prev) => ({ ...prev, minorBirthPlace: event.target.value })) }}
                       />
                     </label>
                     <label className="form-control">
                       <span className="label-text mb-1 text-xs">{t('clients.taxCode')}</span>
-                      <input className="input input-bordered w-full" value={createDraft.minorTaxCode} readOnly />
+                      <input className={createInputClass('minorTaxCode')} value={createDraft.minorTaxCode} readOnly />
                     </label>
                     <label className="form-control md:col-span-2">
                       <span className="label-text mb-1 text-xs">{t('clients.residence')}</span>
                       <input
                         ref={minorResidenceRef}
-                        className="input input-bordered w-full"
+                        className={createInputClass('minorResidenceAddress')}
                         value={createDraft.minorResidenceAddress}
                         onFocus={initializeMinorResidenceAutocomplete}
-                        onChange={(event) => setCreateDraft((prev) => ({ ...prev, minorResidenceAddress: event.target.value }))}
+                        onChange={(event) => { setCreateInvalidField(''); setCreateDraft((prev) => ({ ...prev, minorResidenceAddress: event.target.value })) }}
                       />
                     </label>
                   </div>
                 </div>
               </div>
             ) : (
-              <p className="mt-4 rounded border border-warning/40 bg-warning/10 p-3 text-sm">
-                {t('clients.createAthleteNotImplemented')}
-              </p>
+              <div className="mt-4 space-y-4">
+                <div>
+                  <h4 className="font-semibold">{t('clients.createAsAthlete')}</h4>
+                  <div className="mt-2 grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <label className="form-control">
+                      <span className="label-text mb-1 text-xs">{t('clients.parentFirstName')}</span>
+                      <input className={createInputClass('parentFirstName')} value={createDraft.parentFirstName} onChange={(event) => { setCreateInvalidField(''); setCreateDraft((prev) => ({ ...prev, parentFirstName: event.target.value })) }} />
+                    </label>
+                    <label className="form-control">
+                      <span className="label-text mb-1 text-xs">{t('clients.parentLastName')}</span>
+                      <input className={createInputClass('parentLastName')} value={createDraft.parentLastName} onChange={(event) => { setCreateInvalidField(''); setCreateDraft((prev) => ({ ...prev, parentLastName: event.target.value })) }} />
+                    </label>
+                    <label className="form-control">
+                      <span className="label-text mb-1 text-xs">{t('clients.email')}</span>
+                      <input className={createInputClass('parentEmail')} value={createDraft.parentEmail} onChange={(event) => { setCreateInvalidField(''); setCreateDraft((prev) => ({ ...prev, parentEmail: event.target.value })) }} />
+                    </label>
+                    <label className="form-control">
+                      <span className="label-text mb-1 text-xs">{t('clients.phone')}</span>
+                      <input className={createInputClass('parentPhone')} value={createDraft.parentPhone} onChange={(event) => { setCreateInvalidField(''); setCreateDraft((prev) => ({ ...prev, parentPhone: event.target.value })) }} />
+                    </label>
+                    <label className="form-control">
+                      <span className="label-text mb-1 text-xs">{t('clients.secondaryPhone')}</span>
+                      <input className="input input-bordered w-full" value={createDraft.parentSecondaryPhone} onChange={(event) => setCreateDraft((prev) => ({ ...prev, parentSecondaryPhone: event.target.value }))} />
+                    </label>
+                    <label className="form-control">
+                      <span className="label-text mb-1 text-xs">{t('clients.birthDate')}</span>
+                      <input type="date" className={createInputClass('parentBirthDate')} value={createDraft.parentBirthDate} onChange={(event) => { setCreateInvalidField(''); setCreateDraft((prev) => ({ ...prev, parentBirthDate: event.target.value })) }} />
+                    </label>
+                    <label className="form-control">
+                      <span className="label-text mb-1 text-xs">{t('clients.gender')}</span>
+                      <select
+                        className="select select-bordered w-full"
+                        value={createDraft.parentGender}
+                        onChange={(event) => setCreateDraft((prev) => ({ ...prev, parentGender: event.target.value as 'M' | 'F' }))}
+                      >
+                        <option value="M">{t('clients.genderMale')}</option>
+                        <option value="F">{t('clients.genderFemale')}</option>
+                      </select>
+                    </label>
+                    <label className="form-control">
+                      <span className="label-text mb-1 text-xs">{t('clients.birthPlace')}</span>
+                      <input
+                        ref={parentBirthPlaceRef}
+                        className={createInputClass('parentBirthPlace')}
+                        value={createDraft.parentBirthPlace}
+                        onFocus={initializeParentBirthPlaceAutocomplete}
+                        onChange={(event) => { setCreateInvalidField(''); setCreateDraft((prev) => ({ ...prev, parentBirthPlace: event.target.value })) }}
+                      />
+                    </label>
+                    <label className="form-control">
+                      <span className="label-text mb-1 text-xs">{t('clients.taxCode')}</span>
+                      <input className={createInputClass('parentTaxCode')} value={createDraft.parentTaxCode} readOnly />
+                    </label>
+                    <label className="form-control">
+                      <span className="label-text mb-1 text-xs">{t('clients.residence')}</span>
+                      <input
+                        ref={parentResidenceRef}
+                        className={createInputClass('parentResidenceAddress')}
+                        value={createDraft.parentResidenceAddress}
+                        onFocus={initializeParentResidenceAutocomplete}
+                        onChange={(event) => { setCreateInvalidField(''); setCreateDraft((prev) => ({ ...prev, parentResidenceAddress: event.target.value })) }}
+                      />
+                    </label>
+                  </div>
+                </div>
+              </div>
             )}
 
             {createError ? <p className="mt-4 rounded bg-error/15 px-3 py-2 text-sm text-error">{createError}</p> : null}

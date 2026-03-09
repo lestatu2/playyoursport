@@ -69,7 +69,8 @@
     "utilityAdditionalServices": "Zusatzleistungen",
     "utilityWhatsAppAccounts": "WhatsApp-Accounts",
     "utilityPaymentMethods": "Zahlungsmethoden",
-    "utilityContracts": "Vertraege"
+    "utilityContracts": "Vertraege",
+    "groupFieldAssignments": "Gruppen/Feld-Zuweisung"
   },
   "clients": {
     "title": "Kunden",
@@ -1148,9 +1149,41 @@
       "usersRead": "Benutzeranzeige",
       "subscribersManage": "Abonnentenverwaltung"
     }
+  },
+  "assignments": {
+    "title": "Gruppen/Feld-Zuweisung",
+    "description": "Athleten zwischen Gruppe, Feld und Zeit verschieben. Verschiebungen sind sofort wirksam und der Admin kann die finale Konfiguration schliessen.",
+    "package": "Paket",
+    "noPackages": "Keine verfuegbaren Pakete fuer dein Profil.",
+    "noSchedule": "Ohne Zeit",
+    "requestCreated": "Verschiebungsvorschlag erstellt.",
+    "requestCounterProposed": "Gegenvorschlag gespeichert.",
+    "requestApproved": "Anfrage genehmigt und Zuweisung angewendet.",
+    "requestRejected": "Anfrage abgelehnt.",
+    "requestsTitle": "Verschiebungsanfragen",
+    "noRequests": "Keine Anfragen vorhanden.",
+    "counterPropose": "Gegenvorschlag",
+    "finalConfirm": "Finale Bestaetigung",
+    "requestFinalConfirmed": "Finale Bestaetigung angewendet.",
+    "searchName": "Suche nach Name",
+    "searchNamePlaceholder": "Name eingeben",
+    "searchAge": "Suche nach Alter",
+    "searchAgePlaceholder": "Genaues Alter",
+    "searchGroup": "Suche nach Gruppe",
+    "allGroups": "Alle Gruppen",
+    "searchField": "Suche nach Feld",
+    "allFields": "Alle Felder",
+    "searchWeekday": "Suche nach Wochentag",
+    "allWeekdays": "Alle Wochentage",
+    "moveApplied": "Verschiebung angewendet.",
+    "statusDraft": "Entwurf offen",
+    "statusFinalized": "Konfiguration finalisiert",
+    "finalizeGroup": "Gruppe/Feld-Konfiguration schliessen",
+    "reopenGroup": "Gruppe/Feld-Konfiguration wieder oeffnen",
+    "groupFinalized": "Gruppe/Feld-Konfiguration geschlossen.",
+    "groupReopened": "Gruppe/Feld-Konfiguration wieder geoeffnet.",
+    "groupMoveUp": "Hoch",
+    "groupMoveDown": "Runter",
+    "dragGroup": "Ziehen"
   }
 }
-
-
-
-

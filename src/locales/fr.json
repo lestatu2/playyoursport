@@ -69,7 +69,8 @@
     "utilityAdditionalServices": "Services supplementaires",
     "utilityWhatsAppAccounts": "Comptes WhatsApp",
     "utilityPaymentMethods": "Methodes de paiement",
-    "utilityContracts": "Contrats"
+    "utilityContracts": "Contrats",
+    "groupFieldAssignments": "Affectation Groupe/Terrain"
   },
   "clients": {
     "title": "Clients",
@@ -1148,9 +1149,41 @@
       "usersRead": "Consultation des utilisateurs",
       "subscribersManage": "Gestion des abonnes"
     }
+  },
+  "assignments": {
+    "title": "Affectation Groupe/Terrain",
+    "description": "Deplacez les athletes entre groupe, terrain et horaire. Les deplacements sont immediats et l'admin peut cloturer la configuration finale.",
+    "package": "Package",
+    "noPackages": "Aucun package disponible pour votre profil.",
+    "noSchedule": "Sans horaire",
+    "requestCreated": "Proposition de deplacement creee.",
+    "requestCounterProposed": "Contre-proposition enregistree.",
+    "requestApproved": "Demande approuvee et affectation appliquee.",
+    "requestRejected": "Demande refusee.",
+    "requestsTitle": "Demandes de deplacement",
+    "noRequests": "Aucune demande.",
+    "counterPropose": "Contre-proposer",
+    "finalConfirm": "Confirmation finale",
+    "requestFinalConfirmed": "Confirmation finale appliquee.",
+    "searchName": "Recherche par nom",
+    "searchNamePlaceholder": "Saisir un nom",
+    "searchAge": "Recherche par age",
+    "searchAgePlaceholder": "Age exact",
+    "searchGroup": "Recherche par groupe",
+    "allGroups": "Tous les groupes",
+    "searchField": "Recherche par terrain",
+    "allFields": "Tous les terrains",
+    "searchWeekday": "Recherche par jour",
+    "allWeekdays": "Tous les jours",
+    "moveApplied": "Deplacement applique.",
+    "statusDraft": "Brouillon ouvert",
+    "statusFinalized": "Configuration finalisee",
+    "finalizeGroup": "Cloturer config groupe/terrain",
+    "reopenGroup": "Reouvrir config groupe/terrain",
+    "groupFinalized": "Configuration groupe/terrain cloturee.",
+    "groupReopened": "Configuration groupe/terrain reouverte.",
+    "groupMoveUp": "Monter",
+    "groupMoveDown": "Descendre",
+    "dragGroup": "Glisser"
   }
 }
-
-
-
-

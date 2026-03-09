@@ -69,7 +69,8 @@
     "utilityAdditionalServices": "Servicios adicionales",
     "utilityWhatsAppAccounts": "Cuentas WhatsApp",
     "utilityPaymentMethods": "Metodos de pago",
-    "utilityContracts": "Contratos"
+    "utilityContracts": "Contratos",
+    "groupFieldAssignments": "Asignacion Grupo/Campo"
   },
   "clients": {
     "title": "Clientes",
@@ -1148,9 +1149,41 @@
       "usersRead": "Visualizacion de usuarios",
       "subscribersManage": "Gestion de suscriptores"
     }
+  },
+  "assignments": {
+    "title": "Asignacion Grupo/Campo",
+    "description": "Mueve atletas entre grupo, campo y horario. Los movimientos son inmediatos y el admin puede cerrar la configuracion final.",
+    "package": "Paquete",
+    "noPackages": "No hay paquetes disponibles para tu perfil.",
+    "noSchedule": "Sin horario",
+    "requestCreated": "Propuesta de cambio creada.",
+    "requestCounterProposed": "Contrapropuesta guardada.",
+    "requestApproved": "Solicitud aprobada y asignacion aplicada.",
+    "requestRejected": "Solicitud rechazada.",
+    "requestsTitle": "Solicitudes de cambio",
+    "noRequests": "No hay solicitudes.",
+    "counterPropose": "Contraproponer",
+    "finalConfirm": "Confirmacion final",
+    "requestFinalConfirmed": "Confirmacion final aplicada.",
+    "searchName": "Buscar por nombre",
+    "searchNamePlaceholder": "Escribe un nombre",
+    "searchAge": "Buscar por edad",
+    "searchAgePlaceholder": "Edad exacta",
+    "searchGroup": "Buscar por grupo",
+    "allGroups": "Todos los grupos",
+    "searchField": "Buscar por campo",
+    "allFields": "Todos los campos",
+    "searchWeekday": "Buscar por día",
+    "allWeekdays": "Todos los días",
+    "moveApplied": "Movimiento aplicado.",
+    "statusDraft": "Borrador abierto",
+    "statusFinalized": "Configuracion definida",
+    "finalizeGroup": "Cerrar configuracion grupo/campo",
+    "reopenGroup": "Reabrir configuracion grupo/campo",
+    "groupFinalized": "Configuracion grupo/campo cerrada.",
+    "groupReopened": "Configuracion grupo/campo reabierta.",
+    "groupMoveUp": "Subir",
+    "groupMoveDown": "Bajar",
+    "dragGroup": "Arrastrar"
   }
 }
-
-
-
-

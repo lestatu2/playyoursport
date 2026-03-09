@@ -1,7 +1,10 @@
 import mockPublicClients from '../data/mock-public-clients.json'
+import { readJsonArray, writeJsonValue } from './storage'
 
 const PUBLIC_CLIENTS_KEY = 'pys_public_clients'
 const PUBLIC_MINORS_KEY = 'pys_public_minors'
+const PUBLIC_ENROLLMENTS_KEY = 'pys_public_enrollments'
+const PUBLIC_MINOR_CLIENT_REPAIR_KEY = 'pys_public_minor_client_repair_v1'
 
 export type PublicValidationStatus = 'not_validated' | 'validated'
 export type ParentRole = 'genitore' | 'tutore' | 'esercente_responsabilita'
@@ -53,21 +56,35 @@ export type PublicMinorRecord = {
   createdAt: string
 }
 
-function readJson<T>(key: string): T[] {
-  try {
-    const raw = localStorage.getItem(key)
-    if (!raw) {
-      return []
-    }
-    const parsed = JSON.parse(raw) as T[]
-    return Array.isArray(parsed) ? parsed : []
-  } catch {
-    return []
-  }
+type ClientProfileInput = {
+  parentFirstName: string
+  parentLastName: string
+  parentEmail: string
+  parentPhone: string
+  parentSecondaryPhone: string
+  parentBirthDate: string
+  parentBirthPlace: string
+  parentRole: ParentRole
+  parentTaxCode: string
+  residenceAddress: string
 }
 
+type NormalizedClientProfileFields = Pick<
+  PublicClientRecord,
+  | 'parentFirstName'
+  | 'parentLastName'
+  | 'parentEmail'
+  | 'parentPhone'
+  | 'parentSecondaryPhone'
+  | 'parentBirthDate'
+  | 'parentBirthPlace'
+  | 'parentRole'
+  | 'parentTaxCode'
+  | 'residenceAddress'
+>
+
 function writeJson<T>(key: string, items: T[]): void {
-  localStorage.setItem(key, JSON.stringify(items))
+  writeJsonValue(key, items)
 }
 
 function normalizeTaxCode(value: string): string {
@@ -96,12 +113,110 @@ function normalizeClientRecord(item: PublicClientRecord): PublicClientRecord {
   }
 }
 
+function normalizeClientProfileFields(input: ClientProfileInput): NormalizedClientProfileFields {
+  return {
+    parentFirstName: input.parentFirstName.trim(),
+    parentLastName: input.parentLastName.trim(),
+    parentEmail: input.parentEmail.trim().toLowerCase(),
+    parentPhone: input.parentPhone.trim(),
+    parentSecondaryPhone: input.parentSecondaryPhone.trim(),
+    parentBirthDate: input.parentBirthDate.trim(),
+    parentBirthPlace: input.parentBirthPlace.trim(),
+    parentRole: normalizeParentRole(input.parentRole),
+    parentTaxCode: normalizeTaxCode(input.parentTaxCode),
+    residenceAddress: input.residenceAddress.trim(),
+  }
+}
+
+function replaceItemById<T extends { id: number }>(items: T[], id: number, updated: T): T[] {
+  return items.map((item) => (item.id === id ? updated : item))
+}
+
+type EnrollmentForRepair = {
+  packageId: string
+  purchaserUserId: number
+  audience: 'adult' | 'youth'
+  participantFirstName: string
+  participantLastName: string
+  participantBirthYear: number | null
+}
+
+function normalizeName(value: string): string {
+  return value.trim().toLowerCase()
+}
+
+function readEnrollmentsForRepair(): EnrollmentForRepair[] {
+  try {
+    const raw = localStorage.getItem(PUBLIC_ENROLLMENTS_KEY)
+    if (!raw) {
+      return []
+    }
+    const parsed = JSON.parse(raw) as EnrollmentForRepair[]
+    if (!Array.isArray(parsed)) {
+      return []
+    }
+    return parsed.filter((item) => item?.audience === 'youth')
+  } catch {
+    return []
+  }
+}
+
+function birthYearFromDate(value: string): number | null {
+  const year = Number.parseInt(value.slice(0, 4), 10)
+  return Number.isInteger(year) ? year : null
+}
+
+function repairMinorClientLinksIfNeeded(clients: PublicClientRecord[], minors: PublicMinorRecord[]): PublicMinorRecord[] {
+  if (localStorage.getItem(PUBLIC_MINOR_CLIENT_REPAIR_KEY) === 'done') {
+    return minors
+  }
+
+  const enrollments = readEnrollmentsForRepair()
+  if (enrollments.length === 0 || minors.length === 0) {
+    localStorage.setItem(PUBLIC_MINOR_CLIENT_REPAIR_KEY, 'done')
+    return minors
+  }
+
+  let changed = false
+  const repaired = minors.map((minor) => {
+    const matches = enrollments.filter((enrollment) => {
+      const sameName =
+        normalizeName(enrollment.participantFirstName) === normalizeName(minor.firstName) &&
+        normalizeName(enrollment.participantLastName) === normalizeName(minor.lastName)
+      const samePackage = enrollment.packageId === minor.packageId
+      const sameBirthYear =
+        enrollment.participantBirthYear === null ||
+        enrollment.participantBirthYear === birthYearFromDate(minor.birthDate)
+      return sameName && samePackage && sameBirthYear
+    })
+    if (matches.length === 0) {
+      return minor
+    }
+    const uniquePurchaserUserIds = Array.from(new Set(matches.map((item) => item.purchaserUserId)))
+    if (uniquePurchaserUserIds.length !== 1) {
+      return minor
+    }
+    const targetClient = clients.find((client) => client.userId === uniquePurchaserUserIds[0]) ?? null
+    if (!targetClient || targetClient.id === minor.clientId) {
+      return minor
+    }
+    changed = true
+    return { ...minor, clientId: targetClient.id }
+  })
+
+  if (changed) {
+    writeJson(PUBLIC_MINORS_KEY, repaired)
+  }
+  localStorage.setItem(PUBLIC_MINOR_CLIENT_REPAIR_KEY, 'done')
+  return repaired
+}
+
 function nextId(items: Array<{ id: number }>): number {
   return Math.max(0, ...items.map((item) => item.id)) + 1
 }
 
 export function getPublicClients(): PublicClientRecord[] {
-  const stored = readJson<PublicClientRecord>(PUBLIC_CLIENTS_KEY).map(normalizeClientRecord)
+  const stored = readJsonArray<PublicClientRecord>(PUBLIC_CLIENTS_KEY).map(normalizeClientRecord)
   const seeds = (mockPublicClients as PublicClientRecord[]).map(normalizeClientRecord)
   if (stored.length === 0) {
     return seeds
@@ -118,15 +233,23 @@ export function getPublicClients(): PublicClientRecord[] {
 }
 
 export function getPublicMinors(): PublicMinorRecord[] {
-  return readJson<PublicMinorRecord>(PUBLIC_MINORS_KEY).map((item) => ({
-    ...item,
-    avatarUrl: (item.avatarUrl ?? '').trim(),
-    gender: item.gender === 'F' ? 'F' : item.gender === 'M' ? 'M' : undefined,
-    medicalCertificateImageDataUrl: item.medicalCertificateImageDataUrl ?? '',
-    medicalCertificateExpiryDate: item.medicalCertificateExpiryDate ?? '',
-    selectedPaymentMethodCode: (item as { selectedPaymentMethodCode?: string }).selectedPaymentMethodCode ?? '',
-    validationStatus: item.validationStatus === 'validated' ? 'validated' : 'not_validated',
-  }))
+  const normalized = readJsonArray<PublicMinorRecord>(PUBLIC_MINORS_KEY).map((item): PublicMinorRecord => {
+    const normalizedGender: 'M' | 'F' | undefined =
+      item.gender === 'F' ? 'F' : item.gender === 'M' ? 'M' : undefined
+    const normalizedValidationStatus: PublicValidationStatus =
+      item.validationStatus === 'validated' ? 'validated' : 'not_validated'
+    return {
+      ...item,
+      avatarUrl: (item.avatarUrl ?? '').trim(),
+      gender: normalizedGender,
+      medicalCertificateImageDataUrl: item.medicalCertificateImageDataUrl ?? '',
+      medicalCertificateExpiryDate: item.medicalCertificateExpiryDate ?? '',
+      selectedPaymentMethodCode: (item as { selectedPaymentMethodCode?: string }).selectedPaymentMethodCode ?? '',
+      validationStatus: normalizedValidationStatus,
+    }
+  })
+  const clients = getPublicClients()
+  return repairMinorClientLinksIfNeeded(clients, normalized)
 }
 
 export function findPublicClientByTaxCode(taxCode: string): PublicClientRecord | null {
@@ -169,24 +292,13 @@ export function createPublicClientRecord(payload: {
   privacyPolicySigned?: boolean
 }): PublicClientRecord {
   const all = getPublicClients()
+  const normalizedProfile = normalizeClientProfileFields(payload)
   const next: PublicClientRecord = {
     id: nextId(all),
     userId: payload.userId,
     avatarUrl: payload.avatarUrl?.trim() ?? '',
-    parentFirstName: payload.parentFirstName.trim(),
-    parentLastName: payload.parentLastName.trim(),
-    parentEmail: payload.parentEmail.trim().toLowerCase(),
-    parentPhone: payload.parentPhone.trim(),
-    parentSecondaryPhone: payload.parentSecondaryPhone.trim(),
-    parentBirthDate: payload.parentBirthDate.trim(),
-    parentBirthPlace: payload.parentBirthPlace.trim(),
-    parentRole:
-      payload.parentRole === 'tutore' || payload.parentRole === 'esercente_responsabilita'
-        ? payload.parentRole
-        : 'genitore',
+    ...normalizedProfile,
     parentGender: payload.parentGender === 'F' ? 'F' : payload.parentGender === 'M' ? 'M' : undefined,
-    parentTaxCode: normalizeTaxCode(payload.parentTaxCode),
-    residenceAddress: payload.residenceAddress.trim(),
     consentEnrollmentAccepted: payload.consentEnrollmentAccepted,
     consentInformationAccepted: payload.consentInformationAccepted,
     consentDataProcessingAccepted: payload.consentDataProcessingAccepted,
@@ -252,10 +364,7 @@ export function updatePublicClientValidationStatus(
     return null
   }
   const updated: PublicClientRecord = { ...current, validationStatus }
-  writeJson(
-    PUBLIC_CLIENTS_KEY,
-    all.map((item) => (item.id === clientId ? updated : item)),
-  )
+  writeJson(PUBLIC_CLIENTS_KEY, replaceItemById(all, clientId, updated))
   return updated
 }
 
@@ -280,27 +389,13 @@ export function updatePublicClientRecord(
   if (!current) {
     return null
   }
+  const normalizedProfile = normalizeClientProfileFields(payload)
   const updated: PublicClientRecord = {
     ...current,
-    parentFirstName: payload.parentFirstName.trim(),
-    parentLastName: payload.parentLastName.trim(),
-    parentEmail: payload.parentEmail.trim().toLowerCase(),
-    parentPhone: payload.parentPhone.trim(),
-    parentSecondaryPhone: payload.parentSecondaryPhone.trim(),
-    parentBirthDate: payload.parentBirthDate.trim(),
-    parentBirthPlace: payload.parentBirthPlace.trim(),
-    parentRole:
-      payload.parentRole === 'tutore' || payload.parentRole === 'esercente_responsabilita'
-        ? payload.parentRole
-        : 'genitore',
+    ...normalizedProfile,
     avatarUrl: (payload.avatarUrl ?? current.avatarUrl).trim(),
-    parentTaxCode: normalizeTaxCode(payload.parentTaxCode),
-    residenceAddress: payload.residenceAddress.trim(),
   }
-  writeJson(
-    PUBLIC_CLIENTS_KEY,
-    all.map((item) => (item.id === clientId ? updated : item)),
-  )
+  writeJson(PUBLIC_CLIENTS_KEY, replaceItemById(all, clientId, updated))
   return updated
 }
 
@@ -317,10 +412,7 @@ export function updatePublicClientPrivacyPolicyStatus(
     ...current,
     privacyPolicySigned,
   }
-  writeJson(
-    PUBLIC_CLIENTS_KEY,
-    all.map((item) => (item.id === clientId ? updated : item)),
-  )
+  writeJson(PUBLIC_CLIENTS_KEY, replaceItemById(all, clientId, updated))
   return updated
 }
 
@@ -334,10 +426,7 @@ export function updatePublicMinorValidationStatus(
     return null
   }
   const updated: PublicMinorRecord = { ...current, validationStatus }
-  writeJson(
-    PUBLIC_MINORS_KEY,
-    all.map((item) => (item.id === minorId ? updated : item)),
-  )
+  writeJson(PUBLIC_MINORS_KEY, replaceItemById(all, minorId, updated))
   return updated
 }
 
@@ -371,10 +460,7 @@ export function updatePublicMinorRecord(
     medicalCertificateImageDataUrl: (payload.medicalCertificateImageDataUrl ?? current.medicalCertificateImageDataUrl).trim(),
     medicalCertificateExpiryDate: (payload.medicalCertificateExpiryDate ?? current.medicalCertificateExpiryDate).trim(),
   }
-  writeJson(
-    PUBLIC_MINORS_KEY,
-    all.map((item) => (item.id === minorId ? updated : item)),
-  )
+  writeJson(PUBLIC_MINORS_KEY, replaceItemById(all, minorId, updated))
   return updated
 }
 

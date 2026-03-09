@@ -876,14 +876,17 @@ function AthletesPage() {
           return <span className="text-sm opacity-70">-</span>
         }
         return (
-          <div className="flex flex-wrap gap-1">
+          <div className="flex flex-wrap gap-2">
             {enrollments.map((enrollment) => {
               const title = enrollmentLabelById.get(enrollment.sourceEnrollmentId) ?? enrollment.sourceEnrollmentId
               const isValid = isEnrollmentCoverageValid(enrollment.validTo)
               return (
-                <span key={enrollment.id} className={`badge ${isValid ? 'badge-success' : 'badge-error'}`}>
-                  {title} {enrollment.validTo}
-                </span>
+                <div key={enrollment.id} className="flex flex-col items-start">
+                  <span className={`badge ${isValid ? 'badge-success' : 'badge-error'}`}>
+                    {title}
+                  </span>
+                  <span className="text-xs opacity-70">{enrollment.validTo}</span>
+                </div>
               )
             })}
           </div>

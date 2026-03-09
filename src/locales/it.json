@@ -1,4 +1,4 @@
-﻿{
+{
   "common": {
     "save": "Salva",
     "resetDefault": "Ripristina default",
@@ -69,7 +69,8 @@
     "utilityAdditionalServices": "Servizi aggiuntivi",
     "utilityWhatsAppAccounts": "Account WhatsApp",
     "utilityPaymentMethods": "Metodi pagamento",
-    "utilityContracts": "Contratti"
+    "utilityContracts": "Contratti",
+    "groupFieldAssignments": "Assegnazione Gruppo/Campo"
   },
   "users": {
     "title": "Utenti",
@@ -170,8 +171,7 @@
     "updated": "Stato cliente aggiornato.",
     "created": "Cliente e minore creati e validati.",
     "minorCreated": "Minore creato e validato.",
-    "empty": "Nessun cliente registrato."
-    ,
+    "empty": "Nessun cliente registrato.",
     "openDocument": "Apri documento",
     "avatar": "Avatar",
     "removeAvatar": "Rimuovi",
@@ -1138,7 +1138,7 @@
       },
       "postSubmit": {
         "title": "Richiesta inviata con successo",
-          "subtitle": "La tua richiesta è stata registrata.",
+        "subtitle": "La tua richiesta è stata registrata.",
         "summaryTitle": "Riepilogo acquisto",
         "verificationNotice": "Per poter essere attivato, è necessaria la verifica dei dati del minore e dei dati del genitore.",
         "activationNotice": "Dopo l'attivazione riceverai una notifica di validazione e potrai procedere al pagamento.",
@@ -1148,11 +1148,31 @@
         "variableServicesGuaranteedNotice": "In presenza di servizi variabili, al totale verrà aggiunto il prezzo dei servizi variabili definito in fase di validazione."
       }
     }
+  },
+  "assignments": {
+    "title": "Assegnazione Gruppo/Campo",
+    "description": "Sposta atleti tra gruppo, campo e orario. Gli spostamenti sono immediati e l'admin può chiudere l'assetto finale.",
+    "package": "Pacchetto",
+    "noPackages": "Nessun pacchetto disponibile per il tuo profilo.",
+    "noSchedule": "Senza orario",
+    "searchName": "Ricerca nome",
+    "searchNamePlaceholder": "Cerca per nome",
+    "searchAge": "Ricerca età",
+    "searchAgePlaceholder": "Età esatta",
+    "searchGroup": "Ricerca gruppo",
+    "allGroups": "Tutti i gruppi",
+    "searchField": "Ricerca campo",
+    "allFields": "Tutti i campi",
+    "searchWeekday": "Ricerca giorno",
+    "allWeekdays": "Tutti i giorni",
+    "moveApplied": "Spostamento applicato.",
+    "statusDraft": "Bozza aperta",
+    "statusFinalized": "Assetto definito",
+    "finalizeGroup": "Chiudi assetto gruppo/campo",
+    "reopenGroup": "Riapri assetto gruppo/campo",
+    "groupFinalized": "Assetto gruppo/campo chiuso.",
+    "groupReopened": "Assetto gruppo/campo riaperto.",
+    "groupMoveUp": "Su",
+    "groupMoveDown": "Giù"
   }
 }
-
-
-
-
-
-
