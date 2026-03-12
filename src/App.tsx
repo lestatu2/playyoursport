@@ -7,6 +7,7 @@ import DashboardPage from './pages/DashboardPage'
 import ConfigurationPage from './pages/ConfigurationPage'
 import UtilityCategoriesPage from './pages/UtilityCategoriesPage'
 import PackagesPage from './pages/PackagesPage'
+import OpenDayPage from './pages/OpenDayPage'
 import UtilityCompaniesPage from './pages/UtilityCompaniesPage'
 import UtilityFieldsPage from './pages/UtilityFieldsPage'
 import UtilityGroupsPage from './pages/UtilityGroupsPage'
@@ -25,6 +26,8 @@ import PublicPortalPage from './pages/PublicPortalPage'
 import SitePage from './pages/SitePage'
 import PublicPackagesPage from './pages/PublicPackagesPage'
 import PublicPackageDetailPage from './pages/PublicPackageDetailPage'
+import PublicOpenDaysPage from './pages/PublicOpenDaysPage'
+import PublicOpenDayDetailPage from './pages/PublicOpenDayDetailPage'
 import {
   canAccessConfiguration,
   canAccessPackages,
@@ -197,6 +200,18 @@ function App() {
           <PublicPackageDetailPage session={publicSession} onLogin={setPublicSession} onLogout={handlePublicLogout} />
         }
       />
+      <Route
+        path="/open-day"
+        element={
+          <PublicOpenDaysPage session={publicSession} onLogin={setPublicSession} onLogout={handlePublicLogout} />
+        }
+      />
+      <Route
+        path="/open-day/:editionId"
+        element={
+          <PublicOpenDayDetailPage session={publicSession} onLogin={setPublicSession} onLogout={handlePublicLogout} />
+        }
+      />
       <Route path="/login" element={<LoginPage session={session} onLogin={setSession} />} />
       <Route
         path="/app"
@@ -212,6 +227,14 @@ function App() {
           element={
             <PackagesRoute session={session}>
               <PackagesPage />
+            </PackagesRoute>
+          }
+        />
+        <Route
+          path="open-day"
+          element={
+            <PackagesRoute session={session}>
+              <OpenDayPage />
             </PackagesRoute>
           }
         />

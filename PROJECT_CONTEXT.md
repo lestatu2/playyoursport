@@ -598,3 +598,109 @@ Obiettivo: mantenere separazione netta tra prodotto base e edizione annuale.
   - `src/lib/storage.ts`
   - `readJsonArray<T>()`, `writeJsonValue<T>()`
 - Eliminata duplicazione parser/storage in moduli che la replicavano.
+
+## Aggiornamento odierno (2026-03-12)
+
+### Open Day - direzione dominio approvata
+- Gli `Open Day` NON vanno modellati come pacchetti senza pagamento.
+- Devono essere una entita separata, con prodotto base + edizioni annuali, coerente con la logica gia usata per i pacchetti ma con dominio distinto.
+- Nuovo ruolo frontend approvato: `prospect`
+  - serve per utenti noti alla piattaforma che partecipano agli open day senza essere ancora `subscriber` o `client`
+  - utile anche per metriche di conversione verso `subscriber` / `client`
+- Entita dominio previste:
+  - `OpenDayProduct`
+  - `OpenDayEdition`
+  - `OpenDayGroup`
+  - `OpenDaySession`
+  - `OpenDayProspect`
+  - `OpenDayMinorAthlete`
+  - `OpenDayAdultAthlete`
+  - `OpenDayParticipation`
+- Gli Open Day:
+  - condividono categorie e campi con i pacchetti
+  - NON hanno azienda
+  - NON hanno iscrizione/assicurazione
+  - NON hanno servizi aggiuntivi
+  - NON hanno pagamenti
+  - NON richiedono documenti nel form pubblico
+- Gruppi/sessioni open day:
+  - i gruppi hanno filtro sesso + range anno nascita + campo
+  - le sessioni hanno data specifica e fascia oraria
+  - nel form pubblico l utente puo selezionare piu gruppi/sessioni compatibili
+- Le anagrafiche open day devono restare separate dagli atleti dei pacchetti, ma con collegamenti opzionali a:
+  - `client`
+  - `minor`
+  - `direct athlete`
+- Primo blocco tecnico approvato:
+  - introduzione ruolo `prospect`
+  - introduzione moduli storage/tipi separati per catalogo e partecipazioni open day
+- Secondo blocco tecnico approvato:
+  - formalizzazione scenari open day in modulo separato
+  - scenari distinti per:
+    - guest
+    - `prospect`
+    - `client`
+    - audience `adult` / `youth`
+    - presenza o meno di minori gia collegati
+  - la risoluzione scenario deve produrre anche flag operativi per la UI:
+    - step account richiesto o meno
+    - step tutore richiesto o meno
+    - step partecipante richiesto o meno
+    - possibilita di selezionare minore esistente
+    - possibilita di creare nuovo minore
+    - riuso dati profilo quando disponibile
+- Terzo blocco tecnico approvato:
+  - creazione controller/gate frontend dedicato `PublicOpenDayModal`
+  - componente separata dal wizard pacchetti
+  - gestisce:
+    - disclaimer/riuso dati per `prospect` e `client`
+    - scelta minore esistente vs nuovo minore quando applicabile
+    - esposizione dei flag scenario risolti come base per il form finale
+  - in questa fase il controller NON e ancora agganciato alle pagine pubbliche e NON contiene ancora il form definitivo di iscrizione open day
+- Quarto blocco tecnico approvato:
+  - introdotto `PublicOpenDayForm` come primo form reale open day
+  - integrato dentro `PublicOpenDayModal`
+  - copre il flusso base:
+    - dati prospect/tutore
+    - dati partecipante adulto o minore
+    - scelta sessioni compatibili per eta/sesso
+    - consensi e firme
+    - submit su storage open day
+  - il form non richiede documenti, servizi o pagamenti
+  - in caso guest crea utente frontend con ruolo `prospect`
+  - in caso di dati prospect gia esistenti da guest blocca con messaggio che richiede login
+  - anche in questa fase il flusso open day NON e ancora collegato alle pagine pubbliche / route visibili
+- Quinto blocco tecnico approvato:
+  - introdotta pagina admin `OpenDayPage`
+  - collegata a route gestionale `/app/open-day`
+  - collegata al menu admin
+  - CRUD base prodotto+edizione open day con campi minimi:
+    - codice
+    - titolo
+    - descrizione
+    - disclaimer
+    - categoria
+    - audience
+    - eta min/max
+    - anno edizione
+    - durata singolo giorno / periodo
+    - stato prodotto
+    - stato edizione
+  - in questa fase gruppi/sessioni e partecipazioni open day sono ancora fuori dalla pagina admin principale
+- Sesto blocco tecnico approvato:
+  - `OpenDayPage` gestisce ora gruppi e sessioni open day direttamente nel draft della modale admin
+  - il tab `Campi e Gruppi` permette:
+    - creazione/modifica/cancellazione gruppi
+    - definizione di campo, sesso, range anno nascita, capienza, stato
+    - definizione di sessioni datate multiple con orario/capienza/stato
+  - `open-day-catalog.ts` salva prodotto, edizione, gruppi e sessioni in modo atomico su create/update
+- Settimo blocco tecnico approvato:
+  - open day esposti anche nel frontend pubblico
+  - nuove route:
+    - `/open-day`
+    - `/open-day/:editionId`
+  - nuove pagine:
+    - `PublicOpenDaysPage`
+    - `PublicOpenDayDetailPage`
+  - entrambe aprono `PublicOpenDayModal` sugli open day pubblicati
+  - `public-content.ts` espone il catalogo pubblico open day tramite helper dedicati

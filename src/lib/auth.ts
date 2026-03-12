@@ -13,6 +13,7 @@ const ALL_ROLE_KEYS = [
   'administrator',
   'editor-admin',
   'trainer',
+  'prospect',
   'subscribers',
   'client',
 ] as const
@@ -53,7 +54,7 @@ export type PublicSession = {
   userId: number
   name: string
   email: string
-  role: 'subscribers' | 'client'
+  role: 'prospect' | 'subscribers' | 'client'
   token: string
 }
 
@@ -341,8 +342,8 @@ export function clearPublicSession(): void {
   localStorage.removeItem(PUBLIC_SESSION_KEY)
 }
 
-export function isPortalRole(role: string): role is 'subscribers' | 'client' {
-  return role === 'subscribers' || role === 'client'
+export function isPortalRole(role: string): role is 'prospect' | 'subscribers' | 'client' {
+  return role === 'prospect' || role === 'subscribers' || role === 'client'
 }
 
 function createSession(user: MockUser): AuthSession {
@@ -359,7 +360,8 @@ function createSession(user: MockUser): AuthSession {
 }
 
 function createPublicSession(user: MockUser): PublicSession {
-  const normalizedRole: 'subscribers' | 'client' = user.role === 'client' ? 'client' : 'subscribers'
+  const normalizedRole: 'prospect' | 'subscribers' | 'client' =
+    user.role === 'client' ? 'client' : user.role === 'prospect' ? 'prospect' : 'subscribers'
   const session: PublicSession = {
     userId: user.id,
     name: `${user.firstName} ${user.lastName}`.trim(),
@@ -406,6 +408,28 @@ export function registerSubscriberPublic(payload: {
 }): SaveUserResult {
   return createUser({
     role: 'subscribers',
+    firstName: payload.firstName,
+    lastName: payload.lastName,
+    avatarUrl: '',
+    login: payload.login,
+    password: payload.password,
+    email: payload.email,
+    age: null,
+    sector: '',
+    profession: '',
+    permissions: [],
+  })
+}
+
+export function registerProspectPublic(payload: {
+  firstName: string
+  lastName: string
+  email: string
+  login: string
+  password: string
+}): SaveUserResult {
+  return createUser({
+    role: 'prospect',
     firstName: payload.firstName,
     lastName: payload.lastName,
     avatarUrl: '',

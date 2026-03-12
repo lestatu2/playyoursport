@@ -8,6 +8,7 @@ import {
   CreditCard,
   FileText,
   Globe,
+  CalendarDays,
   HandCoins,
   LayoutDashboard,
   Map,
@@ -259,6 +260,15 @@ function ManagementLayout({ session, onLogout }: ManagementLayoutProps) {
                   to="/app/pacchetti"
                   icon={<Package className="h-5 w-5 shrink-0" />}
                   label={t('nav.packages')}
+                  collapsed={collapsed}
+                />
+              )}
+            {canAccessPackages(session.role) &&
+              (session.role !== 'editor-admin' || hasSessionPermission('packages.manage')) && (
+                <MenuItem
+                  to="/app/open-day"
+                  icon={<CalendarDays className="h-5 w-5 shrink-0" />}
+                  label="Open Day"
                   collapsed={collapsed}
                 />
               )}

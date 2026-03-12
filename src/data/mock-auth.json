@@ -21,6 +21,11 @@
       "area": "management"
     },
     {
+      "key": "prospect",
+      "defaultLabel": "Prospect",
+      "area": "frontend"
+    },
+    {
       "key": "subscribers",
       "defaultLabel": "Subscribers",
       "area": "frontend"
@@ -73,6 +78,13 @@
       "email": "client@playyoursport.test",
       "password": "Client123!",
       "role": "client"
+    },
+    {
+      "id": 7,
+      "name": "Elena Blu",
+      "email": "prospect@playyoursport.test",
+      "password": "Prospect123!",
+      "role": "prospect"
     }
   ]
 }

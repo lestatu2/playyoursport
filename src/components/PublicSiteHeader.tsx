@@ -47,6 +47,14 @@ function PublicSiteHeader({ transparent = false, overlay = false, session, onLog
           >
             Pacchetti
           </NavLink>
+          <NavLink
+            to="/open-day"
+            className={({ isActive }) =>
+              `btn btn-ghost btn-sm ${transparent ? 'text-white hover:bg-white/10' : ''} ${isActive ? 'btn-active' : ''}`
+            }
+          >
+            Open Day
+          </NavLink>
           {session ? (
             <button type="button" className={`btn btn-outline btn-sm ${transparent ? 'border-white/60 text-white hover:bg-white/10' : ''}`} onClick={onLogout}>
               Logout

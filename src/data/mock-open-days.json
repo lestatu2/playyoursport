@@ -1,0 +1,170 @@
+{
+  "products": [
+    {
+      "id": "open-day-product-football-youth",
+      "code": "open-day-calcio-youth",
+      "name": "Open Day Calcio Academy",
+      "categoryId": "sport-football",
+      "audience": "youth",
+      "description": "Giornate prova gratuite dedicate ai ragazzi che vogliono conoscere il percorso academy calcio.",
+      "disclaimer": "La partecipazione è gratuita previa prenotazione e conferma disponibilità sui gruppi aperti.",
+      "ageMin": 7,
+      "ageMax": 16,
+      "status": "published"
+    },
+    {
+      "id": "open-day-product-tennis-adult",
+      "code": "open-day-tennis-adult",
+      "name": "Open Day Tennis Adulti",
+      "categoryId": "sport-tennis",
+      "audience": "adult",
+      "description": "Sessione gratuita di prova per adulti con staff tecnico e test livello iniziale.",
+      "disclaimer": "Evento gratuito con posti limitati. Presentarsi 15 minuti prima dell'orario selezionato.",
+      "ageMin": 18,
+      "ageMax": 65,
+      "status": "published"
+    }
+  ],
+  "editions": [
+    {
+      "id": "open-day-edition-football-youth-2026",
+      "productId": "open-day-product-football-youth",
+      "editionYear": 2026,
+      "status": "published",
+      "durationType": "period",
+      "eventDate": "",
+      "periodStartDate": "2026-04-06",
+      "periodEndDate": "2026-04-18"
+    },
+    {
+      "id": "open-day-edition-tennis-adult-2026",
+      "productId": "open-day-product-tennis-adult",
+      "editionYear": 2026,
+      "status": "published",
+      "durationType": "single-event",
+      "eventDate": "2026-05-09",
+      "periodStartDate": "",
+      "periodEndDate": ""
+    }
+  ],
+  "groups": [
+    {
+      "id": "open-day-group-football-youth-mixed-1",
+      "openDayEditionId": "open-day-edition-football-youth-2026",
+      "title": "Pulcini Misti",
+      "gender": "mixed",
+      "birthYearMin": 2015,
+      "birthYearMax": 2018,
+      "fieldId": "field-football-secondary",
+      "capacity": 24,
+      "isActive": true
+    },
+    {
+      "id": "open-day-group-football-youth-male-1",
+      "openDayEditionId": "open-day-edition-football-youth-2026",
+      "title": "Esordienti Maschile",
+      "gender": "male",
+      "birthYearMin": 2010,
+      "birthYearMax": 2014,
+      "fieldId": "field-football-main",
+      "capacity": 22,
+      "isActive": true
+    },
+    {
+      "id": "open-day-group-football-youth-female-1",
+      "openDayEditionId": "open-day-edition-football-youth-2026",
+      "title": "Girls Academy",
+      "gender": "female",
+      "birthYearMin": 2010,
+      "birthYearMax": 2016,
+      "fieldId": "field-football-main",
+      "capacity": 20,
+      "isActive": true
+    },
+    {
+      "id": "open-day-group-tennis-adult-mixed-1",
+      "openDayEditionId": "open-day-edition-tennis-adult-2026",
+      "title": "Adulti Principianti",
+      "gender": "mixed",
+      "birthYearMin": 1961,
+      "birthYearMax": 2008,
+      "fieldId": "field-tennis-central",
+      "capacity": 16,
+      "isActive": true
+    }
+  ],
+  "sessions": [
+    {
+      "id": "open-day-session-football-youth-1",
+      "groupId": "open-day-group-football-youth-mixed-1",
+      "date": "2026-04-06",
+      "startTime": "17:00",
+      "endTime": "18:15",
+      "capacity": 24,
+      "isActive": true
+    },
+    {
+      "id": "open-day-session-football-youth-2",
+      "groupId": "open-day-group-football-youth-mixed-1",
+      "date": "2026-04-13",
+      "startTime": "17:00",
+      "endTime": "18:15",
+      "capacity": 24,
+      "isActive": true
+    },
+    {
+      "id": "open-day-session-football-youth-3",
+      "groupId": "open-day-group-football-youth-male-1",
+      "date": "2026-04-08",
+      "startTime": "18:00",
+      "endTime": "19:15",
+      "capacity": 22,
+      "isActive": true
+    },
+    {
+      "id": "open-day-session-football-youth-4",
+      "groupId": "open-day-group-football-youth-male-1",
+      "date": "2026-04-15",
+      "startTime": "18:00",
+      "endTime": "19:15",
+      "capacity": 22,
+      "isActive": true
+    },
+    {
+      "id": "open-day-session-football-youth-5",
+      "groupId": "open-day-group-football-youth-female-1",
+      "date": "2026-04-10",
+      "startTime": "17:30",
+      "endTime": "18:45",
+      "capacity": 20,
+      "isActive": true
+    },
+    {
+      "id": "open-day-session-football-youth-6",
+      "groupId": "open-day-group-football-youth-female-1",
+      "date": "2026-04-17",
+      "startTime": "17:30",
+      "endTime": "18:45",
+      "capacity": 20,
+      "isActive": true
+    },
+    {
+      "id": "open-day-session-tennis-adult-1",
+      "groupId": "open-day-group-tennis-adult-mixed-1",
+      "date": "2026-05-09",
+      "startTime": "10:00",
+      "endTime": "11:30",
+      "capacity": 16,
+      "isActive": true
+    },
+    {
+      "id": "open-day-session-tennis-adult-2",
+      "groupId": "open-day-group-tennis-adult-mixed-1",
+      "date": "2026-05-09",
+      "startTime": "11:45",
+      "endTime": "13:15",
+      "capacity": 16,
+      "isActive": true
+    }
+  ]
+}

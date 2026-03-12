@@ -1,5 +1,16 @@
 import { getPackages, type SportPackage } from './package-catalog'
+import { getOpenDayEditions, getOpenDayProducts, type OpenDayDurationType, type OpenDayProduct } from './open-day-catalog'
 import { getProjectSettings } from './project-settings'
+
+export type PublicOpenDayEdition = OpenDayProduct & {
+  editionId: string
+  editionYear: number
+  editionStatus: 'draft' | 'published' | 'archived'
+  durationType: OpenDayDurationType
+  eventDate: string
+  periodStartDate: string
+  periodEndDate: string
+}
 
 function latestEditionByProduct(items: SportPackage[]): SportPackage[] {
   const grouped = new Map<string, SportPackage[]>()
@@ -16,6 +27,30 @@ function latestEditionByProduct(items: SportPackage[]): SportPackage[] {
 export function getCurrentPublicPackageEditions(): SportPackage[] {
   const all = getPackages().filter((item) => item.status !== 'archived')
   return latestEditionByProduct(all)
+}
+
+export function getCurrentPublicOpenDayEditions(): PublicOpenDayEdition[] {
+  const products = getOpenDayProducts().filter((item) => item.status === 'published')
+  const editions = getOpenDayEditions().filter((item) => item.status === 'published')
+  return editions
+    .map((edition) => {
+      const product = products.find((item) => item.id === edition.productId) ?? null
+      if (!product) {
+        return null
+      }
+      return {
+        ...product,
+        editionId: edition.id,
+        editionYear: edition.editionYear,
+        editionStatus: edition.status,
+        durationType: edition.durationType,
+        eventDate: edition.eventDate,
+        periodStartDate: edition.periodStartDate,
+        periodEndDate: edition.periodEndDate,
+      }
+    })
+    .filter((item): item is PublicOpenDayEdition => Boolean(item))
+    .sort((left, right) => right.editionYear - left.editionYear)
 }
 
 export function getHomepageSliderPackages(): SportPackage[] {
@@ -54,6 +89,19 @@ export function resolvePublicPackageImage(item: SportPackage): string {
   return ''
 }
 
+export function resolvePublicOpenDayImage(item: Pick<OpenDayProduct, 'categoryId'>): string {
+  if (item.categoryId === 'sport-football') {
+    return '/images/calcio.jpg'
+  }
+  if (item.categoryId === 'sport-tennis' || item.categoryId === 'sport-padel') {
+    return '/images/tennis.jpg'
+  }
+  if (item.categoryId === 'sport-campo-scuola') {
+    return '/images/campo_scuola.jpg'
+  }
+  return ''
+}
+
 function getFrequencyPhraseItalian(item: SportPackage): string {
   if (item.paymentFrequency === 'daily') {
     return 'al giorno'
@@ -77,4 +125,8 @@ export function getSubscriptionCtaLabel(item: SportPackage): string {
     maximumFractionDigits: 2,
   }).format(amount)
   return `Abbonati a partire da ${formattedAmount} ${getFrequencyPhraseItalian(item)}`
+}
+
+export function getOpenDayCtaLabel(): string {
+  return 'Prenota gratuitamente'
 }
