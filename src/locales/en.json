@@ -58,6 +58,9 @@
     "activitiesPayments": "Activities & Payments",
     "activitiesHistory": "Activities History",
     "packages": "Packages",
+    "openDay": "Open Day",
+    "openDayManage": "Create and manage open days",
+    "openDayRegistrations": "Open day registrations",
     "site": "Site",
     "configuration": "Configuration",
     "utility": "Utility",
@@ -1147,6 +1150,115 @@
         "firstPaymentOnSite": "For this package the first payment is on site: please go to the facility office.",
         "variableServicesNotice": "The final price may change after validation.",
         "variableServicesGuaranteedNotice": "When variable services are present, the final total will include the variable service price set during validation."
+      }
+    }
+  },
+  "openDay": {
+    "common": {
+      "openDay": "Open Day",
+      "athlete": "Athlete",
+      "group": "Group",
+      "dateFrom": "From",
+      "dateTo": "To",
+      "adult": "Adult",
+      "minor": "Minor",
+      "adultsPlural": "Adults",
+      "minorsPlural": "Minors",
+      "email": "Email",
+      "status": "Status",
+      "statusRegistered": "Registered",
+      "statusConfirmed": "Confirmed",
+      "statusAttended": "Attended",
+      "statusCancelled": "Cancelled",
+      "sessions": "Sessions",
+      "actions": "Actions",
+      "manage": "Manage",
+      "search": "Search",
+      "category": "Category",
+      "allPlural": "All",
+      "type": "Type"
+    },
+    "participations": {
+      "title": "Open Day Registrations",
+      "description": "Manage participations, prospects and attendance status for open days.",
+      "tabs": {
+        "active": "Active",
+        "history": "History"
+      },
+      "table": {
+        "tutor": "Tutor / Prospect",
+        "schedule": "Date / Time"
+      },
+      "searchPlaceholder": "Open day, athlete, tutor, email",
+      "emptyActive": "No active open day participation in the valid period.",
+      "emptyHistory": "No open day participation in history.",
+      "detailDescription": "Manage open day participation",
+      "sections": {
+        "prospect": "Prospect / Tutor",
+        "participant": "Participant",
+        "selectedSessions": "Selected sessions",
+        "workflow": "Workflow"
+      },
+      "fields": {
+        "participationStatus": "Participation status",
+        "roleParent": "Parent",
+        "roleGuardian": "Guardian",
+        "roleHolderOfParentalResponsibility": "Holder of parental responsibility",
+        "roleSelf": "Self",
+        "createdAt": "Created on {{date}}",
+        "createdAtHeader": "Created at"
+      },
+      "export": {
+        "button": "Export",
+        "modalTitle": "Export open day registrations",
+        "title": "Open day registrations export",
+        "formatLabel": "Format",
+        "formats": {
+          "xlsx": "Excel (.xlsx)",
+          "pdf": "PDF (.pdf)",
+          "docx": "Word (.docx)"
+        },
+        "rowsCount": "Rows to export: {{count}}",
+        "download": "Download"
+      },
+      "messages": {
+        "completeMainData": "Fill in the main data and select at least one session.",
+        "updated": "Open day participation updated.",
+        "confirmDelete": "Delete this open day participation?",
+        "deleted": "Open day participation deleted."
+      },
+      "delete": "Delete participation",
+      "saveChanges": "Save changes"
+    },
+    "public": {
+      "archive": {
+        "title": "Open Day",
+        "description": "Archive of published open day editions.",
+        "empty": "No open day currently published.",
+        "editionLabel": "Edition {{year}}",
+        "ageLabel": "Age {{min}}-{{max}}",
+        "detail": "View details"
+      },
+      "detail": {
+        "notFound": "Open day not found",
+        "backToOpenDays": "Back to open days",
+        "eventDateLabel": "Event date: {{date}}",
+        "periodLabel": "Period: {{start}} - {{end}}",
+        "allowedAge": "Allowed age: {{min}}-{{max}}",
+        "backToArchive": "Back to archive"
+      },
+      "modal": {
+        "reuseDescription": "For this open day the system detected that your profile already exists. By continuing we can reuse the data already available without asking for it again where not necessary.",
+        "proceed": "Proceed",
+        "selectMinorTitle": "Select the minor",
+        "selectMinorDescription": "You can enroll a minor already in your profile or register a new one for this open day.",
+        "birthDateLabel": "Birth date: {{date}}",
+        "dataSourceLabel": "Data source: {{source}}",
+        "dataSourceProspect": "Open Day prospect",
+        "dataSourceClient": "Client",
+        "noExistingMinors": "There are no minors already associated with the current profile.",
+        "newMinor": "New minor",
+        "proceedSelectedMinor": "Continue with selected minor"
       }
     }
   },

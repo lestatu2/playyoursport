@@ -8,6 +8,7 @@ import ConfigurationPage from './pages/ConfigurationPage'
 import UtilityCategoriesPage from './pages/UtilityCategoriesPage'
 import PackagesPage from './pages/PackagesPage'
 import OpenDayPage from './pages/OpenDayPage'
+import OpenDayParticipationsPage from './pages/OpenDayParticipationsPage'
 import UtilityCompaniesPage from './pages/UtilityCompaniesPage'
 import UtilityFieldsPage from './pages/UtilityFieldsPage'
 import UtilityGroupsPage from './pages/UtilityGroupsPage'
@@ -235,6 +236,14 @@ function App() {
           element={
             <PackagesRoute session={session}>
               <OpenDayPage />
+            </PackagesRoute>
+          }
+        />
+        <Route
+          path="open-day/registrazioni"
+          element={
+            <PackagesRoute session={session}>
+              <OpenDayParticipationsPage />
             </PackagesRoute>
           }
         />

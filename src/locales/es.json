@@ -58,6 +58,9 @@
     "activitiesPayments": "Actividades y Pagos",
     "activitiesHistory": "Historico actividades",
     "packages": "Paquetes",
+    "openDay": "Open Day",
+    "openDayManage": "Crear y gestionar open days",
+    "openDayRegistrations": "Registros de open day",
     "site": "Sitio",
     "configuration": "Configuracion",
     "utility": "Utility",
@@ -1148,6 +1151,115 @@
       "packagesManage": "Gestion de paquetes",
       "usersRead": "Visualizacion de usuarios",
       "subscribersManage": "Gestion de suscriptores"
+    }
+  },
+  "openDay": {
+    "common": {
+      "openDay": "Open Day",
+      "athlete": "Atleta",
+      "group": "Grupo",
+      "dateFrom": "Desde",
+      "dateTo": "Hasta",
+      "adult": "Adulto",
+      "minor": "Menor",
+      "adultsPlural": "Adultos",
+      "minorsPlural": "Menores",
+      "email": "Correo",
+      "status": "Estado",
+      "statusRegistered": "Registrada",
+      "statusConfirmed": "Confirmada",
+      "statusAttended": "Presente",
+      "statusCancelled": "Cancelada",
+      "sessions": "Sesiones",
+      "actions": "Acciones",
+      "manage": "Gestionar",
+      "search": "Buscar",
+      "category": "Categoria",
+      "allPlural": "Todos",
+      "type": "Tipo"
+    },
+    "participations": {
+      "title": "Inscripciones Open Day",
+      "description": "Gestion de participaciones, prospects y estado de presencia de los open day.",
+      "tabs": {
+        "active": "Activas",
+        "history": "Historico"
+      },
+      "table": {
+        "tutor": "Tutor / Prospect",
+        "schedule": "Fecha / Hora"
+      },
+      "searchPlaceholder": "Open day, atleta, tutor, correo",
+      "emptyActive": "Ninguna participacion open day activa en el periodo valido.",
+      "emptyHistory": "Ninguna participacion open day en el historico.",
+      "detailDescription": "Gestion de participacion open day",
+      "sections": {
+        "prospect": "Prospect / Tutor",
+        "participant": "Participante",
+        "selectedSessions": "Sesiones seleccionadas",
+        "workflow": "Workflow"
+      },
+      "fields": {
+        "participationStatus": "Estado de participacion",
+        "roleParent": "Padre o madre",
+        "roleGuardian": "Tutor",
+        "roleHolderOfParentalResponsibility": "Responsable parental",
+        "roleSelf": "Si mismo",
+        "createdAt": "Creada el {{date}}",
+        "createdAtHeader": "Fecha de creacion"
+      },
+      "export": {
+        "button": "Exportar",
+        "modalTitle": "Exportar registros de open day",
+        "title": "Exportacion de registros de open day",
+        "formatLabel": "Formato",
+        "formats": {
+          "xlsx": "Excel (.xlsx)",
+          "pdf": "PDF (.pdf)",
+          "docx": "Word (.docx)"
+        },
+        "rowsCount": "Filas a exportar: {{count}}",
+        "download": "Descargar"
+      },
+      "messages": {
+        "completeMainData": "Completa los datos principales y selecciona al menos una sesion.",
+        "updated": "Participacion open day actualizada.",
+        "confirmDelete": "¿Eliminar esta participacion open day?",
+        "deleted": "Participacion open day eliminada."
+      },
+      "delete": "Eliminar participacion",
+      "saveChanges": "Guardar cambios"
+    },
+    "public": {
+      "archive": {
+        "title": "Open Day",
+        "description": "Archivo de las ediciones open day publicadas.",
+        "empty": "No hay open day publicados por el momento.",
+        "editionLabel": "Edicion {{year}}",
+        "ageLabel": "Edad {{min}}-{{max}}",
+        "detail": "Ver detalle"
+      },
+      "detail": {
+        "notFound": "Open day no encontrado",
+        "backToOpenDays": "Volver a los open day",
+        "eventDateLabel": "Fecha del evento: {{date}}",
+        "periodLabel": "Periodo: {{start}} - {{end}}",
+        "allowedAge": "Edad permitida: {{min}}-{{max}}",
+        "backToArchive": "Volver al archivo"
+      },
+      "modal": {
+        "reuseDescription": "Para este open day el sistema ha detectado que tu perfil ya existe. Si continas, podremos reutilizar los datos disponibles sin volver a pedirlos donde no sea necesario.",
+        "proceed": "Continuar",
+        "selectMinorTitle": "Selecciona el menor",
+        "selectMinorDescription": "Puedes inscribir un menor ya presente en tu perfil o registrar uno nuevo para este open day.",
+        "birthDateLabel": "Fecha de nacimiento: {{date}}",
+        "dataSourceLabel": "Origen de datos: {{source}}",
+        "dataSourceProspect": "Prospect Open Day",
+        "dataSourceClient": "Cliente",
+        "noExistingMinors": "No hay menores ya asociados al perfil actual.",
+        "newMinor": "Nuevo menor",
+        "proceedSelectedMinor": "Continuar con el menor seleccionado"
+      }
     }
   },
   "assignments": {

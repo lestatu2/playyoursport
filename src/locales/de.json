@@ -58,6 +58,9 @@
     "activitiesPayments": "Aktivitaeten & Zahlungen",
     "activitiesHistory": "Aktivitaetenverlauf",
     "packages": "Pakete",
+    "openDay": "Open Day",
+    "openDayManage": "Open Days erstellen und verwalten",
+    "openDayRegistrations": "Open-Day-Anmeldungen",
     "site": "Website",
     "configuration": "Konfiguration",
     "utility": "Utility",
@@ -1148,6 +1151,115 @@
       "packagesManage": "Paketverwaltung",
       "usersRead": "Benutzeranzeige",
       "subscribersManage": "Abonnentenverwaltung"
+    }
+  },
+  "openDay": {
+    "common": {
+      "openDay": "Open Day",
+      "athlete": "Athlet",
+      "group": "Gruppe",
+      "dateFrom": "Von",
+      "dateTo": "Bis",
+      "adult": "Erwachsener",
+      "minor": "Minderjaehrig",
+      "adultsPlural": "Erwachsene",
+      "minorsPlural": "Minderjaehrige",
+      "email": "E-Mail",
+      "status": "Status",
+      "statusRegistered": "Registriert",
+      "statusConfirmed": "Bestaetigt",
+      "statusAttended": "Anwesend",
+      "statusCancelled": "Storniert",
+      "sessions": "Sessions",
+      "actions": "Aktionen",
+      "manage": "Verwalten",
+      "search": "Suchen",
+      "category": "Kategorie",
+      "allPlural": "Alle",
+      "type": "Typ"
+    },
+    "participations": {
+      "title": "Open Day Registrierungen",
+      "description": "Verwaltung von Teilnahmen, Prospects und Anwesenheitsstatus der Open Days.",
+      "tabs": {
+        "active": "Aktiv",
+        "history": "Historie"
+      },
+      "table": {
+        "tutor": "Tutor / Prospect",
+        "schedule": "Datum / Uhrzeit"
+      },
+      "searchPlaceholder": "Open Day, Athlet, Tutor, E-Mail",
+      "emptyActive": "Keine aktive Open-Day-Teilnahme im gueltigen Zeitraum.",
+      "emptyHistory": "Keine Open-Day-Teilnahme im Verlauf.",
+      "detailDescription": "Open-Day-Teilnahme verwalten",
+      "sections": {
+        "prospect": "Prospect / Tutor",
+        "participant": "Teilnehmer",
+        "selectedSessions": "Ausgewaehlte Sessions",
+        "workflow": "Workflow"
+      },
+      "fields": {
+        "participationStatus": "Teilnahmestatus",
+        "roleParent": "Elternteil",
+        "roleGuardian": "Vormund",
+        "roleHolderOfParentalResponsibility": "Inhaber der elterlichen Verantwortung",
+        "roleSelf": "Selbst",
+        "createdAt": "Erstellt am {{date}}",
+        "createdAtHeader": "Erstellungsdatum"
+      },
+      "export": {
+        "button": "Exportieren",
+        "modalTitle": "Open-Day-Anmeldungen exportieren",
+        "title": "Export der Open-Day-Anmeldungen",
+        "formatLabel": "Format",
+        "formats": {
+          "xlsx": "Excel (.xlsx)",
+          "pdf": "PDF (.pdf)",
+          "docx": "Word (.docx)"
+        },
+        "rowsCount": "Zu exportierende Zeilen: {{count}}",
+        "download": "Herunterladen"
+      },
+      "messages": {
+        "completeMainData": "Hauptdaten ausfuellen und mindestens eine Session waehlen.",
+        "updated": "Open-Day-Teilnahme aktualisiert.",
+        "confirmDelete": "Diese Open-Day-Teilnahme loeschen?",
+        "deleted": "Open-Day-Teilnahme geloescht."
+      },
+      "delete": "Teilnahme loeschen",
+      "saveChanges": "Aenderungen speichern"
+    },
+    "public": {
+      "archive": {
+        "title": "Open Day",
+        "description": "Archiv der veroeffentlichten Open-Day-Editionen.",
+        "empty": "Derzeit ist kein Open Day veroeffentlicht.",
+        "editionLabel": "Edition {{year}}",
+        "ageLabel": "Alter {{min}}-{{max}}",
+        "detail": "Details ansehen"
+      },
+      "detail": {
+        "notFound": "Open Day nicht gefunden",
+        "backToOpenDays": "Zurueck zu den Open Days",
+        "eventDateLabel": "Eventdatum: {{date}}",
+        "periodLabel": "Zeitraum: {{start}} - {{end}}",
+        "allowedAge": "Zulaessiges Alter: {{min}}-{{max}}",
+        "backToArchive": "Zurueck zum Archiv"
+      },
+      "modal": {
+        "reuseDescription": "Fuer diesen Open Day hat das System erkannt, dass dein Profil bereits vorhanden ist. Beim Fortfahren koennen wir vorhandene Daten wiederverwenden, ohne sie erneut abzufragen, wo es nicht noetig ist.",
+        "proceed": "Weiter",
+        "selectMinorTitle": "Minderjaehrigen auswaehlen",
+        "selectMinorDescription": "Du kannst einen bereits im Profil vorhandenen Minderjaehrigen anmelden oder einen neuen fuer diesen Open Day registrieren.",
+        "birthDateLabel": "Geburtsdatum: {{date}}",
+        "dataSourceLabel": "Datenquelle: {{source}}",
+        "dataSourceProspect": "Open Day Prospect",
+        "dataSourceClient": "Kunde",
+        "noExistingMinors": "Dem aktuellen Profil sind noch keine Minderjaehrigen zugeordnet.",
+        "newMinor": "Neuer Minderjaehriger",
+        "proceedSelectedMinor": "Mit ausgewaehltem Minderjaehrigen fortfahren"
+      }
     }
   },
   "assignments": {

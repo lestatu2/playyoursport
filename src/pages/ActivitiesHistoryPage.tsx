@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { getCoreRowModel, useReactTable, type ColumnDef } from '@tanstack/react-table'
 import DataTable from '../components/DataTable'
+import { dateOnly, isClosedDatedItem, parseIsoDate } from '../lib/dated-items'
 import { getPackages } from '../lib/package-catalog'
 import { getPublicClients, getPublicMinors } from '../lib/public-customer-records'
 import { getPublicDirectAthletes } from '../lib/public-direct-athletes'
@@ -28,30 +29,6 @@ type HistoryRow = {
   residual: number
   overdueCount: number
   planInstallmentsCount: number
-}
-
-function parseIsoDate(value: string): Date | null {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return null
-  }
-  const parsed = new Date(`${value}T00:00:00`)
-  if (Number.isNaN(parsed.getTime())) {
-    return null
-  }
-  return parsed
-}
-
-function dateOnly(value: Date): Date {
-  return new Date(value.getFullYear(), value.getMonth(), value.getDate())
-}
-
-function isClosedEdition(input: { durationType: string; periodEndDate?: string; eventDate?: string }, today: Date): boolean {
-  if (input.durationType === 'period') {
-    const end = parseIsoDate(input.periodEndDate || '')
-    return Boolean(end && dateOnly(end) < today)
-  }
-  const eventDate = parseIsoDate(input.eventDate || '')
-  return Boolean(eventDate && dateOnly(eventDate) < today)
 }
 
 function safeAmount(value: number): number {
@@ -109,7 +86,7 @@ function ActivitiesHistoryPage() {
 
     minors.forEach((minor) => {
       const packageItem = packagesById.get(minor.packageId)
-      if (!packageItem || !isClosedEdition(packageItem, today)) {
+      if (!packageItem || !isClosedDatedItem(packageItem, today)) {
         return
       }
       const parent = clientsById.get(minor.clientId)
@@ -140,7 +117,7 @@ function ActivitiesHistoryPage() {
 
     directAthletes.forEach((athlete) => {
       const packageItem = packagesById.get(athlete.packageId)
-      if (!packageItem || !isClosedEdition(packageItem, today)) {
+      if (!packageItem || !isClosedDatedItem(packageItem, today)) {
         return
       }
       const activityKey = `direct-${athlete.id}`

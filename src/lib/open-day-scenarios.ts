@@ -28,7 +28,6 @@ export type OpenDayScenarioConfig = {
   canSelectExistingMinor: boolean
   canCreateNewMinor: boolean
   shouldPromptForExistingDataReuse: boolean
-  shouldSkipGuardianForValidatedProfile: boolean
   existingMinorCount: number
   priorOpenDayParticipationCount: number
 }
@@ -54,7 +53,6 @@ function createConfig(
     canSelectExistingMinor: false,
     canCreateNewMinor: audience === 'youth',
     shouldPromptForExistingDataReuse: false,
-    shouldSkipGuardianForValidatedProfile: false,
     existingMinorCount: 0,
     priorOpenDayParticipationCount: 0,
     ...overrides,
@@ -101,7 +99,6 @@ export function resolveOpenDayScenario({
         requiresGuardianStep: false,
         requiresParticipantStep: true,
         shouldPromptForExistingDataReuse: prospect !== null,
-        shouldSkipGuardianForValidatedProfile: prospect?.validationStatus === 'validated',
         existingMinorCount,
         priorOpenDayParticipationCount,
       })
@@ -114,7 +111,6 @@ export function resolveOpenDayScenario({
         canSelectExistingMinor: true,
         canCreateNewMinor: true,
         shouldPromptForExistingDataReuse: true,
-        shouldSkipGuardianForValidatedProfile: prospect?.validationStatus === 'validated',
         existingMinorCount,
         priorOpenDayParticipationCount,
       })
@@ -125,7 +121,6 @@ export function resolveOpenDayScenario({
       requiresParticipantStep: true,
       canSelectExistingMinor: false,
       canCreateNewMinor: true,
-      shouldSkipGuardianForValidatedProfile: prospect?.validationStatus === 'validated',
       existingMinorCount,
       priorOpenDayParticipationCount,
     })
@@ -139,7 +134,6 @@ export function resolveOpenDayScenario({
         requiresGuardianStep: false,
         requiresParticipantStep: true,
         shouldPromptForExistingDataReuse: true,
-        shouldSkipGuardianForValidatedProfile: true,
         existingMinorCount,
       })
     }
@@ -151,7 +145,6 @@ export function resolveOpenDayScenario({
         canSelectExistingMinor: true,
         canCreateNewMinor: true,
         shouldPromptForExistingDataReuse: true,
-        shouldSkipGuardianForValidatedProfile: true,
         existingMinorCount,
       })
     }
@@ -161,7 +154,6 @@ export function resolveOpenDayScenario({
       requiresParticipantStep: true,
       canSelectExistingMinor: false,
       canCreateNewMinor: true,
-      shouldSkipGuardianForValidatedProfile: true,
       existingMinorCount,
     })
   }

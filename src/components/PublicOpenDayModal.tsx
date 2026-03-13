@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { PublicSession } from '../lib/auth'
 import type { OpenDayEdition, OpenDayProduct } from '../lib/open-day-catalog'
 import { resolveOpenDayScenario } from '../lib/open-day-scenarios'
@@ -23,6 +24,7 @@ type ExistingMinorOption = {
 }
 
 function PublicOpenDayModal({ product, edition, isOpen, session, onClose, onCompleted: _onCompleted }: PublicOpenDayModalProps) {
+  const { t } = useTranslation()
   const scenarioConfig = useMemo(
     () => resolveOpenDayScenario({ product, edition, session }),
     [edition, product, session],
@@ -83,24 +85,24 @@ function PublicOpenDayModal({ product, edition, isOpen, session, onClose, onComp
             <div className="rounded-lg border border-primary/30 bg-primary/10 p-5">
               <h3 className="text-lg font-semibold">Dati gia presenti</h3>
               <p className="mt-2 text-sm leading-relaxed">
-                Per questo open day il sistema ha rilevato che il tuo profilo e gia presente. Procedendo potremo riutilizzare i dati gia disponibili senza richiederli di nuovo dove non necessario.
+                {t('openDay.public.modal.reuseDescription')}
               </p>
             </div>
             <div className="flex justify-end gap-3">
               <button type="button" className="btn btn-ghost" onClick={handleClose}>
-                Chiudi
+                {t('dataTable.close')}
               </button>
               <button type="button" className="btn btn-primary" onClick={() => setReuseAcknowledged(true)}>
-                Procedi
+                {t('openDay.public.modal.proceed')}
               </button>
             </div>
           </div>
         ) : showMinorChoiceGate ? (
           <div className="mx-auto flex h-full w-full max-w-4xl flex-col gap-6 p-6">
             <div className="rounded-lg border border-base-300 p-5">
-              <h3 className="text-lg font-semibold">Seleziona il minore</h3>
+              <h3 className="text-lg font-semibold">{t('openDay.public.modal.selectMinorTitle')}</h3>
               <p className="mt-2 text-sm opacity-80">
-                Puoi iscrivere un minore gia presente nel tuo profilo oppure registrarne un altro nuovo per questo open day.
+                {t('openDay.public.modal.selectMinorDescription')}
               </p>
             </div>
             {existingMinorOptions.length > 0 ? (
@@ -117,9 +119,14 @@ function PublicOpenDayModal({ product, edition, isOpen, session, onClose, onComp
                       onClick={() => setSelectedExistingMinorId(minor.id)}
                     >
                       <p className="font-semibold">{minor.title}</p>
-                      <p className="text-sm opacity-70">Data nascita: {minor.subtitle}</p>
+                      <p className="text-sm opacity-70">{t('openDay.public.modal.birthDateLabel', { date: minor.subtitle })}</p>
                       <p className="text-xs opacity-60">
-                        Origine dati: {minor.source === 'prospect' ? 'Open Day prospect' : 'Cliente'}
+                        {t('openDay.public.modal.dataSourceLabel', {
+                          source:
+                            minor.source === 'prospect'
+                              ? t('openDay.public.modal.dataSourceProspect')
+                              : t('openDay.public.modal.dataSourceClient'),
+                        })}
                       </p>
                     </button>
                   )
@@ -127,12 +134,12 @@ function PublicOpenDayModal({ product, edition, isOpen, session, onClose, onComp
               </div>
             ) : (
               <div className="rounded-lg border border-base-300 p-4 text-sm opacity-80">
-                Non ci sono minori gia presenti associati al profilo corrente.
+                {t('openDay.public.modal.noExistingMinors')}
               </div>
             )}
             <div className="flex justify-end gap-3">
               <button type="button" className="btn btn-ghost" onClick={handleClose}>
-                Chiudi
+                {t('dataTable.close')}
               </button>
               <button
                 type="button"
@@ -142,7 +149,7 @@ function PublicOpenDayModal({ product, edition, isOpen, session, onClose, onComp
                   setSelectedExistingMinorId(null)
                 }}
               >
-                Nuovo minore
+                {t('openDay.public.modal.newMinor')}
               </button>
               {existingMinorOptions.length > 0 ? (
                 <button
@@ -151,7 +158,7 @@ function PublicOpenDayModal({ product, edition, isOpen, session, onClose, onComp
                   disabled={selectedExistingMinorId === null}
                   onClick={() => setMinorMode('existing')}
                 >
-                  Procedi con minore selezionato
+                  {t('openDay.public.modal.proceedSelectedMinor')}
                 </button>
               ) : null}
             </div>

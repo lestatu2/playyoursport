@@ -1,12 +1,20 @@
+import mockOpenDayRecords from '../data/mock-open-day-records.json'
 import { readJsonArray, writeJsonValue } from './storage'
 
 const OPEN_DAY_PROSPECTS_KEY = 'pys_open_day_prospects'
 const OPEN_DAY_ADULT_ATHLETES_KEY = 'pys_open_day_adult_athletes'
 const OPEN_DAY_MINOR_ATHLETES_KEY = 'pys_open_day_minor_athletes'
 const OPEN_DAY_PARTICIPATIONS_KEY = 'pys_open_day_participations'
+const OPEN_DAY_RECORDS_CHANGED_EVENT = 'pys-open-day-records-changed'
+
+type MockOpenDayRecords = {
+  prospects?: OpenDayProspect[]
+  adultAthletes?: OpenDayAdultAthlete[]
+  minorAthletes?: OpenDayMinorAthlete[]
+  participations?: OpenDayParticipation[]
+}
 
 export type OpenDayProspectRole = 'self' | 'parent' | 'guardian' | 'holder_of_parental_responsibility'
-export type OpenDayValidationStatus = 'not_validated' | 'validated'
 export type OpenDayParticipationStatus = 'registered' | 'confirmed' | 'attended' | 'cancelled'
 
 export type OpenDayProspect = {
@@ -19,11 +27,8 @@ export type OpenDayProspect = {
   phone: string
   secondaryPhone: string
   birthDate: string
-  birthPlace: string
   gender?: 'M' | 'F'
-  residenceAddress: string
   role: OpenDayProspectRole
-  validationStatus: OpenDayValidationStatus
   createdAt: string
 }
 
@@ -34,9 +39,7 @@ export type OpenDayMinorAthlete = {
   firstName: string
   lastName: string
   birthDate: string
-  birthPlace: string
   gender?: 'M' | 'F'
-  residenceAddress: string
   createdAt: string
 }
 
@@ -47,9 +50,7 @@ export type OpenDayAdultAthlete = {
   firstName: string
   lastName: string
   birthDate: string
-  birthPlace: string
   gender?: 'M' | 'F'
-  residenceAddress: string
   email: string
   phone: string
   createdAt: string
@@ -85,10 +86,6 @@ function normalizeRole(role: string): OpenDayProspectRole {
   return 'parent'
 }
 
-function normalizeValidationStatus(status: string): OpenDayValidationStatus {
-  return status === 'validated' ? 'validated' : 'not_validated'
-}
-
 function normalizeParticipationStatus(status: string): OpenDayParticipationStatus {
   if (status === 'confirmed' || status === 'attended' || status === 'cancelled') {
     return status
@@ -96,8 +93,19 @@ function normalizeParticipationStatus(status: string): OpenDayParticipationStatu
   return 'registered'
 }
 
+function emitOpenDayRecordsChanged(): void {
+  window.dispatchEvent(new Event(OPEN_DAY_RECORDS_CHANGED_EVENT))
+}
+
+export function getOpenDayRecordsChangedEventName(): string {
+  return OPEN_DAY_RECORDS_CHANGED_EVENT
+}
+
 export function getOpenDayProspects(): OpenDayProspect[] {
-  return readJsonArray<OpenDayProspect>(OPEN_DAY_PROSPECTS_KEY).map((item) => ({
+  const stored = readJsonArray<OpenDayProspect>(OPEN_DAY_PROSPECTS_KEY)
+  const seeds = ((mockOpenDayRecords as MockOpenDayRecords).prospects ?? [])
+  const items = stored.length > 0 ? stored : seeds
+  return items.map((item) => ({
     ...item,
     id: Number(item.id),
     userId: Number.isFinite(item.userId) ? Number(item.userId) : null,
@@ -108,11 +116,8 @@ export function getOpenDayProspects(): OpenDayProspect[] {
     phone: item.phone ?? '',
     secondaryPhone: item.secondaryPhone ?? '',
     birthDate: item.birthDate ?? '',
-    birthPlace: item.birthPlace ?? '',
     gender: item.gender === 'F' ? 'F' : item.gender === 'M' ? 'M' : undefined,
-    residenceAddress: item.residenceAddress ?? '',
     role: normalizeRole(item.role),
-    validationStatus: normalizeValidationStatus(item.validationStatus),
     createdAt: item.createdAt ?? new Date().toISOString(),
   }))
 }
@@ -146,7 +151,10 @@ export function findOpenDayProspectByIdentity(payload: {
 }
 
 export function getOpenDayMinorAthletes(): OpenDayMinorAthlete[] {
-  return readJsonArray<OpenDayMinorAthlete>(OPEN_DAY_MINOR_ATHLETES_KEY).map((item) => ({
+  const stored = readJsonArray<OpenDayMinorAthlete>(OPEN_DAY_MINOR_ATHLETES_KEY)
+  const seeds = ((mockOpenDayRecords as MockOpenDayRecords).minorAthletes ?? [])
+  const items = stored.length > 0 ? stored : seeds
+  return items.map((item) => ({
     ...item,
     id: Number(item.id),
     prospectId: Number(item.prospectId),
@@ -181,7 +189,10 @@ export function findOpenDayMinorAthleteByIdentity(payload: {
 }
 
 export function getOpenDayAdultAthletes(): OpenDayAdultAthlete[] {
-  return readJsonArray<OpenDayAdultAthlete>(OPEN_DAY_ADULT_ATHLETES_KEY).map((item) => ({
+  const stored = readJsonArray<OpenDayAdultAthlete>(OPEN_DAY_ADULT_ATHLETES_KEY)
+  const seeds = ((mockOpenDayRecords as MockOpenDayRecords).adultAthletes ?? [])
+  const items = stored.length > 0 ? stored : seeds
+  return items.map((item) => ({
     ...item,
     id: Number(item.id),
     prospectId: Number(item.prospectId),
@@ -197,7 +208,10 @@ export function getOpenDayAdultAthletesByProspectId(prospectId: number): OpenDay
 }
 
 export function getOpenDayParticipations(): OpenDayParticipation[] {
-  return readJsonArray<OpenDayParticipation>(OPEN_DAY_PARTICIPATIONS_KEY).map((item) => ({
+  const stored = readJsonArray<OpenDayParticipation>(OPEN_DAY_PARTICIPATIONS_KEY)
+  const seeds = ((mockOpenDayRecords as MockOpenDayRecords).participations ?? [])
+  const items = stored.length > 0 ? stored : seeds
+  return items.map((item) => ({
     ...item,
     prospectId: Number(item.prospectId),
     editionYear: Number.isFinite(item.editionYear) ? Math.trunc(Number(item.editionYear)) : new Date().getFullYear(),
@@ -214,9 +228,7 @@ export function getOpenDayParticipationsByProspectId(prospectId: number): OpenDa
 }
 
 export function createOpenDayProspect(
-  payload: Omit<OpenDayProspect, 'id' | 'createdAt' | 'validationStatus'> & {
-    validationStatus?: OpenDayValidationStatus
-  },
+  payload: Omit<OpenDayProspect, 'id' | 'createdAt'>,
 ): OpenDayProspect {
   const all = getOpenDayProspects()
   const next: OpenDayProspect = {
@@ -229,14 +241,12 @@ export function createOpenDayProspect(
     phone: payload.phone.trim(),
     secondaryPhone: payload.secondaryPhone.trim(),
     birthDate: payload.birthDate.trim(),
-    birthPlace: payload.birthPlace.trim(),
     gender: payload.gender === 'F' ? 'F' : payload.gender === 'M' ? 'M' : undefined,
-    residenceAddress: payload.residenceAddress.trim(),
     role: normalizeRole(payload.role),
-    validationStatus: normalizeValidationStatus(payload.validationStatus ?? 'not_validated'),
     createdAt: new Date().toISOString(),
   }
   writeJsonValue(OPEN_DAY_PROSPECTS_KEY, [...all, next])
+  emitOpenDayRecordsChanged()
   return next
 }
 
@@ -249,6 +259,7 @@ export function createOpenDayMinorAthlete(payload: Omit<OpenDayMinorAthlete, 'id
     createdAt: new Date().toISOString(),
   }
   writeJsonValue(OPEN_DAY_MINOR_ATHLETES_KEY, [...all, next])
+  emitOpenDayRecordsChanged()
   return next
 }
 
@@ -262,6 +273,7 @@ export function createOpenDayAdultAthlete(payload: Omit<OpenDayAdultAthlete, 'id
     createdAt: new Date().toISOString(),
   }
   writeJsonValue(OPEN_DAY_ADULT_ATHLETES_KEY, [...all, next])
+  emitOpenDayRecordsChanged()
   return next
 }
 
@@ -276,5 +288,176 @@ export function createOpenDayParticipation(
     createdAt: new Date().toISOString(),
   }
   writeJsonValue(OPEN_DAY_PARTICIPATIONS_KEY, [...all, next])
+  emitOpenDayRecordsChanged()
   return next
+}
+
+export function updateOpenDayProspect(
+  prospectId: number,
+  payload: Partial<
+    Pick<
+      OpenDayProspect,
+      | 'firstName'
+      | 'lastName'
+      | 'email'
+      | 'phone'
+      | 'secondaryPhone'
+      | 'birthDate'
+      | 'gender'
+      | 'role'
+    >
+  >,
+): OpenDayProspect | null {
+  const all = getOpenDayProspects()
+  const current = all.find((item) => item.id === prospectId) ?? null
+  if (!current) {
+    return null
+  }
+  const next: OpenDayProspect = {
+    ...current,
+    firstName: payload.firstName?.trim() ?? current.firstName,
+    lastName: payload.lastName?.trim() ?? current.lastName,
+    email: payload.email?.trim().toLowerCase() ?? current.email,
+    phone: payload.phone?.trim() ?? current.phone,
+    secondaryPhone: payload.secondaryPhone?.trim() ?? current.secondaryPhone,
+    birthDate: payload.birthDate?.trim() ?? current.birthDate,
+    gender: payload.gender === 'F' ? 'F' : payload.gender === 'M' ? 'M' : current.gender,
+    role: payload.role ? normalizeRole(payload.role) : current.role,
+  }
+  writeJsonValue(
+    OPEN_DAY_PROSPECTS_KEY,
+    all.map((item) => (item.id === prospectId ? next : item)),
+  )
+  emitOpenDayRecordsChanged()
+  return next
+}
+
+export function updateOpenDayMinorAthlete(
+  athleteId: number,
+  payload: Partial<
+    Pick<OpenDayMinorAthlete, 'firstName' | 'lastName' | 'birthDate' | 'gender'>
+  >,
+): OpenDayMinorAthlete | null {
+  const all = getOpenDayMinorAthletes()
+  const current = all.find((item) => item.id === athleteId) ?? null
+  if (!current) {
+    return null
+  }
+  const next: OpenDayMinorAthlete = {
+    ...current,
+    firstName: payload.firstName?.trim() ?? current.firstName,
+    lastName: payload.lastName?.trim() ?? current.lastName,
+    birthDate: payload.birthDate?.trim() ?? current.birthDate,
+    gender: payload.gender === 'F' ? 'F' : payload.gender === 'M' ? 'M' : current.gender,
+  }
+  writeJsonValue(
+    OPEN_DAY_MINOR_ATHLETES_KEY,
+    all.map((item) => (item.id === athleteId ? next : item)),
+  )
+  emitOpenDayRecordsChanged()
+  return next
+}
+
+export function updateOpenDayAdultAthlete(
+  athleteId: number,
+  payload: Partial<
+    Pick<OpenDayAdultAthlete, 'firstName' | 'lastName' | 'birthDate' | 'gender' | 'email' | 'phone'>
+  >,
+): OpenDayAdultAthlete | null {
+  const all = getOpenDayAdultAthletes()
+  const current = all.find((item) => item.id === athleteId) ?? null
+  if (!current) {
+    return null
+  }
+  const next: OpenDayAdultAthlete = {
+    ...current,
+    firstName: payload.firstName?.trim() ?? current.firstName,
+    lastName: payload.lastName?.trim() ?? current.lastName,
+    birthDate: payload.birthDate?.trim() ?? current.birthDate,
+    gender: payload.gender === 'F' ? 'F' : payload.gender === 'M' ? 'M' : current.gender,
+    email: payload.email?.trim().toLowerCase() ?? current.email,
+    phone: payload.phone?.trim() ?? current.phone,
+  }
+  writeJsonValue(
+    OPEN_DAY_ADULT_ATHLETES_KEY,
+    all.map((item) => (item.id === athleteId ? next : item)),
+  )
+  emitOpenDayRecordsChanged()
+  return next
+}
+
+export function updateOpenDayParticipationStatus(
+  participationId: string,
+  status: OpenDayParticipationStatus,
+): OpenDayParticipation | null {
+  const all = getOpenDayParticipations()
+  const current = all.find((item) => item.id === participationId) ?? null
+  if (!current) {
+    return null
+  }
+  const next: OpenDayParticipation = {
+    ...current,
+    status: normalizeParticipationStatus(status),
+  }
+  writeJsonValue(
+    OPEN_DAY_PARTICIPATIONS_KEY,
+    all.map((item) => (item.id === participationId ? next : item)),
+  )
+  emitOpenDayRecordsChanged()
+  return next
+}
+
+export function updateOpenDayParticipation(
+  participationId: string,
+  payload: Partial<
+    Pick<
+      OpenDayParticipation,
+      | 'selectedSessionIds'
+      | 'consentEnrollmentAccepted'
+      | 'consentInformationAccepted'
+      | 'consentDataProcessingAccepted'
+      | 'consentDataProcessingSignatureDataUrl'
+      | 'enrollmentConfirmationSignatureDataUrl'
+      | 'status'
+    >
+  >,
+): OpenDayParticipation | null {
+  const all = getOpenDayParticipations()
+  const current = all.find((item) => item.id === participationId) ?? null
+  if (!current) {
+    return null
+  }
+  const next: OpenDayParticipation = {
+    ...current,
+    selectedSessionIds: payload.selectedSessionIds
+      ? payload.selectedSessionIds.map((item) => item.trim()).filter(Boolean)
+      : current.selectedSessionIds,
+    consentEnrollmentAccepted: payload.consentEnrollmentAccepted ?? current.consentEnrollmentAccepted,
+    consentInformationAccepted: payload.consentInformationAccepted ?? current.consentInformationAccepted,
+    consentDataProcessingAccepted: payload.consentDataProcessingAccepted ?? current.consentDataProcessingAccepted,
+    consentDataProcessingSignatureDataUrl:
+      payload.consentDataProcessingSignatureDataUrl ?? current.consentDataProcessingSignatureDataUrl,
+    enrollmentConfirmationSignatureDataUrl:
+      payload.enrollmentConfirmationSignatureDataUrl ?? current.enrollmentConfirmationSignatureDataUrl,
+    status: payload.status ? normalizeParticipationStatus(payload.status) : current.status,
+  }
+  writeJsonValue(
+    OPEN_DAY_PARTICIPATIONS_KEY,
+    all.map((item) => (item.id === participationId ? next : item)),
+  )
+  emitOpenDayRecordsChanged()
+  return next
+}
+
+export function removeOpenDayParticipation(participationId: string): boolean {
+  const all = getOpenDayParticipations()
+  if (!all.some((item) => item.id === participationId)) {
+    return false
+  }
+  writeJsonValue(
+    OPEN_DAY_PARTICIPATIONS_KEY,
+    all.filter((item) => item.id !== participationId),
+  )
+  emitOpenDayRecordsChanged()
+  return true
 }

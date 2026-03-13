@@ -37,8 +37,6 @@ type Draft = {
   accountEmail: string
   accountPhone: string
   accountBirthDate: string
-  accountBirthPlace: string
-  accountResidenceAddress: string
   accountGender: 'M' | 'F'
   accountRole: 'self' | 'parent' | 'guardian' | 'holder_of_parental_responsibility'
   login: string
@@ -46,16 +44,12 @@ type Draft = {
   adultFirstName: string
   adultLastName: string
   adultBirthDate: string
-  adultBirthPlace: string
-  adultResidenceAddress: string
   adultGender: 'M' | 'F'
   adultEmail: string
   adultPhone: string
   minorFirstName: string
   minorLastName: string
   minorBirthDate: string
-  minorBirthPlace: string
-  minorResidenceAddress: string
   minorGender: 'M' | 'F'
   selectedSessionIds: string[]
   consentEnrollmentAccepted: boolean
@@ -71,8 +65,6 @@ const EMPTY_DRAFT: Draft = {
   accountEmail: '',
   accountPhone: '',
   accountBirthDate: '',
-  accountBirthPlace: '',
-  accountResidenceAddress: '',
   accountGender: 'F',
   accountRole: 'parent',
   login: '',
@@ -80,16 +72,12 @@ const EMPTY_DRAFT: Draft = {
   adultFirstName: '',
   adultLastName: '',
   adultBirthDate: '',
-  adultBirthPlace: '',
-  adultResidenceAddress: '',
   adultGender: 'F',
   adultEmail: '',
   adultPhone: '',
   minorFirstName: '',
   minorLastName: '',
   minorBirthDate: '',
-  minorBirthPlace: '',
-  minorResidenceAddress: '',
   minorGender: 'M',
   selectedSessionIds: [],
   consentEnrollmentAccepted: false,
@@ -216,15 +204,11 @@ function PublicOpenDayForm({ product, edition, session, scenarioConfig, selected
         accountEmail: existingProspect.email,
         accountPhone: existingProspect.phone,
         accountBirthDate: existingProspect.birthDate,
-        accountBirthPlace: existingProspect.birthPlace,
-        accountResidenceAddress: existingProspect.residenceAddress,
         accountGender: existingProspect.gender === 'M' ? 'M' : 'F',
         accountRole: existingProspect.role,
         adultFirstName: existingProspect.firstName,
         adultLastName: existingProspect.lastName,
         adultBirthDate: existingProspect.birthDate,
-        adultBirthPlace: existingProspect.birthPlace,
-        adultResidenceAddress: existingProspect.residenceAddress,
         adultGender: existingProspect.gender === 'M' ? 'M' : 'F',
         adultEmail: existingProspect.email,
         adultPhone: existingProspect.phone,
@@ -237,14 +221,10 @@ function PublicOpenDayForm({ product, edition, session, scenarioConfig, selected
         accountEmail: clientRecord.parentEmail,
         accountPhone: clientRecord.parentPhone,
         accountBirthDate: clientRecord.parentBirthDate,
-        accountBirthPlace: clientRecord.parentBirthPlace,
-        accountResidenceAddress: clientRecord.residenceAddress,
         accountGender: clientRecord.parentGender === 'M' ? 'M' : 'F',
         adultFirstName: clientRecord.parentFirstName,
         adultLastName: clientRecord.parentLastName,
         adultBirthDate: clientRecord.parentBirthDate,
-        adultBirthPlace: clientRecord.parentBirthPlace,
-        adultResidenceAddress: clientRecord.residenceAddress,
         adultGender: clientRecord.parentGender === 'M' ? 'M' : 'F',
         adultEmail: clientRecord.parentEmail,
         adultPhone: clientRecord.parentPhone,
@@ -364,11 +344,8 @@ function PublicOpenDayForm({ product, edition, session, scenarioConfig, selected
           phone: draft.accountPhone,
           secondaryPhone: '',
           birthDate: draft.accountBirthDate,
-          birthPlace: draft.accountBirthPlace,
           gender: draft.accountGender,
-          residenceAddress: draft.accountResidenceAddress,
           role: product.audience === 'adult' ? 'self' : draft.accountRole,
-          validationStatus: clientRecord ? 'validated' : 'not_validated',
         })
       }
       let adultAthleteId: number | null = null
@@ -380,9 +357,7 @@ function PublicOpenDayForm({ product, edition, session, scenarioConfig, selected
           firstName: draft.adultFirstName,
           lastName: draft.adultLastName,
           birthDate: draft.adultBirthDate,
-          birthPlace: draft.adultBirthPlace,
           gender: draft.adultGender,
-          residenceAddress: draft.adultResidenceAddress,
           email: draft.adultEmail,
           phone: draft.adultPhone,
         }).id
@@ -401,9 +376,7 @@ function PublicOpenDayForm({ product, edition, session, scenarioConfig, selected
             firstName: sourceMinor.firstName,
             lastName: sourceMinor.lastName,
             birthDate: sourceMinor.birthDate,
-            birthPlace: sourceMinor.birthPlace,
             gender: sourceMinor.gender,
-            residenceAddress: sourceMinor.residenceAddress,
           }).id
       } else if (selectedExistingMinor && 'prospectId' in selectedExistingMinor) {
         minorAthleteId = (selectedExistingMinor as OpenDayMinorAthlete).id
@@ -421,9 +394,7 @@ function PublicOpenDayForm({ product, edition, session, scenarioConfig, selected
             firstName: draft.minorFirstName,
             lastName: draft.minorLastName,
             birthDate: draft.minorBirthDate,
-            birthPlace: draft.minorBirthPlace,
             gender: draft.minorGender,
-            residenceAddress: draft.minorResidenceAddress,
           }).id
       }
       createOpenDayParticipation({
@@ -467,8 +438,6 @@ function PublicOpenDayForm({ product, edition, session, scenarioConfig, selected
           <label className="form-control"><span className="label-text mb-1 text-xs">Email</span><input className="input input-bordered w-full" type="email" value={draft.accountEmail} onChange={(event) => setDraft((prev) => ({ ...prev, accountEmail: event.target.value }))} /></label>
           <label className="form-control"><span className="label-text mb-1 text-xs">Telefono</span><input className="input input-bordered w-full" value={draft.accountPhone} onChange={(event) => setDraft((prev) => ({ ...prev, accountPhone: event.target.value }))} /></label>
           <label className="form-control"><span className="label-text mb-1 text-xs">Data di nascita</span><input className="input input-bordered w-full" type="date" value={draft.accountBirthDate} onChange={(event) => setDraft((prev) => ({ ...prev, accountBirthDate: event.target.value }))} /></label>
-          <label className="form-control"><span className="label-text mb-1 text-xs">Luogo di nascita</span><input className="input input-bordered w-full" value={draft.accountBirthPlace} onChange={(event) => setDraft((prev) => ({ ...prev, accountBirthPlace: event.target.value }))} /></label>
-          <label className="form-control md:col-span-2"><span className="label-text mb-1 text-xs">Residenza</span><input className="input input-bordered w-full" value={draft.accountResidenceAddress} onChange={(event) => setDraft((prev) => ({ ...prev, accountResidenceAddress: event.target.value }))} /></label>
           {!session ? <><label className="form-control"><span className="label-text mb-1 text-xs">Login</span><input className="input input-bordered w-full" value={draft.login} readOnly /></label><label className="form-control"><span className="label-text mb-1 text-xs">Password</span><input className="input input-bordered w-full" type="password" value={draft.password} onChange={(event) => setDraft((prev) => ({ ...prev, password: event.target.value }))} /></label></> : null}
         </div> : null}
         {step === 'participant' ? (product.audience === 'adult' ? <div className="grid gap-4 md:grid-cols-2">
@@ -477,12 +446,10 @@ function PublicOpenDayForm({ product, edition, session, scenarioConfig, selected
           <label className="form-control"><span className="label-text mb-1 text-xs">Data nascita</span><input className="input input-bordered w-full" type="date" value={draft.adultBirthDate} onChange={(event) => setDraft((prev) => ({ ...prev, adultBirthDate: event.target.value }))} /></label>
           <label className="form-control"><span className="label-text mb-1 text-xs">Email</span><input className="input input-bordered w-full" type="email" value={draft.adultEmail} onChange={(event) => setDraft((prev) => ({ ...prev, adultEmail: event.target.value }))} /></label>
           <label className="form-control"><span className="label-text mb-1 text-xs">Telefono</span><input className="input input-bordered w-full" value={draft.adultPhone} onChange={(event) => setDraft((prev) => ({ ...prev, adultPhone: event.target.value }))} /></label>
-          <label className="form-control"><span className="label-text mb-1 text-xs">Luogo nascita</span><input className="input input-bordered w-full" value={draft.adultBirthPlace} onChange={(event) => setDraft((prev) => ({ ...prev, adultBirthPlace: event.target.value }))} /></label>
         </div> : selectedExistingMinor ? <div className="rounded-lg border border-base-300 p-4 text-sm">{selectedExistingMinor.firstName} {selectedExistingMinor.lastName} - {selectedExistingMinor.birthDate}</div> : <div className="grid gap-4 md:grid-cols-2">
           <label className="form-control"><span className="label-text mb-1 text-xs">Nome minore</span><input className="input input-bordered w-full" value={draft.minorFirstName} onChange={(event) => setDraft((prev) => ({ ...prev, minorFirstName: event.target.value }))} /></label>
           <label className="form-control"><span className="label-text mb-1 text-xs">Cognome minore</span><input className="input input-bordered w-full" value={draft.minorLastName} onChange={(event) => setDraft((prev) => ({ ...prev, minorLastName: event.target.value }))} /></label>
           <label className="form-control"><span className="label-text mb-1 text-xs">Data nascita</span><input className="input input-bordered w-full" type="date" value={draft.minorBirthDate} onChange={(event) => setDraft((prev) => ({ ...prev, minorBirthDate: event.target.value }))} /></label>
-          <label className="form-control"><span className="label-text mb-1 text-xs">Luogo nascita</span><input className="input input-bordered w-full" value={draft.minorBirthPlace} onChange={(event) => setDraft((prev) => ({ ...prev, minorBirthPlace: event.target.value }))} /></label>
         </div>) : null}
         {step === 'sessions' ? <div className="space-y-3">{availableSessions.length === 0 ? <div className="rounded-lg border border-base-300 p-4 text-sm opacity-80">Nessuna sessione disponibile per il profilo selezionato.</div> : availableSessions.map((item) => <label key={item.id} className="label cursor-pointer justify-start gap-3 rounded-lg border border-base-300 px-4 py-3"><input type="checkbox" className="checkbox checkbox-primary" checked={draft.selectedSessionIds.includes(item.id)} onChange={(event) => setDraft((prev) => ({ ...prev, selectedSessionIds: event.target.checked ? [...prev.selectedSessionIds, item.id] : prev.selectedSessionIds.filter((sessionId) => sessionId !== item.id) }))} /><span className="label-text"><span className="block font-medium">{item.groupTitle}</span><span className="block text-sm opacity-80">{item.fieldTitle}</span><span className="block text-sm opacity-80">{item.date} ore {item.startTime} - {item.endTime}</span></span></label>)}</div> : null}
         {step === 'consents' ? <div className="space-y-4">

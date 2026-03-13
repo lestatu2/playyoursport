@@ -281,40 +281,262 @@ Sezioni utility implementate con pattern table + modale:
   - converte utente in `client` al primo acquisto
 
 ## Backend Laravel - linee guida concordate
-Obiettivo: mantenere separazione netta tra prodotto base e edizione annuale.
+Obiettivo: riflettere fedelmente i domini oggi gestiti in mock JSON + `localStorage`, senza comprimere concetti diversi sotto endpoint generici.
+
+### Domini backend da mantenere separati
+- auth gestionale
+- auth portale pubblico
+- utenti e ruoli
+- configurazione progetto
+- utility catalogo
+- pacchetti
+- clienti / minori / atleti diretti
+- enrollments pubblici pacchetti
+- attivita / pagamenti / storico
+- open day
+- prospect e partecipazioni open day
+- sito / contenuti pubblici
 
 ### Modello DB consigliato
-- Tabella `products` (anagrafica base):
+
+#### Pacchetti
+- Tabella `package_products`:
   - `id`, `code` (unique), `name`, `category_id`, `company_id`, `audience`, `status`, timestamps
-- Tabella `product_editions` (configurazione per anno):
+- Tabella `package_product_editions`:
   - `id`, `product_id` (FK), `edition_year`, `status` (`draft|published|archived`), timestamps
-  - campi di configurazione edizione: durata, pagamento, gruppi, whatsapp, contratto, servizi, trainer, ecc.
+  - campi configurazione edizione: durata, pagamenti, iscrizione, servizi, gruppi, trainer, whatsapp, contratto, gallery, media
 - Vincolo fondamentale DB:
   - unique composita (`product_id`, `edition_year`)
+- Tabelle figlie edizione consigliate:
+  - `package_edition_groups`
+  - `package_edition_group_schedules`
+  - `package_edition_trainers`
+  - `package_edition_whatsapp_accounts`
+  - `package_edition_services`
+  - `package_edition_gallery`
 
-### Tabelle figlie edizione (consigliate)
-- `product_edition_groups`
-- `product_edition_group_schedules`
-- `product_edition_trainers`
-- `product_edition_whatsapp_accounts`
-- `product_edition_services`
-- `product_edition_gallery`
+#### Open Day
+- Tabella `open_day_products`:
+  - `id`, `code` (unique), `name`, `category_id`, `audience`, `description`, `disclaimer`, `age_min`, `age_max`, `status`, timestamps
+- Tabella `open_day_editions`:
+  - `id`, `product_id` (FK), `edition_year`, `status`, `duration_type`, `event_date`, `period_start_date`, `period_end_date`, timestamps
+- Vincolo fondamentale DB:
+  - unique composita (`product_id`, `edition_year`)
+- Tabelle figlie consigliate:
+  - `open_day_groups`
+  - `open_day_sessions`
+  - `open_day_prospects`
+  - `open_day_minor_athletes`
+  - `open_day_adult_athletes`
+  - `open_day_participations`
+  - `open_day_participation_sessions`
 
 ### API Laravel consigliate (REST)
-- `GET /api/products`
-- `POST /api/products`
-- `PATCH /api/products/{id}`
-- `GET /api/products/{id}/editions`
-- `POST /api/products/{id}/editions`
-- `GET /api/products/{id}/editions/{editionId}`
-- `PATCH /api/products/{id}/editions/{editionId}`
-- `DELETE /api/products/{id}/editions/{editionId}`
-- Opzionale: `POST /api/products/{id}/editions/{editionId}/clone` con `target_year`
+
+#### Auth gestionale
+- `POST /api/auth/login`
+- `POST /api/auth/logout`
+- `GET /api/auth/me`
+
+#### Auth portale pubblico
+- `POST /api/public/auth/login`
+- `POST /api/public/auth/logout`
+- `GET /api/public/auth/me`
+- `POST /api/public/auth/register-subscriber`
+- `POST /api/public/auth/register-prospect`
+
+#### Utenti e ruoli
+- `GET /api/users`
+- `POST /api/users`
+- `GET /api/users/{userId}`
+- `PATCH /api/users/{userId}`
+- `DELETE /api/users/{userId}`
+- `GET /api/roles`
+
+#### Project settings / configurazione
+- `GET /api/project-settings`
+- `PATCH /api/project-settings`
+
+#### Utility catalogo
+- `GET /api/utility/categories`
+- `POST /api/utility/categories`
+- `PATCH /api/utility/categories/{categoryId}`
+- `DELETE /api/utility/categories/{categoryId}`
+- `GET /api/utility/fields`
+- `POST /api/utility/fields`
+- `PATCH /api/utility/fields/{fieldId}`
+- `DELETE /api/utility/fields/{fieldId}`
+- `GET /api/utility/groups`
+- `POST /api/utility/groups`
+- `PATCH /api/utility/groups/{groupId}`
+- `DELETE /api/utility/groups/{groupId}`
+- `GET /api/utility/companies`
+- `POST /api/utility/companies`
+- `PATCH /api/utility/companies/{companyId}`
+- `DELETE /api/utility/companies/{companyId}`
+- `GET /api/utility/insurances`
+- `POST /api/utility/insurances`
+- `PATCH /api/utility/insurances/{insuranceId}`
+- `DELETE /api/utility/insurances/{insuranceId}`
+- `GET /api/utility/enrollments`
+- `POST /api/utility/enrollments`
+- `PATCH /api/utility/enrollments/{enrollmentId}`
+- `DELETE /api/utility/enrollments/{enrollmentId}`
+- `GET /api/utility/additional-services`
+- `POST /api/utility/additional-services`
+- `PATCH /api/utility/additional-services/{serviceId}`
+- `DELETE /api/utility/additional-services/{serviceId}`
+- `GET /api/utility/whatsapp-accounts`
+- `POST /api/utility/whatsapp-accounts`
+- `PATCH /api/utility/whatsapp-accounts/{accountId}`
+- `DELETE /api/utility/whatsapp-accounts/{accountId}`
+- `GET /api/utility/payment-methods`
+- `POST /api/utility/payment-methods`
+- `PATCH /api/utility/payment-methods/{paymentMethodId}`
+- `DELETE /api/utility/payment-methods/{paymentMethodId}`
+- `GET /api/utility/contracts/settings`
+- `PATCH /api/utility/contracts/settings`
+
+#### Pacchetti
+- `GET /api/packages/products`
+- `POST /api/packages/products`
+- `GET /api/packages/products/{productId}`
+- `PATCH /api/packages/products/{productId}`
+- `DELETE /api/packages/products/{productId}`
+- `GET /api/packages/products/{productId}/editions`
+- `POST /api/packages/products/{productId}/editions`
+- `GET /api/packages/products/{productId}/editions/{editionId}`
+- `PATCH /api/packages/products/{productId}/editions/{editionId}`
+- `DELETE /api/packages/products/{productId}/editions/{editionId}`
+- `POST /api/packages/products/{productId}/editions/{editionId}/clone`
+
+#### Gruppi pacchetto
+- `GET /api/packages/editions/{editionId}/groups`
+- `POST /api/packages/editions/{editionId}/groups`
+- `GET /api/packages/editions/{editionId}/groups/{groupId}`
+- `PATCH /api/packages/editions/{editionId}/groups/{groupId}`
+- `DELETE /api/packages/editions/{editionId}/groups/{groupId}`
+
+#### Clienti e anagrafiche pacchetti
+- `GET /api/clients`
+- `POST /api/clients`
+- `GET /api/clients/{clientId}`
+- `PATCH /api/clients/{clientId}`
+- `GET /api/clients/{clientId}/minors`
+- `POST /api/clients/{clientId}/minors`
+- `GET /api/clients/{clientId}/minors/{minorId}`
+- `PATCH /api/clients/{clientId}/minors/{minorId}`
+- `GET /api/direct-athletes`
+- `POST /api/direct-athletes`
+- `GET /api/direct-athletes/{athleteId}`
+- `PATCH /api/direct-athletes/{athleteId}`
+
+#### Frontend pubblico pacchetti
+- `GET /api/public/packages`
+- `GET /api/public/packages/{editionId}`
+- `POST /api/public/packages/{editionId}/enrollments`
+- `POST /api/public/packages/identity-check`
+
+#### Iscrizioni / attivita / pagamenti pacchetti
+- `GET /api/enrollments`
+- `GET /api/enrollments/{enrollmentRecordId}`
+- `PATCH /api/enrollments/{enrollmentRecordId}`
+- `GET /api/activities`
+- `GET /api/activities/{activityId}`
+- `PATCH /api/activities/{activityId}`
+- `GET /api/activity-payments`
+- `GET /api/activity-payments/{paymentId}`
+- `PATCH /api/activity-payments/{paymentId}`
+- `GET /api/activity-history`
+- `GET /api/activity-history/{historyId}`
+
+#### Open Day
+- `GET /api/open-days/products`
+- `POST /api/open-days/products`
+- `GET /api/open-days/products/{productId}`
+- `PATCH /api/open-days/products/{productId}`
+- `DELETE /api/open-days/products/{productId}`
+- `GET /api/open-days/products/{productId}/editions`
+- `POST /api/open-days/products/{productId}/editions`
+- `GET /api/open-days/products/{productId}/editions/{editionId}`
+- `PATCH /api/open-days/products/{productId}/editions/{editionId}`
+- `DELETE /api/open-days/products/{productId}/editions/{editionId}`
+- `POST /api/open-days/products/{productId}/editions/{editionId}/clone`
+
+#### Gruppi e sessioni Open Day
+- `GET /api/open-days/editions/{editionId}/groups`
+- `POST /api/open-days/editions/{editionId}/groups`
+- `GET /api/open-days/editions/{editionId}/groups/{groupId}`
+- `PATCH /api/open-days/editions/{editionId}/groups/{groupId}`
+- `DELETE /api/open-days/editions/{editionId}/groups/{groupId}`
+- `GET /api/open-days/editions/{editionId}/groups/{groupId}/sessions`
+- `POST /api/open-days/editions/{editionId}/groups/{groupId}/sessions`
+- `GET /api/open-days/editions/{editionId}/groups/{groupId}/sessions/{sessionId}`
+- `PATCH /api/open-days/editions/{editionId}/groups/{groupId}/sessions/{sessionId}`
+- `DELETE /api/open-days/editions/{editionId}/groups/{groupId}/sessions/{sessionId}`
+
+#### Prospect e anagrafiche Open Day
+- `GET /api/open-day-prospects`
+- `POST /api/open-day-prospects`
+- `GET /api/open-day-prospects/{prospectId}`
+- `PATCH /api/open-day-prospects/{prospectId}`
+- `GET /api/open-day-prospects/{prospectId}/minor-athletes`
+- `POST /api/open-day-prospects/{prospectId}/minor-athletes`
+- `GET /api/open-day-prospects/{prospectId}/minor-athletes/{minorAthleteId}`
+- `PATCH /api/open-day-prospects/{prospectId}/minor-athletes/{minorAthleteId}`
+- `GET /api/open-day-prospects/{prospectId}/adult-athletes`
+- `POST /api/open-day-prospects/{prospectId}/adult-athletes`
+- `GET /api/open-day-prospects/{prospectId}/adult-athletes/{adultAthleteId}`
+- `PATCH /api/open-day-prospects/{prospectId}/adult-athletes/{adultAthleteId}`
+
+#### Partecipazioni Open Day
+- `GET /api/open-days/participations`
+  - lista admin aggregata, non legata a una sola edizione
+  - supporta filtri coerenti con la UI:
+    - `scope=active|history`
+    - `category_id`
+    - `group_id`
+    - `date_from`
+    - `date_to`
+    - `status`
+    - `participant_type=adult|minor`
+    - `search`
+- `GET /api/open-days/editions/{editionId}/participations`
+- `POST /api/open-days/editions/{editionId}/participations`
+- `GET /api/open-days/editions/{editionId}/participations/{participationId}`
+- `PATCH /api/open-days/editions/{editionId}/participations/{participationId}`
+- `DELETE /api/open-days/editions/{editionId}/participations/{participationId}`
+- `GET /api/open-days/participations/export`
+  - export admin basato sugli stessi filtri della lista
+  - parametri principali:
+    - `format=xlsx|pdf|docx`
+    - `scope=active|history`
+    - `category_id`
+    - `group_id`
+    - `date_from`
+    - `date_to`
+    - `status`
+    - `participant_type=adult|minor`
+    - `search`
+  - se una partecipazione ha piu sessioni, l export deve produrre una riga per sessione
+
+#### Frontend pubblico Open Day
+- `GET /api/public/open-days`
+- `GET /api/public/open-days/{editionId}`
+- `POST /api/public/open-days/{editionId}/participations`
+- `POST /api/public/open-days/identity-check`
+
+#### Sito / contenuti pubblici
+- `GET /api/site/settings`
+- `PATCH /api/site/settings`
+- `GET /api/site/homepage-slider`
+- `PATCH /api/site/homepage-slider`
 
 ### Regole server importanti
-- Validare unicita anno edizione per prodotto (oltre al vincolo DB).
-- Tutte le operazioni gestionali (iscrizioni/pagamenti/gruppi) devono riferirsi a `editionId`.
-- Le edizioni pubblicate devono essere trattate come snapshot versionate (no modifiche retroattive non controllate).
+- Validare unicita anno edizione per prodotto, sia per pacchetti sia per open day.
+- Tutte le operazioni gestionali operative devono riferirsi all edizione, non al prodotto base.
+- Le edizioni pubblicate devono essere trattate come snapshot versionate, evitando modifiche retroattive non controllate.
+- Non comprimere `packages` e `open-days` sotto un solo dominio `products`: hanno vincoli funzionali diversi su azienda, pagamenti, servizi, iscrizioni, documenti e anagrafiche.
 
 ## Aggiornamento odierno (2026-03-04)
 
@@ -616,6 +838,10 @@ Obiettivo: mantenere separazione netta tra prodotto base e edizione annuale.
   - `OpenDayMinorAthlete`
   - `OpenDayAdultAthlete`
   - `OpenDayParticipation`
+- Anagrafiche Open Day minimali:
+  - `OpenDayProspect`: nome, cognome, email, telefono, telefono secondario, data nascita, sesso, ruolo
+  - `OpenDayMinorAthlete`: nome, cognome, data nascita, sesso
+  - `OpenDayAdultAthlete`: nome, cognome, data nascita, sesso, email, telefono
 - Gli Open Day:
   - condividono categorie e campi con i pacchetti
   - NON hanno azienda
@@ -623,6 +849,9 @@ Obiettivo: mantenere separazione netta tra prodotto base e edizione annuale.
   - NON hanno servizi aggiuntivi
   - NON hanno pagamenti
   - NON richiedono documenti nel form pubblico
+  - NON richiedono luogo di nascita
+  - NON richiedono residenza
+  - NON hanno workflow di validazione
 - Gruppi/sessioni open day:
   - i gruppi hanno filtro sesso + range anno nascita + campo
   - le sessioni hanno data specifica e fascia oraria
@@ -704,3 +933,99 @@ Obiettivo: mantenere separazione netta tra prodotto base e edizione annuale.
     - `PublicOpenDayDetailPage`
   - entrambe aprono `PublicOpenDayModal` sugli open day pubblicati
   - `public-content.ts` espone il catalogo pubblico open day tramite helper dedicati
+- Ottavo blocco tecnico approvato:
+  - introdotta pagina admin `OpenDayParticipationsPage`
+  - collegata a route gestionale `/app/open-day/registrazioni`
+  - collegata al menu admin come voce separata rispetto al catalogo open day
+  - la pagina gestisce:
+    - tabella partecipazioni open day
+    - filtri per edizione, stato, tipo partecipante e ricerca testuale
+    - scheda dettaglio con dati prospect/tutor, partecipante e sessioni selezionate
+    - aggiornamento stato partecipazione
+  - `open-day-records.ts` espone ora evento di change e update record per supportare la gestione admin reattiva
+- Correzione di dominio approvata:
+  - sugli open day NON esiste workflow di validazione prospect/tutor
+  - il `prospect` serve come account/lead per analisi e riuso dati, non come soggetto da validare
+  - quindi negli open day:
+    - niente `validationStatus`
+    - niente badge `Validato / Da validare`
+    - niente azione `Verifica prospect`
+  - la gestione admin open day resta centrata su:
+    - anagrafica prospect
+    - anagrafica partecipante
+    - sessioni selezionate
+    - stato partecipazione
+- Nono blocco tecnico approvato:
+  - `OpenDayPage` gestisce le edizioni come i pacchetti:
+    - tabella principale per prodotto
+    - modale secondaria elenco edizioni per prodotto
+    - creazione nuova edizione sul prodotto esistente
+  - la modale fullscreen open day ha ora anche tab `WhatsApp`
+  - il collegamento WhatsApp e definito a livello `OpenDayEdition`, non prodotto
+  - ogni edizione open day salva:
+    - `whatsappAccountIds`
+    - `whatsappGroupLink`
+  - gli account selezionabili arrivano dalla stessa utility WhatsApp usata dai pacchetti
+- Decimo blocco tecnico approvato:
+  - `OpenDayParticipationsPage` e ora gestione operativa, non sola consultazione
+  - la scheda partecipazione permette:
+    - modifica anagrafica prospect/tutor
+    - modifica anagrafica partecipante
+    - modifica sessioni selezionate
+    - modifica stato partecipazione
+    - cancellazione partecipazione
+  - le anagrafiche open day restano minimali anche in gestione:
+    - niente luogo di nascita
+    - niente residenza
+    - niente workflow di validazione
+  - le sessioni selezionabili in modifica rispettano sempre sesso ed eta del partecipante
+  - se sesso o data nascita cambiano, le sessioni non piu compatibili vengono rimosse dal draft
+- Undicesimo blocco tecnico approvato:
+  - `OpenDayParticipationsPage` usa ora filtri allineati al dominio open day:
+    - vista `Attive` / `Storico`
+    - `Categoria`
+    - `Gruppo`
+    - `Da` / `A` sulle date sessione
+    - `Stato`
+    - `Tipo`
+  - il filtro `Categoria` mostra solo categorie realmente presenti nella vista corrente
+  - il filtro `Gruppo` mostra solo gruppi realmente presenti nella vista corrente
+  - la colonna pianificazione e stata separata in:
+    - `Gruppo`
+    - `Data / Orario`
+  - `Data / Orario` rende una riga per sessione
+- Dodicesimo blocco tecnico approvato:
+  - nelle registrazioni open day la colonna `Azioni` e stata riallineata al pattern clienti/pacchetti
+  - azioni disponibili:
+    - icona scheda `FileText` per aprire la gestione
+    - icona `Trash2` per eliminazione con conferma
+    - icona `MessageCircle` per apertura chat WhatsApp verso il numero del prospect/tutor
+  - il bottone WhatsApp e attivo solo se il numero del prospect/tutor e presente
+- Tredicesimo blocco tecnico approvato:
+  - `OpenDayParticipationsPage` ha export dedicato come attivita/pagamenti
+  - export basato esclusivamente sui dati filtrati della vista corrente
+  - formati disponibili:
+    - `xlsx`
+    - `pdf`
+    - `docx`
+  - colonne export correnti:
+    - Open Day
+    - Categoria
+    - Atleta
+    - Tipo
+    - Tutor / Prospect
+    - Email
+    - Telefono
+    - Gruppo
+    - Data / Orario
+    - Stato
+    - Data creazione
+  - se una partecipazione contiene piu sessioni, l export genera una riga per ogni sessione
+- Quattordicesimo blocco tecnico approvato:
+  - il menu admin `Open Day` e stato riallineato al pattern `Utility`
+  - sidebar aperta:
+    - menu padre `Open Day`
+    - sottomenu `Crea e gestisci Open Day`
+    - sottomenu `Registrazioni Open Day`
+  - sidebar chiusa:
+    - fallback a due voci singole coerente con il layout attuale

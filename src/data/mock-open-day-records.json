@@ -1,0 +1,131 @@
+{
+  "prospects": [
+    {
+      "id": 1,
+      "userId": null,
+      "linkedClientId": null,
+      "firstName": "Giulia",
+      "lastName": "Bianchi",
+      "email": "giulia.bianchi@example.com",
+      "phone": "+393391112233",
+      "secondaryPhone": "",
+      "birthDate": "1988-04-12",
+      "gender": "F",
+      "role": "parent",
+      "createdAt": "2026-03-01T09:15:00.000Z"
+    },
+    {
+      "id": 2,
+      "userId": null,
+      "linkedClientId": null,
+      "firstName": "Marco",
+      "lastName": "Rossi",
+      "email": "marco.rossi@example.com",
+      "phone": "+393497776655",
+      "secondaryPhone": "",
+      "birthDate": "1992-09-03",
+      "gender": "M",
+      "role": "self",
+      "createdAt": "2026-03-02T10:30:00.000Z"
+    }
+  ],
+  "minorAthletes": [
+    {
+      "id": 1,
+      "prospectId": 1,
+      "linkedMinorId": null,
+      "firstName": "Lorenzo",
+      "lastName": "Bianchi",
+      "birthDate": "2014-06-21",
+      "gender": "M",
+      "createdAt": "2026-03-01T09:20:00.000Z"
+    },
+    {
+      "id": 2,
+      "prospectId": 1,
+      "linkedMinorId": null,
+      "firstName": "Sofia",
+      "lastName": "Bianchi",
+      "birthDate": "2012-11-05",
+      "gender": "F",
+      "createdAt": "2026-03-01T09:22:00.000Z"
+    }
+  ],
+  "adultAthletes": [
+    {
+      "id": 1,
+      "prospectId": 2,
+      "linkedDirectAthleteId": null,
+      "firstName": "Marco",
+      "lastName": "Rossi",
+      "birthDate": "1992-09-03",
+      "gender": "M",
+      "email": "marco.rossi@example.com",
+      "phone": "+393497776655",
+      "createdAt": "2026-03-02T10:35:00.000Z"
+    }
+  ],
+  "participations": [
+    {
+      "id": "open-day-participation-seed-1",
+      "openDayEditionId": "open-day-edition-football-youth-2026",
+      "productId": "open-day-product-football-youth",
+      "editionYear": 2026,
+      "prospectId": 1,
+      "participantType": "minor",
+      "adultAthleteId": null,
+      "minorAthleteId": 1,
+      "selectedSessionIds": [
+        "open-day-session-football-youth-3",
+        "open-day-session-football-youth-4"
+      ],
+      "consentEnrollmentAccepted": true,
+      "consentInformationAccepted": true,
+      "consentDataProcessingAccepted": true,
+      "consentDataProcessingSignatureDataUrl": "mock-signature-prospect-1",
+      "enrollmentConfirmationSignatureDataUrl": "mock-signature-athlete-1",
+      "status": "confirmed",
+      "createdAt": "2026-03-03T14:10:00.000Z"
+    },
+    {
+      "id": "open-day-participation-seed-2",
+      "openDayEditionId": "open-day-edition-football-youth-2026",
+      "productId": "open-day-product-football-youth",
+      "editionYear": 2026,
+      "prospectId": 1,
+      "participantType": "minor",
+      "adultAthleteId": null,
+      "minorAthleteId": 2,
+      "selectedSessionIds": [
+        "open-day-session-football-youth-5"
+      ],
+      "consentEnrollmentAccepted": true,
+      "consentInformationAccepted": true,
+      "consentDataProcessingAccepted": true,
+      "consentDataProcessingSignatureDataUrl": "mock-signature-prospect-2",
+      "enrollmentConfirmationSignatureDataUrl": "mock-signature-athlete-2",
+      "status": "registered",
+      "createdAt": "2026-03-04T16:40:00.000Z"
+    },
+    {
+      "id": "open-day-participation-seed-3",
+      "openDayEditionId": "open-day-edition-tennis-adult-2026",
+      "productId": "open-day-product-tennis-adult",
+      "editionYear": 2026,
+      "prospectId": 2,
+      "participantType": "adult",
+      "adultAthleteId": 1,
+      "minorAthleteId": null,
+      "selectedSessionIds": [
+        "open-day-session-tennis-adult-2"
+      ],
+      "consentEnrollmentAccepted": true,
+      "consentInformationAccepted": true,
+      "consentDataProcessingAccepted": true,
+      "consentDataProcessingSignatureDataUrl": "mock-signature-prospect-3",
+      "enrollmentConfirmationSignatureDataUrl": "mock-signature-athlete-3",
+      "status": "attended",
+      "createdAt": "2026-03-05T11:20:00.000Z"
+    }
+  ]
+}

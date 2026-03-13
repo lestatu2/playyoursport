@@ -1,4 +1,5 @@
 import mockOpenDays from '../data/mock-open-days.json'
+import { getWhatsAppAccounts } from './package-catalog'
 import { readJsonArray, writeJsonValue } from './storage'
 
 const OPEN_DAY_PRODUCTS_KEY = 'pys_open_day_products'
@@ -30,6 +31,8 @@ export type OpenDayEdition = {
   productId: string
   editionYear: number
   status: OpenDayStatus
+  whatsappAccountIds: string[]
+  whatsappGroupLink: string
   durationType: OpenDayDurationType
   eventDate: string
   periodStartDate: string
@@ -98,6 +101,8 @@ export type SaveOpenDayPayload = {
   productStatus: OpenDayStatus
   editionYear: number
   editionStatus: OpenDayStatus
+  whatsappAccountIds: string[]
+  whatsappGroupLink: string
   durationType: OpenDayDurationType
   eventDate: string
   periodStartDate: string
@@ -113,9 +118,69 @@ export type SaveOpenDayResult =
         | 'invalid'
         | 'duplicateCode'
         | 'duplicateEditionYear'
+        | 'invalidWhatsAppAccounts'
         | 'productNotFound'
         | 'editionNotFound'
     }
+
+export function createOpenDayEdition(productId: string, payload: SaveOpenDayPayload): SaveOpenDayResult {
+  const normalized = normalizePayload(payload)
+  const invalid = validatePayload(normalized)
+  if (invalid) {
+    return invalid
+  }
+  const products = getOpenDayProducts()
+  const product = products.find((item) => item.id === productId) ?? null
+  if (!product) {
+    return { ok: false, error: 'productNotFound' }
+  }
+  const editions = getOpenDayEditions()
+  if (editions.some((item) => item.productId === productId && item.editionYear === normalized.editionYear)) {
+    return { ok: false, error: 'duplicateEditionYear' }
+  }
+  const edition: OpenDayEdition = {
+    id: nextEditionId(),
+    productId,
+    editionYear: normalized.editionYear,
+    status: normalized.editionStatus,
+    whatsappAccountIds: normalized.whatsappAccountIds,
+    whatsappGroupLink: normalized.whatsappGroupLink,
+    durationType: normalized.durationType,
+    eventDate: normalized.eventDate,
+    periodStartDate: normalized.periodStartDate,
+    periodEndDate: normalized.periodEndDate,
+  }
+  const groups: OpenDayGroup[] = normalized.groups.map((group) => {
+    const groupId = group.id || nextGroupId()
+    return {
+      id: groupId,
+      openDayEditionId: edition.id,
+      title: group.title,
+      gender: group.gender,
+      birthYearMin: group.birthYearMin,
+      birthYearMax: group.birthYearMax,
+      fieldId: group.fieldId,
+      capacity: group.capacity,
+      isActive: group.isActive,
+    }
+  })
+  const sessions: OpenDaySession[] = normalized.groups.flatMap((group, groupIndex) => {
+    const groupId = groups[groupIndex]?.id ?? nextGroupId()
+    return group.sessions.map((session) => ({
+      id: session.id || nextSessionId(),
+      groupId,
+      date: session.date,
+      startTime: session.startTime,
+      endTime: session.endTime,
+      capacity: session.capacity,
+      isActive: session.isActive,
+    }))
+  })
+  setOpenDayEditions([...editions, edition])
+  setOpenDayGroups([...getOpenDayGroups(), ...groups])
+  setOpenDaySessions([...getOpenDaySessions(), ...sessions])
+  return { ok: true, product, edition }
+}
 
 function emitOpenDayCatalogChanged(): void {
   window.dispatchEvent(new Event(OPEN_DAY_CATALOG_CHANGED_EVENT))
@@ -160,6 +225,8 @@ function normalizeEditions(items: OpenDayEdition[]): OpenDayEdition[] {
     productId: item.productId.trim(),
     editionYear: Number.isFinite(item.editionYear) ? Math.trunc(item.editionYear) : new Date().getFullYear(),
     status: normalizeStatus(item.status),
+    whatsappAccountIds: normalizeOpenDayWhatsAppAccountIds(item.whatsappAccountIds),
+    whatsappGroupLink: item.whatsappGroupLink ?? '',
     durationType: normalizeDurationType(item.durationType),
     eventDate: item.eventDate ?? '',
     periodStartDate: item.periodStartDate ?? '',
@@ -260,6 +327,8 @@ function normalizePayload(payload: SaveOpenDayPayload): SaveOpenDayPayload {
     productStatus: normalizeStatus(payload.productStatus),
     editionYear: Number.isFinite(payload.editionYear) ? Math.trunc(payload.editionYear) : new Date().getFullYear(),
     editionStatus: normalizeStatus(payload.editionStatus),
+    whatsappAccountIds: normalizeOpenDayWhatsAppAccountIds(payload.whatsappAccountIds),
+    whatsappGroupLink: payload.whatsappGroupLink.trim(),
     durationType: normalizeDurationType(payload.durationType),
     eventDate: payload.eventDate.trim(),
     periodStartDate: payload.periodStartDate.trim(),
@@ -300,6 +369,9 @@ function validatePayload(payload: SaveOpenDayPayload): SaveOpenDayResult | null 
   }
   if (payload.durationType === 'period' && (!payload.periodStartDate || !payload.periodEndDate)) {
     return { ok: false, error: 'invalid' }
+  }
+  if (!isValidOpenDayWhatsAppAccounts(payload.whatsappAccountIds)) {
+    return { ok: false, error: 'invalidWhatsAppAccounts' }
   }
   for (const group of payload.groups) {
     if (!group.title || !group.fieldId || group.birthYearMax < group.birthYearMin || group.sessions.length === 0) {
@@ -357,6 +429,8 @@ export function createOpenDay(payload: SaveOpenDayPayload): SaveOpenDayResult {
     productId: product.id,
     editionYear: normalized.editionYear,
     status: normalized.editionStatus,
+    whatsappAccountIds: normalized.whatsappAccountIds,
+    whatsappGroupLink: normalized.whatsappGroupLink,
     durationType: normalized.durationType,
     eventDate: normalized.eventDate,
     periodStartDate: normalized.periodStartDate,
@@ -437,6 +511,8 @@ export function updateOpenDay(productId: string, editionId: string, payload: Sav
     ...currentEdition,
     editionYear: normalized.editionYear,
     status: normalized.editionStatus,
+    whatsappAccountIds: normalized.whatsappAccountIds,
+    whatsappGroupLink: normalized.whatsappGroupLink,
     durationType: normalized.durationType,
     eventDate: normalized.eventDate,
     periodStartDate: normalized.periodStartDate,
@@ -506,4 +582,19 @@ export function removeOpenDay(productId: string, editionId: string): boolean {
     setOpenDayProducts(products.filter((item) => item.id !== productId))
   }
   return true
+}
+
+function normalizeOpenDayWhatsAppAccountIds(input: string[] | undefined): string[] {
+  if (!Array.isArray(input)) {
+    return []
+  }
+  const ids = input
+    .map((item) => (typeof item === 'string' ? item.trim() : ''))
+    .filter((item): item is string => Boolean(item))
+  return Array.from(new Set(ids))
+}
+
+function isValidOpenDayWhatsAppAccounts(input: string[]): boolean {
+  const accountIds = new Set(getWhatsAppAccounts().map((item) => item.id))
+  return normalizeOpenDayWhatsAppAccountIds(input).every((item) => accountIds.has(item))
 }

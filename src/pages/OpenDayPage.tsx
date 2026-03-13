@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { getCoreRowModel, useReactTable, type ColumnDef } from '@tanstack/react-table'
-import { SquarePen, Trash2 } from 'lucide-react'
+import { MessageCircle, SquarePen, Trash2 } from 'lucide-react'
 import DataTable from '../components/DataTable'
 import {
   createOpenDay,
+  createOpenDayEdition,
   getOpenDayCatalogChangedEventName,
   getOpenDayEditions,
   getOpenDayGroups,
@@ -23,9 +24,28 @@ import {
   type SaveOpenDayPayload,
   type SaveOpenDaySessionPayload,
 } from '../lib/open-day-catalog'
-import { getFields, getSportCategories } from '../lib/package-catalog'
+import {
+  getFields,
+  getPackageCatalogChangedEventName,
+  getSportCategories,
+  getWhatsAppAccounts,
+  type WhatsAppAccount,
+} from '../lib/package-catalog'
 
 type OpenDayRow = {
+  productId: string
+  name: string
+  categoryLabel: string
+  audience: OpenDayAudience
+  ageRange: string
+  editionsCount: number
+  latestEditionId: string
+  latestEditionYear: number
+  latestDurationLabel: string
+  latestStatus: OpenDayStatus
+}
+
+type OpenDayEditionRow = {
   productId: string
   editionId: string
   code: string
@@ -52,6 +72,8 @@ const EMPTY_DRAFT: SaveOpenDayPayload = {
   productStatus: 'draft',
   editionYear: CURRENT_YEAR,
   editionStatus: 'draft',
+  whatsappAccountIds: [],
+  whatsappGroupLink: '',
   durationType: 'single-event',
   eventDate: '',
   periodStartDate: '',
@@ -85,15 +107,16 @@ function createOpenDayGroupDraft(): SaveOpenDayGroupPayload {
 }
 
 function OpenDayPage() {
-  const { t: _t } = useTranslation()
+  const { t } = useTranslation()
   const [products, setProducts] = useState<OpenDayProduct[]>(() => getOpenDayProducts())
   const [editions, setEditions] = useState<OpenDayEdition[]>(() => getOpenDayEditions())
   const [storedGroups, setStoredGroups] = useState<OpenDayGroup[]>(() => getOpenDayGroups())
   const [storedSessions, setStoredSessions] = useState<OpenDaySession[]>(() => getOpenDaySessions())
   const [categories, setCategories] = useState(() => getSportCategories().filter((item) => item.isActive))
   const [allFields, setAllFields] = useState(() => getFields())
+  const [whatsappAccounts, setWhatsAppAccounts] = useState<WhatsAppAccount[]>(() => getWhatsAppAccounts())
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [modalMode, setModalMode] = useState<'create' | 'edit'>('create')
+  const [modalMode, setModalMode] = useState<'create' | 'create-edition' | 'edit'>('create')
   const [editingProductId, setEditingProductId] = useState<string | null>(null)
   const [editingEditionId, setEditingEditionId] = useState<string | null>(null)
   const [draft, setDraft] = useState<SaveOpenDayPayload>(() => ({
@@ -102,7 +125,9 @@ function OpenDayPage() {
   }))
   const [message, setMessage] = useState('')
   const [isError, setIsError] = useState(false)
-  const [activeTab, setActiveTab] = useState<'general-info' | 'duration' | 'groups'>('general-info')
+  const [activeTab, setActiveTab] = useState<'general-info' | 'duration' | 'groups' | 'whatsapp'>('general-info')
+  const [isEditionsModalOpen, setIsEditionsModalOpen] = useState(false)
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null)
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false)
   const [groupModalMode, setGroupModalMode] = useState<'create' | 'edit'>('create')
   const [editingGroupIndex, setEditingGroupIndex] = useState<number | null>(null)
@@ -110,19 +135,30 @@ function OpenDayPage() {
 
   useEffect(() => {
     const eventName = getOpenDayCatalogChangedEventName()
+    const packageCatalogEvent = getPackageCatalogChangedEventName()
     const handleChange = () => {
+      const nextWhatsAppAccounts = getWhatsAppAccounts()
       setProducts(getOpenDayProducts())
       setEditions(getOpenDayEditions())
       setStoredGroups(getOpenDayGroups())
       setStoredSessions(getOpenDaySessions())
       setCategories(getSportCategories().filter((item) => item.isActive))
       setAllFields(getFields())
+      setWhatsAppAccounts(nextWhatsAppAccounts)
+      setDraft((prev) => ({
+        ...prev,
+        whatsappAccountIds: prev.whatsappAccountIds.filter((id) => nextWhatsAppAccounts.some((account) => account.id === id)),
+      }))
     }
     window.addEventListener(eventName, handleChange)
-    return () => window.removeEventListener(eventName, handleChange)
+    window.addEventListener(packageCatalogEvent, handleChange)
+    return () => {
+      window.removeEventListener(eventName, handleChange)
+      window.removeEventListener(packageCatalogEvent, handleChange)
+    }
   }, [])
 
-  const rows = useMemo<OpenDayRow[]>(() => {
+  const editionRows = useMemo<OpenDayEditionRow[]>(() => {
     const categoryLabelById = new Map(categories.map((item) => [item.id, item.label]))
     return editions
       .map((edition) => {
@@ -147,8 +183,40 @@ function OpenDayPage() {
           status: edition.status,
         }
       })
-      .filter((item): item is OpenDayRow => Boolean(item))
+      .filter((item): item is OpenDayEditionRow => Boolean(item))
   }, [categories, editions, products])
+
+  const rows = useMemo<OpenDayRow[]>(() => {
+    const grouped = new Map<string, OpenDayEditionRow[]>()
+    editionRows.forEach((row) => {
+      const current = grouped.get(row.productId) ?? []
+      grouped.set(row.productId, [...current, row])
+    })
+    return Array.from(grouped.values()).map((items) => {
+      const sorted = [...items].sort((left, right) => right.editionYear - left.editionYear)
+      const latest = sorted[0]
+      return {
+        productId: latest.productId,
+        name: latest.name,
+        categoryLabel: latest.categoryLabel,
+        audience: latest.audience,
+        ageRange: latest.ageRange,
+        editionsCount: sorted.length,
+        latestEditionId: latest.editionId,
+        latestEditionYear: latest.editionYear,
+        latestDurationLabel: latest.durationLabel,
+        latestStatus: latest.status,
+      }
+    })
+  }, [editionRows])
+
+  const selectedProductEditions = useMemo(
+    () =>
+      selectedProductId
+        ? editionRows.filter((item) => item.productId === selectedProductId).sort((left, right) => right.editionYear - left.editionYear)
+        : [],
+    [editionRows, selectedProductId],
+  )
 
   const categoryFields = useMemo(
     () => allFields.filter((item) => item.categoryId === draft.categoryId),
@@ -179,9 +247,81 @@ function OpenDayPage() {
     setIsModalOpen(true)
   }
 
-  const openEditModal = (row: OpenDayRow) => {
-    const product = products.find((item) => item.id === row.productId) ?? null
-    const edition = editions.find((item) => item.id === row.editionId) ?? null
+  const openCreateEditionFromProduct = (productId: string) => {
+    const source = editionRows
+      .filter((item) => item.productId === productId)
+      .sort((left, right) => right.editionYear - left.editionYear)[0]
+    if (!source) {
+      return
+    }
+    const product = products.find((item) => item.id === productId) ?? null
+    const edition = editions.find((item) => item.id === source.editionId) ?? null
+    if (!product || !edition) {
+      return
+    }
+    const editionGroups = storedGroups.filter((item) => item.openDayEditionId === edition.id)
+    const editionSessions = storedSessions.filter((item) => editionGroups.some((group) => group.id === item.groupId))
+    setModalMode('create-edition')
+    setEditingProductId(product.id)
+    setEditingEditionId(null)
+    setDraft({
+      code: product.code,
+      name: product.name,
+      categoryId: product.categoryId,
+      audience: product.audience,
+      description: product.description,
+      disclaimer: product.disclaimer,
+      ageMin: product.ageMin,
+      ageMax: product.ageMax,
+      productStatus: product.status,
+      editionYear: Math.max(CURRENT_YEAR, edition.editionYear + 1),
+      editionStatus: 'draft',
+      whatsappAccountIds: [...edition.whatsappAccountIds],
+      whatsappGroupLink: edition.whatsappGroupLink,
+      durationType: edition.durationType,
+      eventDate: edition.eventDate,
+      periodStartDate: edition.periodStartDate,
+      periodEndDate: edition.periodEndDate,
+      groups: editionGroups.map((group) => ({
+        id: '',
+        title: group.title,
+        gender: group.gender,
+        birthYearMin: group.birthYearMin,
+        birthYearMax: group.birthYearMax,
+        fieldId: group.fieldId,
+        capacity: group.capacity,
+        isActive: group.isActive,
+        sessions: editionSessions
+          .filter((session) => session.groupId === group.id)
+          .map((session) => ({
+            id: '',
+            date: session.date,
+            startTime: session.startTime,
+            endTime: session.endTime,
+            capacity: session.capacity,
+            isActive: session.isActive,
+          })),
+      })),
+    })
+    setMessage('')
+    setIsError(false)
+    setActiveTab('general-info')
+    setIsModalOpen(true)
+  }
+
+  const openEditionsModal = (productId: string) => {
+    setSelectedProductId(productId)
+    setIsEditionsModalOpen(true)
+  }
+
+  const closeEditionsModal = () => {
+    setSelectedProductId(null)
+    setIsEditionsModalOpen(false)
+  }
+
+  const openEditModal = (productId: string, editionId: string) => {
+    const product = products.find((item) => item.id === productId) ?? null
+    const edition = editions.find((item) => item.id === editionId) ?? null
     if (!product || !edition) {
       return
     }
@@ -202,6 +342,8 @@ function OpenDayPage() {
       productStatus: product.status,
       editionYear: edition.editionYear,
       editionStatus: edition.status,
+      whatsappAccountIds: [...edition.whatsappAccountIds],
+      whatsappGroupLink: edition.whatsappGroupLink,
       durationType: edition.durationType,
       eventDate: edition.eventDate,
       periodStartDate: edition.periodStartDate,
@@ -341,6 +483,8 @@ function OpenDayPage() {
     const result =
       modalMode === 'create'
         ? createOpenDay(draft)
+        : modalMode === 'create-edition' && editingProductId
+          ? createOpenDayEdition(editingProductId, draft)
         : editingProductId && editingEditionId
           ? updateOpenDay(editingProductId, editingEditionId, draft)
           : { ok: false as const, error: 'productNotFound' as const }
@@ -354,6 +498,10 @@ function OpenDayPage() {
         setMessage('Esiste gia un edizione con questo anno per il prodotto selezionato.')
         return
       }
+      if (result.error === 'invalidWhatsAppAccounts') {
+        setMessage('Gli account WhatsApp selezionati non sono validi.')
+        return
+      }
       setMessage('Dati open day non validi.')
       return
     }
@@ -362,7 +510,7 @@ function OpenDayPage() {
     setTimeout(() => closeModal(), 250)
   }
 
-  const handleDelete = (row: OpenDayRow) => {
+  const handleDeleteEdition = (row: OpenDayEditionRow) => {
     const confirmed = window.confirm(`Eliminare l'open day "${row.name}" edizione ${row.editionYear}?`)
     if (!confirmed) {
       return
@@ -370,9 +518,23 @@ function OpenDayPage() {
     removeOpenDay(row.productId, row.editionId)
   }
 
+  const openOpenDayWhatsAppGroup = (editionId: string) => {
+    const edition = editions.find((item) => item.id === editionId) ?? null
+    if (!edition) {
+      return
+    }
+    const rawLink = edition.whatsappGroupLink.trim()
+    if (!rawLink) {
+      setIsError(true)
+      setMessage('Nessun gruppo WhatsApp collegato a questa edizione.')
+      return
+    }
+    const href = /^https?:\/\//i.test(rawLink) ? rawLink : `https://${rawLink}`
+    window.open(href, '_blank', 'noopener,noreferrer')
+  }
+
   const columns = useMemo<ColumnDef<OpenDayRow>[]>(
     () => [
-      { accessorKey: 'code', header: 'Codice' },
       { accessorKey: 'name', header: 'Titolo' },
       { accessorKey: 'categoryLabel', header: 'Categoria' },
       {
@@ -381,15 +543,16 @@ function OpenDayPage() {
         cell: ({ row }) => (row.original.audience === 'adult' ? 'Adulto' : 'Minore'),
       },
       { accessorKey: 'ageRange', header: 'Eta' },
-      { accessorKey: 'editionYear', header: 'Edizione' },
-      { accessorKey: 'durationLabel', header: 'Periodo/Data' },
+      { accessorKey: 'editionsCount', header: 'Edizioni' },
+      { accessorKey: 'latestEditionYear', header: 'Ultima edizione' },
+      { accessorKey: 'latestDurationLabel', header: 'Periodo/Data' },
       {
-        accessorKey: 'status',
+        accessorKey: 'latestStatus',
         header: 'Stato',
         cell: ({ row }) =>
-          row.original.status === 'published'
+          row.original.latestStatus === 'published'
             ? 'Pubblicato'
-            : row.original.status === 'archived'
+            : row.original.latestStatus === 'archived'
               ? 'Archiviato'
               : 'Bozza',
       },
@@ -398,11 +561,24 @@ function OpenDayPage() {
         header: 'Azioni',
         cell: ({ row }) => (
           <div className="flex items-center gap-2">
-            <button type="button" className="btn btn-ghost btn-sm px-1 text-warning" onClick={() => openEditModal(row.original)}>
-              <SquarePen className="h-4 w-4" />
+            <button type="button" className="btn btn-ghost btn-sm px-1" onClick={() => openEditionsModal(row.original.productId)}>
+              {row.original.editionsCount}
             </button>
-            <button type="button" className="btn btn-ghost btn-sm px-1 text-error" onClick={() => handleDelete(row.original)}>
-              <Trash2 className="h-4 w-4" />
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm px-1 text-success"
+              onClick={() => openOpenDayWhatsAppGroup(row.original.latestEditionId)}
+              aria-label={t('utility.packages.openWhatsAppGroupAction')}
+              title="Apri gruppo WhatsApp"
+            >
+              <MessageCircle className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm px-1 text-warning"
+              onClick={() => openEditModal(row.original.productId, row.original.latestEditionId)}
+            >
+              <SquarePen className="h-4 w-4" />
             </button>
           </div>
         ),
@@ -437,13 +613,81 @@ function OpenDayPage() {
         <DataTable table={table} />
       )}
 
+      {isEditionsModalOpen && selectedProductId ? (
+        <dialog className="modal modal-open">
+          <div className="modal-box max-w-4xl space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-lg font-semibold">Edizioni open day</h3>
+              <button type="button" className="btn btn-primary btn-sm" onClick={() => openCreateEditionFromProduct(selectedProductId)}>
+                Nuova edizione
+              </button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="table table-zebra table-sm">
+                <thead>
+                  <tr>
+                    <th>Anno</th>
+                    <th>Titolo</th>
+                    <th>Periodo/Data</th>
+                    <th>Stato</th>
+                    <th className="text-right">Azioni</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedProductEditions.map((edition) => (
+                    <tr key={edition.editionId}>
+                      <td>{edition.editionYear}</td>
+                      <td>{edition.name}</td>
+                      <td>{edition.durationLabel}</td>
+                      <td>{edition.status === 'published' ? 'Pubblicato' : edition.status === 'archived' ? 'Archiviato' : 'Bozza'}</td>
+                      <td>
+                        <div className="flex justify-end gap-1">
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm px-1 text-success"
+                            onClick={() => openOpenDayWhatsAppGroup(edition.editionId)}
+                            aria-label={t('utility.packages.openWhatsAppGroupAction')}
+                            title="Apri gruppo WhatsApp"
+                          >
+                            <MessageCircle className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm px-1 text-warning"
+                            onClick={() => openEditModal(edition.productId, edition.editionId)}
+                          >
+                            <SquarePen className="h-4 w-4" />
+                          </button>
+                          <button type="button" className="btn btn-ghost btn-sm px-1 text-error" onClick={() => handleDeleteEdition(edition)}>
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {selectedProductEditions.length === 0 ? <p className="text-sm opacity-70">Nessuna edizione presente.</p> : null}
+            <div className="modal-action">
+              <button type="button" className="btn btn-ghost" onClick={closeEditionsModal}>
+                Chiudi
+              </button>
+            </div>
+          </div>
+          <button type="button" className="modal-backdrop" onClick={closeEditionsModal} />
+        </dialog>
+      ) : null}
+
       {isModalOpen ? (
         <dialog className="modal modal-open">
           <div className="modal-box h-screen w-screen max-w-none rounded-none p-0">
             <div className="flex h-full flex-col">
               <div className="flex items-center justify-between border-b border-base-300 px-6 py-4">
                 <div>
-                  <h3 className="text-lg font-semibold">{modalMode === 'create' ? 'Crea open day' : 'Modifica open day'}</h3>
+                  <h3 className="text-lg font-semibold">
+                    {modalMode === 'create' ? 'Crea open day' : modalMode === 'create-edition' ? 'Crea nuova edizione open day' : 'Modifica open day'}
+                  </h3>
                   <p className="text-sm opacity-70">Gestione prodotto open day con edizione annuale.</p>
                 </div>
                 <button type="button" className="btn btn-ghost" onClick={closeModal}>
@@ -461,6 +705,9 @@ function OpenDayPage() {
                   </button>
                   <button type="button" className={`tab ${activeTab === 'groups' ? 'tab-active' : ''}`} onClick={() => setActiveTab('groups')}>
                     Campi e Gruppi
+                  </button>
+                  <button type="button" className={`tab ${activeTab === 'whatsapp' ? 'tab-active' : ''}`} onClick={() => setActiveTab('whatsapp')}>
+                    WhatsApp
                   </button>
                 </div>
               </div>
@@ -895,6 +1142,131 @@ function OpenDayPage() {
                       </div>
                     </div>
                   ) : null}
+
+                  {activeTab === 'whatsapp' ? (
+                    <div className="grid gap-5 md:grid-cols-12">
+                      <div className="space-y-4 md:col-span-8">
+                        <label className="form-control">
+                          <span className="label-text mb-1 text-xs">Link gruppo WhatsApp</span>
+                          <input
+                            className="input input-bordered w-full mb-4"
+                            value={draft.whatsappGroupLink}
+                            onChange={(event) => setDraft((prev) => ({ ...prev, whatsappGroupLink: event.target.value }))}
+                            placeholder="https://chat.whatsapp.com/..."
+                          />
+                        </label>
+
+                        <div className="rounded-lg border border-base-300 p-4">
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <h4 className="font-semibold">Account WhatsApp collegati</h4>
+                              <p className="mt-1 text-sm opacity-70">
+                                Seleziona gli account WhatsApp disponibili per questo open day come nei pacchetti.
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              className="btn btn-outline btn-sm"
+                              onClick={() =>
+                                setDraft((prev) => {
+                                  const selectedIds = new Set(prev.whatsappAccountIds)
+                                  const nextAccount = whatsappAccounts.find((account) => !selectedIds.has(account.id))
+                                  if (!nextAccount) {
+                                    return prev
+                                  }
+                                  return {
+                                    ...prev,
+                                    whatsappAccountIds: [...prev.whatsappAccountIds, nextAccount.id],
+                                  }
+                                })
+                              }
+                            >
+                              Aggiungi account
+                            </button>
+                          </div>
+
+                          {draft.whatsappAccountIds.length === 0 ? (
+                            <p className="mt-4 text-sm opacity-70">Nessun account WhatsApp selezionato.</p>
+                          ) : (
+                            <div className="mt-4 space-y-2">
+                              {draft.whatsappAccountIds.map((accountId, index) => (
+                                <div key={`open-day-whatsapp-${index}`} className="grid items-end gap-3 sm:grid-cols-[1fr_auto]">
+                                  <label className="form-control">
+                                    <span className="label-text mb-1 text-xs">Account WhatsApp</span>
+                                    <select
+                                      className="select select-bordered w-full mb-4"
+                                      value={accountId}
+                                      onChange={(event) =>
+                                        setDraft((prev) => ({
+                                          ...prev,
+                                          whatsappAccountIds: prev.whatsappAccountIds.map((item, itemIndex) =>
+                                            itemIndex === index ? event.target.value : item,
+                                          ),
+                                        }))
+                                      }
+                                    >
+                                      {whatsappAccounts.length === 0 ? <option value="">Nessun account disponibile</option> : null}
+                                      {whatsappAccounts
+                                        .filter(
+                                          (account) =>
+                                            account.id === accountId ||
+                                            !draft.whatsappAccountIds.some(
+                                              (selectedId, selectedIndex) =>
+                                                selectedIndex !== index && selectedId === account.id,
+                                            ),
+                                        )
+                                        .map((account) => (
+                                          <option key={account.id} value={account.id}>
+                                            {account.title}
+                                          </option>
+                                        ))}
+                                    </select>
+                                  </label>
+                                  <button
+                                    type="button"
+                                    className="btn btn-ghost btn-sm px-1 text-error"
+                                    onClick={() =>
+                                      setDraft((prev) => ({
+                                        ...prev,
+                                        whatsappAccountIds: prev.whatsappAccountIds.filter((_, itemIndex) => itemIndex !== index),
+                                      }))
+                                    }
+                                  >
+                                    Rimuovi
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="space-y-4 md:col-span-4">
+                        <div className="rounded-lg border border-base-300 p-3 text-sm">
+                          <p className="text-xs font-medium uppercase tracking-wide opacity-60">Riepilogo WhatsApp</p>
+                          <dl className="mt-3 space-y-2">
+                            <div className="flex items-center justify-between gap-3">
+                              <dt className="opacity-70">Account</dt>
+                              <dd className="font-medium">{draft.whatsappAccountIds.length}</dd>
+                            </div>
+                            <div className="flex items-center justify-between gap-3">
+                              <dt className="opacity-70">Link gruppo</dt>
+                              <dd className="max-w-48 truncate text-right font-medium">{draft.whatsappGroupLink || '-'}</dd>
+                            </div>
+                          </dl>
+                        </div>
+
+                        <div className="rounded-lg border border-base-300 p-3 text-sm">
+                          <p className="text-xs font-medium uppercase tracking-wide opacity-60">Regole tab</p>
+                          <ul className="mt-3 space-y-2 opacity-80">
+                            <li>Il collegamento WhatsApp e definito per singola edizione.</li>
+                            <li>Gli account selezionabili arrivano dalla utility WhatsApp.</li>
+                            <li>Puoi collegare piu account senza duplicati.</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               </div>
 
@@ -904,7 +1276,7 @@ function OpenDayPage() {
                     Chiudi
                   </button>
                   <button type="button" className="btn btn-primary" onClick={handleSubmit}>
-                    {modalMode === 'create' ? 'Crea' : 'Salva'}
+                    {modalMode === 'create' ? 'Crea' : modalMode === 'create-edition' ? 'Crea edizione' : 'Salva'}
                   </button>
                 </div>
               </div>

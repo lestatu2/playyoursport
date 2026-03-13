@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import PublicSiteHeader from '../components/PublicSiteHeader'
 import PublicOpenDayModal from '../components/PublicOpenDayModal'
@@ -25,6 +26,7 @@ function formatOpenDayWindow(item: PublicOpenDayEdition): string {
 }
 
 function PublicOpenDaysPage({ session, onLogin: _onLogin, onLogout }: PublicOpenDaysPageProps) {
+  const { t } = useTranslation()
   const openDays = getCurrentPublicOpenDayEditions()
   const [activeEditionId, setActiveEditionId] = useState<string | null>(null)
 
@@ -52,13 +54,13 @@ function PublicOpenDaysPage({ session, onLogin: _onLogin, onLogout }: PublicOpen
       />
       <section className="mx-auto max-w-6xl space-y-4 px-4 py-8">
         <div>
-          <h1 className="text-3xl font-semibold">Open Day</h1>
-          <p className="text-sm opacity-70">Archivio delle edizioni open day pubblicate.</p>
+          <h1 className="text-3xl font-semibold">{t('openDay.public.archive.title')}</h1>
+          <p className="text-sm opacity-70">{t('openDay.public.archive.description')}</p>
         </div>
 
         {openDays.length === 0 ? (
           <div className="rounded-lg border border-base-300 bg-base-100 p-4 text-sm opacity-70">
-            Nessun open day pubblicato al momento.
+            {t('openDay.public.archive.empty')}
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -73,15 +75,17 @@ function PublicOpenDaysPage({ session, onLogin: _onLogin, onLogout }: PublicOpen
                 }}
               >
                 <div className="space-y-2 p-4 text-white">
-                  <p className="text-xs uppercase tracking-wide opacity-90">{item.audience === 'youth' ? 'Minori' : 'Adulti'}</p>
+                  <p className="text-xs uppercase tracking-wide opacity-90">
+                    {item.audience === 'youth' ? t('openDay.common.minorsPlural') : t('openDay.common.adultsPlural')}
+                  </p>
                   <h2 className="text-lg font-semibold">{item.name}</h2>
-                  <p className="text-sm opacity-90">Edizione {item.editionYear}</p>
+                  <p className="text-sm opacity-90">{t('openDay.public.archive.editionLabel', { year: item.editionYear })}</p>
                   <p className="text-sm opacity-90">{formatOpenDayWindow(item)}</p>
-                  <p className="text-sm opacity-90">Età {item.ageMin}-{item.ageMax}</p>
+                  <p className="text-sm opacity-90">{t('openDay.public.archive.ageLabel', { min: item.ageMin, max: item.ageMax })}</p>
                   <p className="line-clamp-3 text-sm">{item.disclaimer || item.description}</p>
                   <div className="flex flex-wrap gap-2 pt-2">
                     <Link to={`/open-day/${item.editionId}`} className="btn btn-outline btn-sm">
-                      Vai al dettaglio
+                      {t('openDay.public.archive.detail')}
                     </Link>
                     <button type="button" className="btn btn-primary btn-sm" onClick={() => setActiveEditionId(item.editionId)}>
                       {getOpenDayCtaLabel()}

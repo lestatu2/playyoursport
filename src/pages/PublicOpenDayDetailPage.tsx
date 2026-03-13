@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router-dom'
 import PublicSiteHeader from '../components/PublicSiteHeader'
 import PublicOpenDayModal from '../components/PublicOpenDayModal'
@@ -13,6 +14,7 @@ type PublicOpenDayDetailPageProps = {
 }
 
 function PublicOpenDayDetailPage({ session, onLogin: _onLogin, onLogout }: PublicOpenDayDetailPageProps) {
+  const { t } = useTranslation()
   const { editionId } = useParams<{ editionId: string }>()
   const [isWizardOpen, setIsWizardOpen] = useState(false)
 
@@ -42,9 +44,9 @@ function PublicOpenDayDetailPage({ session, onLogin: _onLogin, onLogout }: Publi
         {!publicItem || !product || !edition ? (
           <div className="card bg-base-100 shadow-sm">
             <div className="card-body">
-              <h1 className="text-2xl font-semibold">Open day non trovato</h1>
+              <h1 className="text-2xl font-semibold">{t('openDay.public.detail.notFound')}</h1>
               <Link to="/open-day" className="btn btn-primary btn-sm mt-2 w-fit">
-                Torna agli open day
+                {t('openDay.public.detail.backToOpenDays')}
               </Link>
             </div>
           </div>
@@ -54,24 +56,27 @@ function PublicOpenDayDetailPage({ session, onLogin: _onLogin, onLogout }: Publi
               <img src={resolvePublicOpenDayImage(publicItem)} alt={publicItem.name} className="h-64 w-full object-cover" />
               <div className="space-y-3 p-5">
                 <p className="text-xs uppercase tracking-wide opacity-70">
-                  {publicItem.audience === 'youth' ? 'Minori' : 'Adulti'} - Edizione {publicItem.editionYear}
+                  {publicItem.audience === 'youth' ? t('openDay.common.minorsPlural') : t('openDay.common.adultsPlural')} -{' '}
+                  {t('openDay.public.archive.editionLabel', { year: publicItem.editionYear })}
                 </p>
                 <h1 className="text-3xl font-bold">{publicItem.name}</h1>
                 <p className="text-sm opacity-80">{publicItem.disclaimer || publicItem.description}</p>
                 <p className="text-sm font-medium">
                   {publicItem.durationType === 'single-event'
-                    ? `Data evento: ${publicItem.eventDate || '-'}`
-                    : `Periodo: ${publicItem.periodStartDate || '-'} - ${publicItem.periodEndDate || '-'}`
-                  }
+                    ? t('openDay.public.detail.eventDateLabel', { date: publicItem.eventDate || '-' })
+                    : t('openDay.public.detail.periodLabel', {
+                        start: publicItem.periodStartDate || '-',
+                        end: publicItem.periodEndDate || '-',
+                      })}
                 </p>
-                <p className="text-sm font-medium">Età consentita: {publicItem.ageMin}-{publicItem.ageMax}</p>
+                <p className="text-sm font-medium">{t('openDay.public.detail.allowedAge', { min: publicItem.ageMin, max: publicItem.ageMax })}</p>
                 <button type="button" className="btn btn-primary btn-sm mt-2" onClick={() => setIsWizardOpen(true)}>
                   {getOpenDayCtaLabel()}
                 </button>
               </div>
             </article>
             <Link to="/open-day" className="btn btn-outline btn-sm">
-              Torna all'archivio
+              {t('openDay.public.detail.backToArchive')}
             </Link>
           </>
         )}

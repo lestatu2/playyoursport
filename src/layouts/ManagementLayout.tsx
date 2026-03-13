@@ -80,6 +80,7 @@ type ManagementLayoutProps = {
 
 function ManagementLayout({ session, onLogout }: ManagementLayoutProps) {
   const { t, i18n } = useTranslation()
+  const location = useLocation()
   const [collapsed, setCollapsed] = useState(false)
   const [projectSettings, setProjectSettings] = useState(() => getProjectSettings())
   const [languageSettings, setLanguageSettings] = useState(() => getLanguageSettings())
@@ -265,12 +266,62 @@ function ManagementLayout({ session, onLogout }: ManagementLayoutProps) {
               )}
             {canAccessPackages(session.role) &&
               (session.role !== 'editor-admin' || hasSessionPermission('packages.manage')) && (
-                <MenuItem
-                  to="/app/open-day"
-                  icon={<CalendarDays className="h-5 w-5 shrink-0" />}
-                  label="Open Day"
-                  collapsed={collapsed}
-                />
+                <>
+                  {collapsed ? (
+                    <>
+                      <MenuItem
+                        to="/app/open-day"
+                        icon={<CalendarDays className="h-5 w-5 shrink-0" />}
+                        label={t('nav.openDayManage')}
+                        collapsed={collapsed}
+                      />
+                      <MenuItem
+                        to="/app/open-day/registrazioni"
+                        icon={<Users2 className="h-5 w-5 shrink-0" />}
+                        label={t('nav.openDayRegistrations')}
+                        collapsed={collapsed}
+                      />
+                    </>
+                  ) : (
+                    <li className="rounded-lg border border-base-300 px-2 py-1">
+                      <details open={location.pathname.startsWith('/app/open-day')}>
+                        <summary className="flex cursor-pointer list-none items-center gap-3 rounded-lg px-1 py-2 hover:bg-base-300">
+                          <CalendarDays className="h-5 w-5 shrink-0" />
+                          <span>{t('nav.openDay')}</span>
+                        </summary>
+                        <ul className="mt-1">
+                          <li>
+                            <NavLink
+                              to="/app/open-day"
+                              end
+                              className={({ isActive }) =>
+                                `flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition ${
+                                  isActive ? 'bg-primary text-primary-content' : 'hover:bg-base-300'
+                                }`
+                              }
+                            >
+                              <CalendarDays className="h-4 w-4 shrink-0" />
+                              {t('nav.openDayManage')}
+                            </NavLink>
+                          </li>
+                          <li>
+                            <NavLink
+                              to="/app/open-day/registrazioni"
+                              className={({ isActive }) =>
+                                `flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition ${
+                                  isActive ? 'bg-primary text-primary-content' : 'hover:bg-base-300'
+                                }`
+                              }
+                            >
+                              <Users2 className="h-4 w-4 shrink-0" />
+                              {t('nav.openDayRegistrations')}
+                            </NavLink>
+                          </li>
+                        </ul>
+                      </details>
+                    </li>
+                  )}
+                </>
               )}
             {canAccessPackages(session.role) &&
               (session.role !== 'editor-admin' || hasSessionPermission('packages.manage')) && (
