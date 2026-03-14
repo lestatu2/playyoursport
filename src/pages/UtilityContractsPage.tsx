@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import RichTextEditor from '../components/RichTextEditor'
 import {
@@ -18,6 +18,17 @@ type VariableTarget = 'subject' | 'economic' | 'services' | 'special_formula' | 
 function nextSpecialClauseId(items: ContractSpecialClause[]): string {
   const next = items.length + 1
   return `special-clause-${next}`
+}
+
+function resolveVariableTarget(target: VariableTarget, clausesLength: number): VariableTarget {
+  if (!target.startsWith('special_clause_')) {
+    return target
+  }
+  const index = Number(target.replace('special_clause_', ''))
+  if (!Number.isInteger(index) || index < 0 || index >= clausesLength) {
+    return 'special_formula'
+  }
+  return target
 }
 
 function UtilityContractsPage() {
@@ -44,44 +55,38 @@ function UtilityContractsPage() {
     })
     return base
   }, [draft.contractSpecialClauses, t])
-
-  useEffect(() => {
-    if (!variableTarget.startsWith('special_clause_')) {
-      return
-    }
-    const index = Number(variableTarget.replace('special_clause_', ''))
-    if (!Number.isInteger(index) || index < 0 || index >= draft.contractSpecialClauses.length) {
-      setVariableTarget('special_formula')
-    }
-  }, [draft.contractSpecialClauses.length, variableTarget])
+  const resolvedVariableTarget = useMemo(
+    () => resolveVariableTarget(variableTarget, draft.contractSpecialClauses.length),
+    [draft.contractSpecialClauses.length, variableTarget],
+  )
 
   const insertVariableToken = (token: string) => {
     setDraft((prev) => {
-      if (variableTarget === 'subject') {
+      if (resolvedVariableTarget === 'subject') {
         return {
           ...prev,
           contractSubjectTemplate: `${prev.contractSubjectTemplate}${prev.contractSubjectTemplate.trim() ? ' ' : ''}${token}`,
         }
       }
-      if (variableTarget === 'economic') {
+      if (resolvedVariableTarget === 'economic') {
         return {
           ...prev,
           contractEconomicClausesTemplate: `${prev.contractEconomicClausesTemplate}${prev.contractEconomicClausesTemplate.trim() ? ' ' : ''}${token}`,
         }
       }
-      if (variableTarget === 'services') {
+      if (resolvedVariableTarget === 'services') {
         return {
           ...prev,
           contractServicesAdjustmentTemplate: `${prev.contractServicesAdjustmentTemplate}${prev.contractServicesAdjustmentTemplate.trim() ? ' ' : ''}${token}`,
         }
       }
-      if (variableTarget === 'special_formula') {
+      if (resolvedVariableTarget === 'special_formula') {
         return {
           ...prev,
           contractSpecialClausesFormula: `${prev.contractSpecialClausesFormula}${prev.contractSpecialClausesFormula.trim() ? ' ' : ''}${token}`,
         }
       }
-      const clauseIndex = Number(variableTarget.replace('special_clause_', ''))
+      const clauseIndex = Number(resolvedVariableTarget.replace('special_clause_', ''))
       if (!Number.isInteger(clauseIndex) || clauseIndex < 0 || clauseIndex >= prev.contractSpecialClauses.length) {
         return prev
       }
@@ -303,7 +308,7 @@ function UtilityContractsPage() {
                 <span className="label-text mb-1 text-xs">{t('utility.contracts.targetLabel')}</span>
                 <select
                   className="select select-bordered w-full"
-                  value={variableTarget}
+                  value={resolvedVariableTarget}
                   onChange={(event) => setVariableTarget(event.target.value as VariableTarget)}
                 >
                   {variableTargetOptions.map((target) => (

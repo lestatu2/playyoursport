@@ -2,7 +2,6 @@ import type { SportPackage } from './package-catalog'
 import { readJsonArray, writeJsonValue } from './storage'
 
 const ASSIGNMENTS_KEY = 'pys_group_field_assignments'
-const REQUESTS_KEY = 'pys_group_field_assignment_requests'
 const FINALIZATIONS_KEY = 'pys_group_field_assignment_finalizations'
 
 export type AthleteAssignment = {
@@ -13,26 +12,6 @@ export type AthleteAssignment = {
   scheduleId: string
   updatedAt: string
   updatedByUserId: number
-}
-
-export type AssignmentRequestStatus = 'proposed' | 'counter_proposed' | 'approved' | 'rejected' | 'cancelled'
-
-export type AssignmentChangeRequest = {
-  id: string
-  athleteKey: string
-  packageId: string
-  fromGroupId: string
-  fromFieldId: string
-  fromScheduleId: string
-  toGroupId: string
-  toFieldId: string
-  toScheduleId: string
-  requestedByUserId: number
-  lastUpdatedByUserId: number
-  note: string
-  status: AssignmentRequestStatus
-  createdAt: string
-  updatedAt: string
 }
 
 export type AssignmentFinalization = {
@@ -144,44 +123,6 @@ export function ensureAssignmentsForPackage(
   }
   writeJson(ASSIGNMENTS_KEY, [...all, ...defaults])
   return [...scoped, ...defaults]
-}
-
-export function getAssignmentRequests(): AssignmentChangeRequest[] {
-  return readJsonArray<AssignmentChangeRequest>(REQUESTS_KEY)
-}
-
-export function createAssignmentRequest(payload: Omit<AssignmentChangeRequest, 'id' | 'createdAt' | 'updatedAt'>): AssignmentChangeRequest {
-  const all = getAssignmentRequests()
-  const next: AssignmentChangeRequest = {
-    ...payload,
-    id: `agr-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
-    createdAt: nowIso(),
-    updatedAt: nowIso(),
-  }
-  writeJson(REQUESTS_KEY, [...all, next])
-  return next
-}
-
-export function updateAssignmentRequest(
-  id: string,
-  patch: Partial<Pick<AssignmentChangeRequest, 'toGroupId' | 'toFieldId' | 'toScheduleId' | 'status' | 'note' | 'lastUpdatedByUserId'>>,
-): AssignmentChangeRequest | null {
-  const all = getAssignmentRequests()
-  const current = all.find((item) => item.id === id) ?? null
-  if (!current) {
-    return null
-  }
-  const updated: AssignmentChangeRequest = {
-    ...current,
-    ...patch,
-    toScheduleId: patch.toScheduleId ? normalizeScheduleId(patch.toScheduleId) : current.toScheduleId,
-    updatedAt: nowIso(),
-  }
-  writeJson(
-    REQUESTS_KEY,
-    all.map((item) => (item.id === id ? updated : item)),
-  )
-  return updated
 }
 
 export function getAssignmentFinalizations(): AssignmentFinalization[] {

@@ -1564,7 +1564,7 @@ function ClientsPage() {
       </div>
       {message ? <p className="rounded-lg bg-success/15 px-3 py-2 text-sm text-success">{message}</p> : null}
       <div className="flex flex-wrap items-end gap-3 rounded-lg border border-base-300 bg-base-100 p-3">
-        <label className="form-control min-w-[240px] flex-[2_1_360px]">
+        <label className="form-control min-w-60 flex-[2_1_360px]">
           <span className="label-text mb-1 text-xs">{t('clients.searchLabel')}</span>
           <input
             className="input input-bordered w-full"
@@ -1573,7 +1573,7 @@ function ClientsPage() {
             placeholder={t('clients.searchPlaceholder')}
           />
         </label>
-        <label className="form-control min-w-[180px] flex-[1_1_220px]">
+        <label className="form-control min-w-45 flex-[1_1_220px]">
           <span className="label-text mb-1 text-xs">{t('clients.validationFilter')}</span>
           <select
             className="select select-bordered w-full"
@@ -1585,7 +1585,7 @@ function ClientsPage() {
             <option value="not_validated">{t('clients.notValidated')}</option>
           </select>
         </label>
-        <label className="form-control min-w-[180px] flex-[1_1_220px]">
+        <label className="form-control min-w-45 flex-[1_1_220px]">
           <span className="label-text mb-1 text-xs">{t('clients.privacyFilter')}</span>
           <select
             className="select select-bordered w-full"

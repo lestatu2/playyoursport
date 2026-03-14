@@ -7,7 +7,7 @@ import ExcelJS from 'exceljs'
 import { saveAs } from 'file-saver'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
-import { Document, Packer, Paragraph, Table, TableCell, TableRow, TextRun } from 'docx'
+import { Document, Packer, Paragraph, Table, TextRun } from 'docx'
 import DataTable from '../components/DataTable'
 import {
   getAdditionalServices,
@@ -35,6 +35,7 @@ import {
 } from '../lib/contract-pdf'
 import { readFileAsDataUrl } from '../lib/file-utils'
 import { getProjectSettings } from '../lib/project-settings'
+import { buildDocxTableRows, toWorksheetRecord } from '../lib/tabular-export'
 
 type ActivitiesPaymentsTab = 'activities' | 'deadlines' | 'expired' | 'collections' | 'overdue'
 type FrequencyFilter = 'all' | 'daily' | 'weekly' | 'monthly' | 'yearly'
@@ -974,13 +975,7 @@ function ActivitiesPaymentsPage() {
           : t('activitiesPayments.export.scopePayments'),
       )
       worksheet.columns = exportHeaders.map((header) => ({ header, key: header }))
-      exportBodyRows.forEach((row) => {
-        const record: Record<string, string> = {}
-        exportHeaders.forEach((header, index) => {
-          record[header] = String(row[index] ?? '')
-        })
-        worksheet.addRow(record)
-      })
+      exportBodyRows.forEach((row) => worksheet.addRow(toWorksheetRecord(exportHeaders, row)))
       const buffer = await workbook.xlsx.writeBuffer()
       saveAs(
         new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
@@ -1012,21 +1007,7 @@ function ActivitiesPaymentsPage() {
       return
     }
 
-    const tableRows = [
-      new TableRow({
-        children: exportHeaders.map((header) =>
-          new TableCell({
-            children: [new Paragraph({ children: [new TextRun({ text: header, bold: true })] })],
-          })),
-      }),
-      ...exportBodyRows.map((row) =>
-        new TableRow({
-          children: row.map((value) =>
-            new TableCell({
-              children: [new Paragraph(String(value ?? ''))],
-            })),
-        })),
-    ]
+    const tableRows = buildDocxTableRows(exportHeaders, exportBodyRows)
     const doc = new Document({
       sections: [{
         children: [

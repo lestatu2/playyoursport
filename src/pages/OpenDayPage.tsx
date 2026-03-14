@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { getCoreRowModel, useReactTable, type ColumnDef } from '@tanstack/react-table'
 import { MessageCircle, SquarePen, Trash2 } from 'lucide-react'
@@ -309,17 +309,17 @@ function OpenDayPage() {
     setIsModalOpen(true)
   }
 
-  const openEditionsModal = (productId: string) => {
+  const openEditionsModal = useCallback((productId: string) => {
     setSelectedProductId(productId)
     setIsEditionsModalOpen(true)
-  }
+  }, [])
 
   const closeEditionsModal = () => {
     setSelectedProductId(null)
     setIsEditionsModalOpen(false)
   }
 
-  const openEditModal = (productId: string, editionId: string) => {
+  const openEditModal = useCallback((productId: string, editionId: string) => {
     const product = products.find((item) => item.id === productId) ?? null
     const edition = editions.find((item) => item.id === editionId) ?? null
     if (!product || !edition) {
@@ -375,7 +375,7 @@ function OpenDayPage() {
     setIsGroupModalOpen(false)
     setEditingGroupIndex(null)
     setIsModalOpen(true)
-  }
+  }, [editions, products, storedGroups, storedSessions])
 
   const closeModal = () => {
     setIsModalOpen(false)
@@ -518,7 +518,7 @@ function OpenDayPage() {
     removeOpenDay(row.productId, row.editionId)
   }
 
-  const openOpenDayWhatsAppGroup = (editionId: string) => {
+  const openOpenDayWhatsAppGroup = useCallback((editionId: string) => {
     const edition = editions.find((item) => item.id === editionId) ?? null
     if (!edition) {
       return
@@ -531,7 +531,7 @@ function OpenDayPage() {
     }
     const href = /^https?:\/\//i.test(rawLink) ? rawLink : `https://${rawLink}`
     window.open(href, '_blank', 'noopener,noreferrer')
-  }
+  }, [editions])
 
   const columns = useMemo<ColumnDef<OpenDayRow>[]>(
     () => [
@@ -584,7 +584,7 @@ function OpenDayPage() {
         ),
       },
     ],
-    [rows],
+    [openEditModal, openEditionsModal, openOpenDayWhatsAppGroup, t],
   )
 
   const table = useReactTable({

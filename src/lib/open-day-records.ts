@@ -203,10 +203,6 @@ export function getOpenDayAdultAthletes(): OpenDayAdultAthlete[] {
   }))
 }
 
-export function getOpenDayAdultAthletesByProspectId(prospectId: number): OpenDayAdultAthlete[] {
-  return getOpenDayAdultAthletes().filter((item) => item.prospectId === prospectId)
-}
-
 export function getOpenDayParticipations(): OpenDayParticipation[] {
   const stored = readJsonArray<OpenDayParticipation>(OPEN_DAY_PARTICIPATIONS_KEY)
   const seeds = ((mockOpenDayRecords as MockOpenDayRecords).participations ?? [])
@@ -381,27 +377,6 @@ export function updateOpenDayAdultAthlete(
   writeJsonValue(
     OPEN_DAY_ADULT_ATHLETES_KEY,
     all.map((item) => (item.id === athleteId ? next : item)),
-  )
-  emitOpenDayRecordsChanged()
-  return next
-}
-
-export function updateOpenDayParticipationStatus(
-  participationId: string,
-  status: OpenDayParticipationStatus,
-): OpenDayParticipation | null {
-  const all = getOpenDayParticipations()
-  const current = all.find((item) => item.id === participationId) ?? null
-  if (!current) {
-    return null
-  }
-  const next: OpenDayParticipation = {
-    ...current,
-    status: normalizeParticipationStatus(status),
-  }
-  writeJsonValue(
-    OPEN_DAY_PARTICIPATIONS_KEY,
-    all.map((item) => (item.id === participationId ? next : item)),
   )
   emitOpenDayRecordsChanged()
   return next

@@ -123,6 +123,40 @@ export type SaveOpenDayResult =
         | 'editionNotFound'
     }
 
+function buildGroupsAndSessions(
+  editionId: string,
+  inputGroups: SaveOpenDayGroupPayload[],
+  resolveGroupId: (group: SaveOpenDayGroupPayload) => string = (group) => group.id || nextGroupId(),
+): { groups: OpenDayGroup[]; sessions: OpenDaySession[] } {
+  const groups: OpenDayGroup[] = inputGroups.map((group) => {
+    const groupId = resolveGroupId(group)
+    return {
+      id: groupId,
+      openDayEditionId: editionId,
+      title: group.title,
+      gender: group.gender,
+      birthYearMin: group.birthYearMin,
+      birthYearMax: group.birthYearMax,
+      fieldId: group.fieldId,
+      capacity: group.capacity,
+      isActive: group.isActive,
+    }
+  })
+  const sessions: OpenDaySession[] = inputGroups.flatMap((group, groupIndex) => {
+    const groupId = groups[groupIndex]?.id ?? nextGroupId()
+    return group.sessions.map((session) => ({
+      id: session.id || nextSessionId(),
+      groupId,
+      date: session.date,
+      startTime: session.startTime,
+      endTime: session.endTime,
+      capacity: session.capacity,
+      isActive: session.isActive,
+    }))
+  })
+  return { groups, sessions }
+}
+
 export function createOpenDayEdition(productId: string, payload: SaveOpenDayPayload): SaveOpenDayResult {
   const normalized = normalizePayload(payload)
   const invalid = validatePayload(normalized)
@@ -150,32 +184,7 @@ export function createOpenDayEdition(productId: string, payload: SaveOpenDayPayl
     periodStartDate: normalized.periodStartDate,
     periodEndDate: normalized.periodEndDate,
   }
-  const groups: OpenDayGroup[] = normalized.groups.map((group) => {
-    const groupId = group.id || nextGroupId()
-    return {
-      id: groupId,
-      openDayEditionId: edition.id,
-      title: group.title,
-      gender: group.gender,
-      birthYearMin: group.birthYearMin,
-      birthYearMax: group.birthYearMax,
-      fieldId: group.fieldId,
-      capacity: group.capacity,
-      isActive: group.isActive,
-    }
-  })
-  const sessions: OpenDaySession[] = normalized.groups.flatMap((group, groupIndex) => {
-    const groupId = groups[groupIndex]?.id ?? nextGroupId()
-    return group.sessions.map((session) => ({
-      id: session.id || nextSessionId(),
-      groupId,
-      date: session.date,
-      startTime: session.startTime,
-      endTime: session.endTime,
-      capacity: session.capacity,
-      isActive: session.isActive,
-    }))
-  })
+  const { groups, sessions } = buildGroupsAndSessions(edition.id, normalized.groups)
   setOpenDayEditions([...editions, edition])
   setOpenDayGroups([...getOpenDayGroups(), ...groups])
   setOpenDaySessions([...getOpenDaySessions(), ...sessions])
@@ -436,32 +445,7 @@ export function createOpenDay(payload: SaveOpenDayPayload): SaveOpenDayResult {
     periodStartDate: normalized.periodStartDate,
     periodEndDate: normalized.periodEndDate,
   }
-  const groups: OpenDayGroup[] = normalized.groups.map((group) => {
-    const groupId = group.id || nextGroupId()
-    return {
-      id: groupId,
-      openDayEditionId: edition.id,
-      title: group.title,
-      gender: group.gender,
-      birthYearMin: group.birthYearMin,
-      birthYearMax: group.birthYearMax,
-      fieldId: group.fieldId,
-      capacity: group.capacity,
-      isActive: group.isActive,
-    }
-  })
-  const sessions: OpenDaySession[] = normalized.groups.flatMap((group, groupIndex) => {
-    const groupId = groups[groupIndex]?.id ?? nextGroupId()
-    return group.sessions.map((session) => ({
-      id: session.id || nextSessionId(),
-      groupId,
-      date: session.date,
-      startTime: session.startTime,
-      endTime: session.endTime,
-      capacity: session.capacity,
-      isActive: session.isActive,
-    }))
-  })
+  const { groups, sessions } = buildGroupsAndSessions(edition.id, normalized.groups)
   setOpenDayProducts([...products, product])
   setOpenDayEditions([...getOpenDayEditions(), edition])
   setOpenDayGroups([...getOpenDayGroups(), ...groups])
@@ -588,9 +572,7 @@ function normalizeOpenDayWhatsAppAccountIds(input: string[] | undefined): string
   if (!Array.isArray(input)) {
     return []
   }
-  const ids = input
-    .map((item) => (typeof item === 'string' ? item.trim() : ''))
-    .filter((item): item is string => Boolean(item))
+  const ids = input.map((item) => item.trim()).filter(Boolean)
   return Array.from(new Set(ids))
 }
 

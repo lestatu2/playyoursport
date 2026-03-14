@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { FileText, MessageCircle, Trash2 } from 'lucide-react'
 import { getCoreRowModel, useReactTable, type ColumnDef } from '@tanstack/react-table'
@@ -6,9 +6,10 @@ import ExcelJS from 'exceljs'
 import { saveAs } from 'file-saver'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
-import { Document, Packer, Paragraph, Table, TableCell, TableRow, TextRun } from 'docx'
+import { Document, Packer, Paragraph, Table, TextRun } from 'docx'
 import DataTable from '../components/DataTable'
 import { dateOnly, isClosedDatedItem } from '../lib/dated-items'
+import { buildDocxTableRows, toWorksheetRecord } from '../lib/tabular-export'
 import {
   getOpenDayEditions,
   getOpenDayGroups,
@@ -197,14 +198,14 @@ function OpenDayParticipationsPage() {
     const eventName = getOpenDayRecordsChangedEventName()
     window.addEventListener(eventName, load)
     return () => window.removeEventListener(eventName, load)
-  }, [])
+  }, [t])
 
-  const allParticipations = useMemo(() => getOpenDayParticipations(), [rows])
-  const allProspects = useMemo(() => getOpenDayProspects(), [rows])
-  const allMinors = useMemo(() => getOpenDayMinorAthletes(), [rows])
-  const allAdults = useMemo(() => getOpenDayAdultAthletes(), [rows])
-  const allGroups = useMemo(() => getOpenDayGroups(), [])
-  const allSessions = useMemo(() => getOpenDaySessions(), [])
+  const allParticipations = getOpenDayParticipations()
+  const allProspects = getOpenDayProspects()
+  const allMinors = getOpenDayMinorAthletes()
+  const allAdults = getOpenDayAdultAthletes()
+  const allGroups = getOpenDayGroups()
+  const allSessions = getOpenDaySessions()
   const visibleRows = useMemo(
     () => rows.filter((row) => (viewMode === 'active' ? !row.isHistorical : row.isHistorical)),
     [rows, viewMode],
@@ -304,19 +305,11 @@ function OpenDayParticipationsPage() {
     const participantBirthYear = getBirthYear(draft.participantBirthDate)
     const participantGender = draft.participantGender
     const eligibleGroups = allGroups.filter((item) => {
-      if (item.openDayEditionId !== selectedParticipation.openDayEditionId) {
-        return false
-      }
-      if (participantBirthYear !== null && (participantBirthYear < item.birthYearMin || participantBirthYear > item.birthYearMax)) {
-        return false
-      }
-      if (item.gender === 'male' && participantGender !== 'M') {
-        return false
-      }
-      if (item.gender === 'female' && participantGender !== 'F') {
-        return false
-      }
-      return true
+      const isSameEdition = item.openDayEditionId === selectedParticipation.openDayEditionId
+      const isInBirthYearRange =
+        participantBirthYear === null || (participantBirthYear >= item.birthYearMin && participantBirthYear <= item.birthYearMax)
+      const isGenderEligible = item.gender === 'mixed' || participantGender === (item.gender === 'male' ? 'M' : 'F')
+      return isSameEdition && isInBirthYearRange && isGenderEligible
     })
     const editionGroupIds = new Set(eligibleGroups.map((item) => item.id))
     return allSessions
@@ -373,7 +366,7 @@ function OpenDayParticipationsPage() {
     setModalError('')
   }, [selectedAdult, selectedMinor, selectedParticipation, selectedProspect])
 
-  const getParticipationStatusLabel = (status: OpenDayParticipationStatus): string => {
+  const getParticipationStatusLabel = useCallback((status: OpenDayParticipationStatus): string => {
     if (status === 'confirmed') {
       return t('openDay.common.statusConfirmed')
     }
@@ -384,17 +377,17 @@ function OpenDayParticipationsPage() {
       return t('openDay.common.statusCancelled')
     }
     return t('openDay.common.statusRegistered')
-  }
+  }, [t])
 
-  const openWhatsAppChat = (phone: string) => {
+  const openWhatsAppChat = useCallback((phone: string) => {
     const url = buildWhatsAppUrl(phone)
     if (!url) {
       return
     }
     window.open(url, '_blank', 'noopener,noreferrer')
-  }
+  }, [])
 
-  const handleDeleteParticipation = (participationId: string) => {
+  const handleDeleteParticipation = useCallback((participationId: string) => {
     const confirmed = window.confirm(t('openDay.participations.messages.confirmDelete'))
     if (!confirmed) {
       return
@@ -404,7 +397,7 @@ function OpenDayParticipationsPage() {
       setSelectedId(null)
     }
     setMessage(t('openDay.participations.messages.deleted'))
-  }
+  }, [selectedId, t])
 
   const columns = useMemo<ColumnDef<ParticipationRow>[]>(
     () => [
@@ -477,7 +470,7 @@ function OpenDayParticipationsPage() {
         ),
       },
     ],
-    [t],
+    [getParticipationStatusLabel, handleDeleteParticipation, openWhatsAppChat, t],
   )
 
   const table = useReactTable({
@@ -561,7 +554,7 @@ function OpenDayParticipationsPage() {
           ]
         })
       }),
-    [allGroups, allParticipations, allSessions, categories, filteredRows, t],
+    [allGroups, allParticipations, allSessions, categories, filteredRows, getParticipationStatusLabel, t],
   )
 
   const exportFilenameBase = useMemo(
@@ -578,13 +571,7 @@ function OpenDayParticipationsPage() {
       const workbook = new ExcelJS.Workbook()
       const worksheet = workbook.addWorksheet(t('openDay.participations.title'))
       worksheet.columns = exportHeaders.map((header) => ({ header, key: header, width: 24 }))
-      exportBodyRows.forEach((row) => {
-        const record: Record<string, string> = {}
-        exportHeaders.forEach((header, index) => {
-          record[header] = String(row[index] ?? '')
-        })
-        worksheet.addRow(record)
-      })
+      exportBodyRows.forEach((row) => worksheet.addRow(toWorksheetRecord(exportHeaders, row)))
       const buffer = await workbook.xlsx.writeBuffer()
       saveAs(
         new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
@@ -610,21 +597,7 @@ function OpenDayParticipationsPage() {
       return
     }
 
-    const tableRows = [
-      new TableRow({
-        children: exportHeaders.map((header) =>
-          new TableCell({
-            children: [new Paragraph({ children: [new TextRun({ text: header, bold: true })] })],
-          })),
-      }),
-      ...exportBodyRows.map((row) =>
-        new TableRow({
-          children: row.map((value) =>
-            new TableCell({
-              children: [new Paragraph(String(value ?? ''))],
-            })),
-        })),
-    ]
+    const tableRows = buildDocxTableRows(exportHeaders, exportBodyRows)
     const doc = new Document({
       sections: [{
         children: [
